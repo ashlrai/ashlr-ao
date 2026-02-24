@@ -4457,7 +4457,26 @@ async def import_config(request: web.Request) -> web.Response:
 
     diff = flat_diff(current, data)
 
-    # Atomic write
+    # Validate before writing — try loading the imported data as config
+    try:
+        tmp_validate = config_path.with_suffix(".yaml.validate")
+        with open(tmp_validate, "w") as f:
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        # Attempt to parse — load_config reads from the standard path,
+        # so we validate structure manually
+        test_raw = deep_merge(DEFAULT_CONFIG.copy(), data)
+        # Check critical sections exist and have valid types
+        if not isinstance(test_raw.get("server", {}), dict):
+            raise ValueError("'server' must be an object")
+        if not isinstance(test_raw.get("agents", {}), dict):
+            raise ValueError("'agents' must be an object")
+        tmp_validate.unlink(missing_ok=True)
+    except ValueError as e:
+        return web.json_response({"error": f"Invalid config structure: {e}"}, status=400)
+    except Exception as e:
+        return web.json_response({"error": f"Config validation failed: {e}"}, status=400)
+
+    # Atomic write (validated)
     try:
         tmp_path = config_path.with_suffix(".yaml.tmp")
         with open(tmp_path, "w") as f:
