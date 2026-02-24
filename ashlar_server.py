@@ -197,6 +197,8 @@ class Config:
         "codex": {"command": "codex", "args": []},
     })
     default_backend: str = "claude-code"
+    # Voice
+    voice_feedback: bool = True
     # Idle agent reaping
     idle_agent_ttl: int = 3600  # seconds before idle/complete agents are reaped
     # LLM summary config
@@ -207,6 +209,11 @@ class Config:
     llm_base_url: str = "https://api.x.ai/v1"
     llm_summary_interval: float = 10.0
     llm_max_output_lines: int = 30
+    # Configurable alert thresholds
+    health_low_threshold: float = 0.3
+    health_critical_threshold: float = 0.1
+    stall_timeout_minutes: int = 5
+    hung_timeout_minutes: int = 10
 
     def to_dict(self) -> dict:
         return {
@@ -224,6 +231,12 @@ class Config:
             "llm_provider": self.llm_provider,
             "llm_model": self.llm_model,
             "llm_summary_interval": self.llm_summary_interval,
+            "voice_feedback": self.voice_feedback,
+            "idle_agent_ttl": self.idle_agent_ttl,
+            "health_low_threshold": self.health_low_threshold,
+            "health_critical_threshold": self.health_critical_threshold,
+            "stall_timeout_minutes": self.stall_timeout_minutes,
+            "hung_timeout_minutes": self.hung_timeout_minutes,
         }
 
 
@@ -267,10 +280,38 @@ def load_config(has_claude: bool = True) -> Config:
     agents = raw.get("agents", {})
     backends = agents.get("backends", {})
     claude_backend = backends.get("claude-code", {})
+    voice = raw.get("voice", {})
     llm = raw.get("llm", {})
 
     default_wd = agents.get("default_working_dir", "~/Projects")
     default_wd = os.path.expanduser(default_wd)
+
+    # Validate config values — warn and use defaults for invalid entries
+    def _validate(value, validator, default, name):
+        if validator(value):
+            return value
+        log.warning(f"Invalid config value for {name}: {value!r}, using default: {default!r}")
+        return default
+
+    alerts = raw.get("alerts", {})
+    max_agents_val = agents.get("max_concurrent", 16)
+    max_agents_val = _validate(max_agents_val, lambda v: isinstance(v, int) and 1 <= v <= 100, 16, "max_concurrent")
+    output_interval_val = agents.get("output_capture_interval_sec", 1.0)
+    output_interval_val = _validate(output_interval_val, lambda v: isinstance(v, (int, float)) and 0.5 <= v <= 30.0, 1.0, "output_capture_interval_sec")
+    memory_limit_val = agents.get("memory_limit_mb", 2048)
+    memory_limit_val = _validate(memory_limit_val, lambda v: isinstance(v, int) and 256 <= v <= 32768, 2048, "memory_limit_mb")
+    idle_ttl_val = agents.get("idle_agent_ttl", alerts.get("idle_ttl_seconds", 3600))
+    idle_ttl_val = _validate(idle_ttl_val, lambda v: isinstance(v, int) and 300 <= v <= 86400, 3600, "idle_agent_ttl")
+    llm_interval_val = llm.get("summary_interval_sec", 10.0)
+    llm_interval_val = _validate(llm_interval_val, lambda v: isinstance(v, (int, float)) and 3.0 <= v <= 120.0, 10.0, "llm_summary_interval")
+    health_low_val = alerts.get("health_low_threshold", 0.3)
+    health_low_val = _validate(health_low_val, lambda v: isinstance(v, (int, float)) and 0.0 < v <= 1.0, 0.3, "health_low_threshold")
+    health_crit_val = alerts.get("health_critical_threshold", 0.1)
+    health_crit_val = _validate(health_crit_val, lambda v: isinstance(v, (int, float)) and 0.0 < v <= 1.0, 0.1, "health_critical_threshold")
+    stall_val = alerts.get("stall_timeout_minutes", 5)
+    stall_val = _validate(stall_val, lambda v: isinstance(v, int) and 1 <= v <= 60, 5, "stall_timeout_minutes")
+    hung_val = alerts.get("hung_timeout_minutes", 10)
+    hung_val = _validate(hung_val, lambda v: isinstance(v, int) and 1 <= v <= 120, 10, "hung_timeout_minutes")
 
     # Resolve LLM API key from env var
     api_key_env = llm.get("api_key_env", "XAI_API_KEY")
@@ -301,14 +342,15 @@ def load_config(has_claude: bool = True) -> Config:
         host=server.get("host", "127.0.0.1"),
         port=server.get("port", 5000),
         log_level=server.get("log_level", "INFO"),
-        max_agents=agents.get("max_concurrent", 16),
+        max_agents=max_agents_val,
         default_role=agents.get("default_role", "general"),
         default_working_dir=default_wd,
-        output_capture_interval=agents.get("output_capture_interval_sec", 1.0),
-        memory_limit_mb=agents.get("memory_limit_mb", 2048),
+        output_capture_interval=output_interval_val,
+        memory_limit_mb=memory_limit_val,
         claude_command=claude_backend.get("command", "claude"),
         claude_args=claude_backend.get("args", ["--dangerously-skip-permissions"]),
         demo_mode=not has_claude,
+        voice_feedback=voice.get("feedback_sounds", True),
         require_auth=require_auth,
         auth_token=auth_token,
         backends=backends or DEFAULT_CONFIG["agents"]["backends"],
@@ -318,8 +360,13 @@ def load_config(has_claude: bool = True) -> Config:
         llm_model=llm.get("model", "grok-4-1-fast-reasoning"),
         llm_api_key=llm_api_key,
         llm_base_url=llm.get("base_url", "https://api.x.ai/v1"),
-        llm_summary_interval=llm.get("summary_interval_sec", 10.0),
+        llm_summary_interval=llm_interval_val,
         llm_max_output_lines=llm.get("max_output_lines", 30),
+        idle_agent_ttl=idle_ttl_val,
+        health_low_threshold=health_low_val,
+        health_critical_threshold=health_crit_val,
+        stall_timeout_minutes=stall_val,
+        hung_timeout_minutes=hung_val,
     )
 
 
@@ -373,6 +420,10 @@ KNOWN_BACKENDS: dict[str, BackendConfig] = {
         supports_session_resume=True,
         supports_model_select=True,
         auto_approve_flag="--dangerously-skip-permissions",
+        status_patterns={
+            "working": [r"⎿", r"Tool Use:", r"Bash:"],
+            "waiting": [r"Do you want to proceed", r"Allow once", r"Allow always"],
+        },
         cost_input_per_1k=0.003,
         cost_output_per_1k=0.015,
     ),
@@ -512,7 +563,8 @@ class Agent:
     total_output_lines: int = 0
     output_rate: float = 0.0  # lines per minute, rolling average
     _phase: str = field(default="unknown", repr=False)
-    output_lines: collections.deque = field(default_factory=lambda: collections.deque(maxlen=500))
+    output_lines: collections.deque = field(default_factory=lambda: collections.deque(maxlen=2000))
+    _archived_lines: int = field(default=0, repr=False)  # count of lines archived to SQLite
     _prev_output_hash: int = field(default=0, repr=False)
     _total_chars: int = field(default=0, repr=False)
     _spawn_time: float = field(default=0.0, repr=False)
@@ -528,12 +580,17 @@ class Agent:
     tokens_input: int = 0
     tokens_output: int = 0
     estimated_cost_usd: float = 0.0
+    files_touched: int = 0
     unread_messages: int = field(default=0, repr=False)
     _first_output_received: bool = field(default=False, repr=False)
     _output_line_timestamps: collections.deque = field(
         default_factory=lambda: collections.deque(maxlen=60), repr=False
     )  # timestamps of recent output batches for rate calculation
     _error_entered_at: float = field(default=0.0, repr=False)  # monotonic time when error status was first detected
+    _health_low_warned: bool = field(default=False, repr=False)
+    _health_critical_warned: bool = field(default=False, repr=False)
+    _workflow_stall_warned: bool = field(default=False, repr=False)
+    _workflow_hung_warned: bool = field(default=False, repr=False)
 
     def to_dict(self) -> dict:
         role_obj = BUILTIN_ROLES.get(self.role)
@@ -569,12 +626,14 @@ class Agent:
             "time_to_first_output": round(self.time_to_first_output, 2),
             "total_output_lines": self.total_output_lines,
             "output_rate": round(self.output_rate, 1),
+            "files_touched": self.files_touched,
             "model": self.model,
             "tools_allowed": self.tools_allowed,
             "workflow_run_id": self.workflow_run_id,
             "tokens_input": self.tokens_input,
             "tokens_output": self.tokens_output,
             "estimated_cost_usd": round(self.estimated_cost_usd, 4),
+            "cost_is_estimated": True,
         }
 
     def to_dict_full(self) -> dict:
@@ -669,7 +728,7 @@ class AgentManager:
         # Workflow run tracking
         self.workflow_runs: dict[str, WorkflowRun] = {}
         # File activity tracking for conflict detection
-        self.file_activity: dict[str, set[str]] = {}  # file_path → set of agent_ids
+        self.file_activity: dict[str, dict[str, str]] = {}  # file_path → {agent_id: operation}
 
     def _build_backend_configs(self) -> dict[str, BackendConfig]:
         """Build BackendConfig objects from known defaults + user config."""
@@ -839,6 +898,11 @@ class AgentManager:
             role_name = BUILTIN_ROLES.get(role, BUILTIN_ROLES["general"]).name.split()[0].lower()
             name = f"{role_name}-{agent_id}"
 
+        # Detect name collisions — append agent ID suffix if collision found
+        existing_names = {a.name for a in self.agents.values()}
+        if name in existing_names:
+            name = f"{name}-{agent_id}"
+
         # Resolve working directory
         if not working_dir:
             working_dir = self.config.default_working_dir
@@ -909,11 +973,10 @@ class AgentManager:
 
             cmd_parts = [bc.command]
 
-            # Auto-approve flag (already in args for claude-code, but ensure it's there)
+            # Always include configured args, then add auto-approve flag if not already present
+            cmd_parts.extend(bc.args)
             if bc.auto_approve_flag and bc.auto_approve_flag not in bc.args:
                 cmd_parts.append(bc.auto_approve_flag)
-            else:
-                cmd_parts.extend(bc.args)
 
             # Model selection
             if model and bc.supports_model_select:
@@ -1215,12 +1278,15 @@ class AgentManager:
         try:
             log.info(f"Restarting agent {agent_id} ({agent.name}), attempt {agent.restart_count + 1}")
 
-            # Save config references
+            # Save config references (including orchestration fields)
             saved_role = agent.role
             saved_name = agent.name
             saved_working_dir = agent.working_dir
             saved_backend = agent.backend
             saved_task = agent.task
+            saved_model = agent.model
+            saved_tools = agent.tools_allowed
+            saved_system_prompt = agent.system_prompt
 
             # Kill the old tmux session
             old_tmux_session = agent.tmux_session
@@ -1300,26 +1366,49 @@ class AgentManager:
                 demo_script = self._build_demo_script(saved_role, saved_task, agent)
                 await self._tmux_send_keys(session_name, demo_script)
             else:
-                try:
-                    cmd_bin, cmd_args = self._resolve_backend_command(saved_backend)
-                except ValueError as e:
-                    agent.status = "error"
-                    agent.error_message = str(e)
-                    return False
+                # Use BackendConfig-based command building (same as spawn)
+                bc = self.backend_configs.get(saved_backend)
+                if not bc or not bc.available:
+                    try:
+                        cmd_bin, cmd_args = self._resolve_backend_command(saved_backend)
+                        bc = BackendConfig(command=cmd_bin, args=cmd_args, available=True)
+                    except ValueError as e:
+                        agent.status = "error"
+                        agent.error_message = str(e)
+                        return False
 
-                cmd = " ".join([cmd_bin] + cmd_args)
+                cmd_parts = [bc.command]
+                cmd_parts.extend(bc.args)
+                if bc.auto_approve_flag and bc.auto_approve_flag not in bc.args:
+                    cmd_parts.append(bc.auto_approve_flag)
+
+                if saved_model and bc.supports_model_select:
+                    cmd_parts.extend(["--model", saved_model])
+                if saved_tools and bc.supports_tool_restriction:
+                    cmd_parts.extend(["--allowedTools", ",".join(saved_tools)])
+
+                # Rebuild system prompt from role + saved extra
+                role_obj = BUILTIN_ROLES.get(saved_role, BUILTIN_ROLES["general"])
+                if bc.supports_system_prompt and saved_system_prompt:
+                    cmd_parts.extend(["--append-system-prompt", saved_system_prompt])
+
+                cmd = " ".join(f"'{p}'" if " " in p else p for p in cmd_parts)
                 await self._tmux_send_keys(session_name, cmd)
                 await asyncio.sleep(3)
 
-                role_obj = BUILTIN_ROLES.get(saved_role)
-                if role_obj and role_obj.system_prompt and saved_task:
-                    full_message = f"{role_obj.system_prompt}\n\nYour task: {saved_task}"
-                    for line in full_message.split("\n"):
-                        if line.strip():
-                            await self._tmux_send_keys(session_name, line)
-                            await asyncio.sleep(0.1)
-                elif saved_task:
-                    await self._tmux_send_keys(session_name, saved_task)
+                # Send task
+                if bc.supports_system_prompt:
+                    if saved_task:
+                        await self._tmux_send_keys(session_name, saved_task)
+                else:
+                    if role_obj and role_obj.system_prompt and saved_task:
+                        full_message = f"{role_obj.system_prompt}\n\nYour task: {saved_task}"
+                        for line in full_message.split("\n"):
+                            if line.strip():
+                                await self._tmux_send_keys(session_name, line)
+                                await asyncio.sleep(0.1)
+                    elif saved_task:
+                        await self._tmux_send_keys(session_name, saved_task)
 
             agent.status = "working"
             agent.updated_at = datetime.now(timezone.utc).isoformat()
@@ -1389,6 +1478,13 @@ class AgentManager:
         # Apply secret redaction
         new_lines = [redact_secrets(line) for line in new_lines]
 
+        # Archive overflow lines before they're dropped by the deque
+        overflow_count = len(agent.output_lines) + len(new_lines) - agent.output_lines.maxlen
+        if overflow_count > 0:
+            overflow_lines = list(agent.output_lines)[:overflow_count]
+            agent._overflow_to_archive = (agent_id, overflow_lines, agent._archived_lines)
+            agent._archived_lines += len(overflow_lines)
+
         # Update ring buffer (only new lines, not the full capture)
         for line in new_lines:
             agent.output_lines.append(line)
@@ -1397,13 +1493,17 @@ class AgentManager:
         chars_added = sum(len(l) for l in new_lines)
         agent._total_chars += chars_added
         # ~3.5 chars/token for English, 200K context window
-        agent.context_pct = min(1.0, (agent._total_chars / 3.5) / 200000)
+        # Include base context: task + system prompt + overhead
+        base_chars = len(agent.task or '') + len(agent.system_prompt or '') + 1750  # tool/overhead
+        total_context_chars = agent._total_chars + base_chars
+        agent.context_pct = min(1.0, (total_context_chars / 3.5) / 200000)
 
-        # Token/cost estimation
+        # Token/cost estimation (approximate — marked as estimates in API)
         tokens_est = int(chars_added / 3.5)
         agent.tokens_output += tokens_est
-        # Estimate input tokens as ~50% of output (heuristic for interactive agents)
-        agent.tokens_input = int(agent.tokens_output * 0.5)
+        # Input includes base context: task + system prompt + overhead
+        base_input_chars = len(agent.task or '') + len(agent.system_prompt or '') + 2000  # overhead
+        agent.tokens_input = int(base_input_chars / 3.5) + int(agent.tokens_output * 0.3)
         # Compute cost from backend config rates
         bc = self.backend_configs.get(agent.backend)
         if bc:
@@ -1470,7 +1570,7 @@ class AgentManager:
         return ready
 
     def _build_dep_context(self, wf_run: WorkflowRun, spec_idx: int) -> str:
-        """Build context from predecessor agents' summaries and output."""
+        """Build structured context from predecessor agents."""
         spec = wf_run.agent_specs[spec_idx]
         deps = spec.get("depends_on", [])
         if not deps:
@@ -1486,12 +1586,98 @@ class AgentManager:
                 parts.append(f"### Agent '{dep_agent.name}' ({dep_spec.get('role', 'general')})")
                 parts.append(f"Task: {dep_agent.task}")
                 parts.append(f"Summary: {dep_agent.summary}")
-                # Include last 20 lines of output
-                recent = list(dep_agent.output_lines)[-20:]
-                if recent:
-                    parts.append(f"Recent output:\n```\n{chr(10).join(recent)}\n```")
+                # Files touched by this agent
+                agent_files = [
+                    fp for fp, agents in self.file_activity.items()
+                    if dep_agent_id in agents
+                ]
+                if agent_files:
+                    parts.append(f"Files touched: {', '.join(agent_files[:20])}")
+                # Filter substantive output lines (skip progress bars, short noise, spinners)
+                _noise_re = re.compile(r'^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏\s█░▓▒]*$|^\s{0,2}$')
+                recent = list(dep_agent.output_lines)[-30:]
+                substantive = [
+                    _strip_ansi(l) for l in recent
+                    if len(l.strip()) >= 5 and not _noise_re.match(l)
+                ][-15:]
+                if substantive:
+                    parts.append(f"Recent output:\n```\n{chr(10).join(substantive)}\n```")
                 parts.append("")
         return "\n".join(parts)
+
+    @staticmethod
+    def _resolve_skip_val(token: str, ctx: dict[str, str]) -> str | None:
+        """Resolve a token in a skip_if expression to a string value."""
+        token = token.strip()
+        # String literal: 'value' or "value"
+        if (token.startswith("'") and token.endswith("'")) or (token.startswith('"') and token.endswith('"')):
+            return token[1:-1]
+        # Context variable
+        if token in ctx:
+            return ctx[token]
+        return None
+
+    def _evaluate_skip_if(self, wf_run: WorkflowRun, spec_idx: int) -> bool:
+        """Evaluate skip_if condition. Returns True if the agent should be skipped.
+
+        Supports safe expressions like:
+          "prev.status == 'complete'"
+          "prev.status != 'error'"
+          "'keyword' in prev.summary"
+          "'keyword' not in prev.summary"
+        """
+        spec = wf_run.agent_specs[spec_idx]
+        skip_if = spec.get("skip_if")
+        if not skip_if:
+            return False
+        deps = spec.get("depends_on", [])
+        if not deps:
+            log.warning("skip_if set on spec %d but no depends_on — condition cannot reference prev, skipping evaluation", spec_idx)
+            return False
+        for dep_idx in deps:
+            dep_agent_id = wf_run.agent_map.get(dep_idx)
+            if dep_agent_id:
+                dep_agent = self.agents.get(dep_agent_id)
+                if dep_agent:
+                    ctx = {"prev.status": dep_agent.status, "prev.summary": dep_agent.summary or ""}
+                    try:
+                        return self._safe_eval_condition(skip_if, ctx)
+                    except Exception:
+                        return False
+        return False
+
+    @staticmethod
+    def _safe_eval_condition(expr: str, ctx: dict[str, str]) -> bool:
+        """Evaluate a simple comparison expression without eval().
+
+        Supports: ==, !=, in, not in operators on string values.
+        """
+        expr = expr.strip()
+
+        # Try "not in" first (before "in" to avoid partial match)
+        for op, negate in [("not in", True), ("in", False), ("!=", False), ("==", False)]:
+            if op in expr:
+                parts = expr.split(op, 1)
+                if len(parts) != 2:
+                    return False
+                left = parts[0].strip()
+                right = parts[1].strip()
+
+                left_val = AgentManager._resolve_skip_val(left, ctx)
+                right_val = AgentManager._resolve_skip_val(right, ctx)
+
+                if left_val is None or right_val is None:
+                    return False
+
+                if op == "==":
+                    return left_val == right_val
+                elif op == "!=":
+                    return left_val != right_val
+                elif op == "in":
+                    return left_val in right_val
+                elif op == "not in":
+                    return left_val not in right_val
+        return False
 
     async def resolve_workflow_deps(self, wf_run: WorkflowRun, hub: Any = None) -> None:
         """Check and spawn any agents whose deps are now satisfied."""
@@ -1501,6 +1687,18 @@ class AgentManager:
         for idx in ready:
             spec = wf_run.agent_specs[idx]
             wf_run.pending_indices.discard(idx)
+
+            # Check skip_if condition
+            if self._evaluate_skip_if(wf_run, idx):
+                wf_run.completed_ids.add(f"skipped_spec_{idx}")
+                if hub:
+                    await hub.broadcast_event(
+                        "workflow_agent_skipped",
+                        f"Pipeline '{wf_run.workflow_name}': agent '{spec.get('name', 'unnamed')}' skipped (condition met)",
+                        metadata={"workflow_run_id": wf_run.id, "spec_index": idx},
+                    )
+                continue
+
             # Build context from predecessors
             dep_context = self._build_dep_context(wf_run, idx)
             try:
@@ -1553,19 +1751,39 @@ class AgentManager:
                 return wf_run
         return None
 
-    def on_agent_failed(self, agent_id: str) -> WorkflowRun | None:
-        """Called when an agent fails. Marks downstream deps as blocked."""
+    def on_agent_failed(self, agent_id: str) -> tuple[WorkflowRun | None, str]:
+        """Called when an agent fails. Returns (WorkflowRun, action) where action is 'abort'|'skip'|'retry'."""
         for wf_run in self.workflow_runs.values():
             if agent_id in wf_run.running_ids:
                 wf_run.running_ids.discard(agent_id)
-                wf_run.failed_ids.add(agent_id)
-                # Block any pending specs that depend on this one
+
+                # Find which spec this agent belongs to
                 failed_idx = None
                 for idx, aid in wf_run.agent_map.items():
                     if aid == agent_id:
                         failed_idx = idx
                         break
+
                 if failed_idx is not None:
+                    spec = wf_run.agent_specs[failed_idx]
+                    on_failure = spec.get("on_failure", "abort")
+                    retry_count = spec.get("retry_count", 0)
+                    current_retries = spec.get("_retries", 0)
+
+                    if on_failure == "retry" and current_retries < min(retry_count, 3):
+                        # Re-add to pending for retry
+                        spec["_retries"] = current_retries + 1
+                        wf_run.pending_indices.add(failed_idx)
+                        del wf_run.agent_map[failed_idx]
+                        return wf_run, "retry"
+
+                    if on_failure == "skip":
+                        # Treat as completed so downstream can proceed
+                        wf_run.completed_ids.add(agent_id)
+                        return wf_run, "skip"
+
+                    # Default: abort — block downstream
+                    wf_run.failed_ids.add(agent_id)
                     to_block = set()
                     for idx in list(wf_run.pending_indices):
                         deps = wf_run.agent_specs[idx].get("depends_on", [])
@@ -1574,46 +1792,83 @@ class AgentManager:
                     for idx in to_block:
                         wf_run.pending_indices.discard(idx)
                         wf_run.failed_ids.add(f"blocked_spec_{idx}")
-                return wf_run
-        return None
+                    return wf_run, "abort"
+                else:
+                    wf_run.failed_ids.add(agent_id)
+                    return wf_run, "abort"
+        return None, "abort"
 
     # ── File conflict detection ──
 
-    _ACTIVE_FILE_RE = re.compile(
-        r"(?i)(?:writing|editing|creating|modifying|updating|reading|Tool Use:.*(?:Edit|Write))\s+[\'\"]?([/\w\-./]+\.\w{1,8})[\'\"]?"
+    # Separate read vs write patterns for smarter conflict detection
+    _FILE_WRITE_RE = re.compile(
+        r"(?i)(?:writing|editing|creating|modifying|updating|Tool Use:.*(?:Edit|Write|Create))\s+[\'\"]?([/\w\-./]+\.\w{1,8})[\'\"]?"
+    )
+    _FILE_READ_RE = re.compile(
+        r"(?i)(?:reading|loading|scanning|Tool Use:.*(?:Read|Glob))\s+[\'\"]?([/\w\-./]+\.\w{1,8})[\'\"]?"
     )
 
     def _check_file_conflicts(self, agent_id: str, lines: list[str]) -> list[dict]:
-        """Parse output for file operations and check for conflicts with other active agents."""
+        """Parse output for file operations and check for write-write conflicts.
+        Read-write overlaps generate softer warnings. Read-read is ignored."""
         conflicts = []
+        agent = self.agents.get(agent_id)
+        if not agent:
+            return conflicts
+
         for line in lines:
             stripped = _strip_ansi(line)
-            match = self._ACTIVE_FILE_RE.search(stripped)
-            if not match:
+
+            # Check writes first (higher severity)
+            write_match = self._FILE_WRITE_RE.search(stripped)
+            if write_match:
+                file_path = write_match.group(1)
+                if file_path not in self.file_activity:
+                    self.file_activity[file_path] = {}
+                self.file_activity[file_path][agent_id] = "write"
+                # Track files touched count
+                agent.files_touched = len([
+                    fp for fp, agents in self.file_activity.items()
+                    if agent_id in agents
+                ])
+
+                # Check for write-write conflicts with other active agents
+                for other_id, op in self.file_activity[file_path].items():
+                    if other_id == agent_id:
+                        continue
+                    other = self.agents.get(other_id)
+                    if other and other.status in ("working", "planning"):
+                        severity = "conflict" if op == "write" else "warning"
+                        conflicts.append({
+                            "file_path": file_path,
+                            "agent_id": agent_id,
+                            "agent_name": agent.name,
+                            "other_agent_id": other_id,
+                            "other_agent_name": other.name,
+                            "severity": severity,
+                        })
                 continue
-            file_path = match.group(1)
-            # Register this agent's activity on the file
-            if file_path not in self.file_activity:
-                self.file_activity[file_path] = set()
-            self.file_activity[file_path].add(agent_id)
-            # Check if another ACTIVE agent is also working on this file
-            other_agents = self.file_activity[file_path] - {agent_id}
-            for other_id in other_agents:
-                other = self.agents.get(other_id)
-                if other and other.status in ("working", "planning", "reading"):
-                    conflicts.append({
-                        "file_path": file_path,
-                        "agent_id": agent_id,
-                        "agent_name": self.agents[agent_id].name if agent_id in self.agents else agent_id,
-                        "other_agent_id": other_id,
-                        "other_agent_name": other.name,
-                    })
+
+            # Check reads (lower severity, track but don't conflict with other reads)
+            read_match = self._FILE_READ_RE.search(stripped)
+            if read_match:
+                file_path = read_match.group(1)
+                if file_path not in self.file_activity:
+                    self.file_activity[file_path] = {}
+                if agent_id not in self.file_activity[file_path]:
+                    self.file_activity[file_path][agent_id] = "read"
+                # Track files touched count
+                agent.files_touched = len([
+                    fp for fp, agents in self.file_activity.items()
+                    if agent_id in agents
+                ])
+
         return conflicts
 
     def _cleanup_file_activity(self, agent_id: str) -> None:
         """Remove an agent from all file activity tracking."""
         for file_path in list(self.file_activity.keys()):
-            self.file_activity[file_path].discard(agent_id)
+            self.file_activity[file_path].pop(agent_id, None)
             if not self.file_activity[file_path]:
                 del self.file_activity[file_path]
 
@@ -1723,13 +1978,27 @@ def parse_agent_status(recent_lines: list[str], agent: Agent, backend_patterns: 
     text_block = "\n".join(recent_lines)
     tail_text = "\n".join(recent_lines[-5:])
 
+    # Merge backend-specific patterns with defaults
+    effective_patterns: dict[str, list] = {}
+    for cat, pats in STATUS_PATTERNS.items():
+        effective_patterns[cat] = list(pats)
+    if backend_patterns:
+        for cat, str_pats in backend_patterns.items():
+            if cat not in effective_patterns:
+                effective_patterns[cat] = []
+            for sp in str_pats:
+                try:
+                    effective_patterns[cat].append(re.compile(sp))
+                except re.error:
+                    pass
+
     # Track non-fatal error mentions for health scoring (don't affect status)
-    for pattern in STATUS_PATTERNS.get("error_mention", []):
+    for pattern in effective_patterns.get("error_mention", []):
         if pattern.search(tail_text):
             agent.error_count = min(agent.error_count + 1, 100)
 
     # Check for waiting (highest priority)
-    for pattern in STATUS_PATTERNS["waiting"]:
+    for pattern in effective_patterns["waiting"]:
         if pattern.search(text_block):
             # Extract the question
             agent.needs_input = True
@@ -1750,31 +2019,31 @@ def parse_agent_status(recent_lines: list[str], agent: Agent, backend_patterns: 
             return "waiting"
 
     # Check for fatal error (only in last 5 lines to avoid old mentions)
-    for pattern in STATUS_PATTERNS["error"]:
+    for pattern in effective_patterns["error"]:
         if pattern.search(tail_text):
             agent.needs_input = False
             return "error"
 
     # Check for reading (before working, more specific)
-    for pattern in STATUS_PATTERNS["reading"]:
+    for pattern in effective_patterns["reading"]:
         if pattern.search(tail_text):
             agent.needs_input = False
             return "reading"
 
     # Check for planning
-    for pattern in STATUS_PATTERNS["planning"]:
+    for pattern in effective_patterns["planning"]:
         if pattern.search(text_block):
             agent.needs_input = False
             return "planning"
 
     # Check for complete
-    for pattern in STATUS_PATTERNS["complete"]:
+    for pattern in effective_patterns["complete"]:
         if pattern.search(tail_text):
             agent.needs_input = False
             return "idle"
 
     # Check for working
-    for pattern in STATUS_PATTERNS["working"]:
+    for pattern in effective_patterns["working"]:
         if pattern.search(text_block):
             agent.needs_input = False
             return "working"
@@ -1930,9 +2199,16 @@ class LLMSummarizer:
                     if content:
                         self._failures = 0
                         return content[:100]
+                elif resp.status in (401, 403):
+                    log.error(f"LLM disabled: authentication failed (HTTP {resp.status}). Check API key.")
+                    self.config.llm_enabled = False
+                    return None
                 elif resp.status == 429:
-                    log.warning("LLM rate limited, backing off")
-                    self._failures += 2
+                    retry_after = resp.headers.get("Retry-After")
+                    cooldown = float(retry_after) if retry_after and retry_after.isdigit() else 60.0
+                    log.warning(f"LLM rate limited, cooling down for {cooldown}s")
+                    self._circuit_reset_time = time.monotonic() + cooldown
+                    return None
                 else:
                     log.debug(f"LLM API returned {resp.status}")
                     self._failures += 1
@@ -2164,6 +2440,40 @@ class Database:
                 locked_at TEXT NOT NULL,
                 PRIMARY KEY (file_path, agent_id)
             );
+
+            CREATE TABLE IF NOT EXISTS agent_output_archive (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id TEXT NOT NULL,
+                line_offset INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_output_archive_agent ON agent_output_archive(agent_id, line_offset);
+
+            CREATE TABLE IF NOT EXISTS agent_presets (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                role TEXT NOT NULL DEFAULT 'general',
+                backend TEXT DEFAULT 'claude-code',
+                task TEXT DEFAULT '',
+                system_prompt TEXT DEFAULT '',
+                model TEXT DEFAULT '',
+                tools_allowed TEXT DEFAULT '',
+                working_dir TEXT DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS scratchpad (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value TEXT DEFAULT '',
+                set_by TEXT DEFAULT '',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(project_id, key)
+            );
         """)
         await self._db.commit()
 
@@ -2224,6 +2534,42 @@ class Database:
     async def close(self) -> None:
         if self._db:
             await self._db.close()
+
+    # ── Output Archive ──
+
+    async def archive_output(self, agent_id: str, lines: list[str], start_offset: int) -> None:
+        """Archive overflow output lines to SQLite."""
+        if not self._db or not lines:
+            return
+        now = datetime.now(timezone.utc).isoformat()
+        try:
+            await self._db.executemany(
+                "INSERT INTO agent_output_archive (agent_id, line_offset, content, created_at) VALUES (?, ?, ?, ?)",
+                [(agent_id, start_offset + i, line, now) for i, line in enumerate(lines)],
+            )
+            await self._db.commit()
+        except Exception as e:
+            log.debug(f"Failed to archive output for {agent_id}: {e}")
+
+    async def get_archived_output(self, agent_id: str, offset: int = 0, limit: int = 500) -> tuple[list[str], int]:
+        """Retrieve archived output lines. Returns (lines, total_count)."""
+        if not self._db:
+            return [], 0
+        try:
+            async with self._db.execute(
+                "SELECT COUNT(*) FROM agent_output_archive WHERE agent_id = ?", (agent_id,)
+            ) as cur:
+                row = await cur.fetchone()
+                total = row[0] if row else 0
+            async with self._db.execute(
+                "SELECT content FROM agent_output_archive WHERE agent_id = ? ORDER BY line_offset LIMIT ? OFFSET ?",
+                (agent_id, limit, offset),
+            ) as cur:
+                rows = await cur.fetchall()
+                return [r[0] for r in rows], total
+        except Exception as e:
+            log.debug(f"Failed to get archived output for {agent_id}: {e}")
+            return [], 0
 
     # ── Agent History ──
 
@@ -2506,6 +2852,65 @@ class Database:
         await self._db.execute("DELETE FROM file_locks WHERE agent_id = ?", (agent_id,))
         await self._db.commit()
 
+    # ── Agent Presets ──
+
+    async def get_presets(self) -> list[dict]:
+        async with self._db.execute("SELECT * FROM agent_presets ORDER BY name") as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    async def get_preset(self, preset_id: str) -> dict | None:
+        async with self._db.execute(
+            "SELECT * FROM agent_presets WHERE id = ?", (preset_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+    async def save_preset(self, preset: dict) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            """INSERT OR REPLACE INTO agent_presets
+               (id, name, role, backend, task, system_prompt, model, tools_allowed, working_dir, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (preset["id"], preset["name"], preset.get("role", "general"),
+             preset.get("backend", "claude-code"), preset.get("task", ""),
+             preset.get("system_prompt", ""), preset.get("model", ""),
+             preset.get("tools_allowed", ""), preset.get("working_dir", ""),
+             preset.get("created_at", now), now),
+        )
+        await self._db.commit()
+
+    async def delete_preset(self, preset_id: str) -> bool:
+        async with self._db.execute(
+            "DELETE FROM agent_presets WHERE id = ?", (preset_id,)
+        ) as cur:
+            await self._db.commit()
+            return cur.rowcount > 0
+
+    # ── Scratchpad ──
+
+    async def get_scratchpad(self, project_id: str) -> list[dict]:
+        async with self._db.execute(
+            "SELECT * FROM scratchpad WHERE project_id = ? ORDER BY key", (project_id,)
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    async def upsert_scratchpad(self, project_id: str, key: str, value: str, set_by: str = "") -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            """INSERT INTO scratchpad (project_id, key, value, set_by, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(project_id, key) DO UPDATE SET value=excluded.value, set_by=excluded.set_by, updated_at=excluded.updated_at""",
+            (project_id, key, value, set_by, now, now),
+        )
+        await self._db.commit()
+
+    async def delete_scratchpad(self, project_id: str, key: str) -> bool:
+        async with self._db.execute(
+            "DELETE FROM scratchpad WHERE project_id = ? AND key = ?", (project_id, key)
+        ) as cur:
+            await self._db.commit()
+            return cur.rowcount > 0
+
 
 # ─────────────────────────────────────────────
 # Section 5c: Rate Limiter
@@ -2613,11 +3018,16 @@ class WebSocketHub:
                 d = bc.to_dict()
                 d["name"] = name
                 backends_info[name] = d
+            try:
+                presets = await self.db.get_presets()
+            except Exception:
+                presets = []
             await ws.send_json({
                 "type": "sync",
                 "agents": [a.to_dict() for a in self.agent_manager.agents.values()],
                 "projects": projects,
                 "workflows": workflows,
+                "presets": presets,
                 "config": self.config.to_dict(),
                 "backends": backends_info,
             })
@@ -2739,6 +3149,10 @@ class WebSocketHub:
             case "sync_request":
                 projects = await self.db.get_projects() if self.db else []
                 workflows = await self.db.get_workflows() if self.db else []
+                try:
+                    presets = await self.db.get_presets() if self.db else []
+                except Exception:
+                    presets = []
                 backends_info = {}
                 for name, bc in self.agent_manager.backend_configs.items():
                     d = bc.to_dict()
@@ -2749,6 +3163,7 @@ class WebSocketHub:
                     "agents": [a.to_dict() for a in self.agent_manager.agents.values()],
                     "projects": projects,
                     "workflows": workflows,
+                    "presets": presets,
                     "config": self.config.to_dict(),
                     "backends": backends_info,
                 })
@@ -2760,11 +3175,14 @@ class WebSocketHub:
         if not self.clients:
             return
         dead: set[web.WebSocketResponse] = set()
-        for ws in self.clients:
+
+        async def _send(ws: web.WebSocketResponse) -> None:
             try:
-                await asyncio.wait_for(ws.send_json(message), timeout=2.0)
+                await asyncio.wait_for(ws.send_json(message), timeout=5.0)
             except (ConnectionError, RuntimeError, ConnectionResetError, asyncio.TimeoutError):
                 dead.add(ws)
+
+        await asyncio.gather(*[_send(ws) for ws in self.clients], return_exceptions=True)
         self.clients -= dead
 
     async def broadcast_event(
@@ -3115,6 +3533,49 @@ async def get_agent_output(request: web.Request) -> web.Response:
     })
 
 
+async def get_agent_full_output(request: web.Request) -> web.Response:
+    """Get full output: archive + live buffer combined."""
+    manager: AgentManager = request.app["agent_manager"]
+    db: Database = request.app["db"]
+    agent_id = request.match_info["id"]
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+
+    try:
+        offset = int(request.query.get("offset", 0))
+        limit = int(request.query.get("limit", 500))
+    except ValueError:
+        return web.json_response({"error": "offset and limit must be integers"}, status=400)
+
+    limit = max(1, min(limit, 2000))
+    offset = max(0, offset)
+
+    # Get archived lines
+    archived, archive_total = await db.get_archived_output(agent_id, offset, limit)
+    live_lines = list(agent.output_lines)
+    total = archive_total + len(live_lines)
+
+    # Combine: if offset is within archive range, start from archive
+    if offset < archive_total:
+        remaining = limit - len(archived)
+        if remaining > 0:
+            combined = archived + live_lines[:remaining]
+        else:
+            combined = archived
+    else:
+        # Offset is beyond archive, read from live buffer
+        live_offset = offset - archive_total
+        combined = live_lines[live_offset:live_offset + limit]
+
+    return web.json_response({
+        "data": combined,
+        "pagination": {"limit": limit, "offset": offset, "total": total},
+        "archive_lines": archive_total,
+        "live_lines": len(live_lines),
+    })
+
+
 async def get_config(request: web.Request) -> web.Response:
     config: Config = request.app["config"]
     return web.json_response(config.to_dict())
@@ -3140,6 +3601,12 @@ async def put_config(request: web.Request) -> web.Response:
         "llm_model": lambda v: isinstance(v, str) and len(v) > 0,
         "llm_summary_interval": lambda v: isinstance(v, (int, float)) and 3.0 <= v <= 120.0,
         "max_restarts": lambda v: isinstance(v, int),
+        "voice_feedback": lambda v: isinstance(v, bool),
+        "idle_agent_ttl": lambda v: isinstance(v, int) and 300 <= v <= 86400,
+        "health_low_threshold": lambda v: isinstance(v, (int, float)) and 0.0 < v <= 1.0,
+        "health_critical_threshold": lambda v: isinstance(v, (int, float)) and 0.0 < v <= 1.0,
+        "stall_timeout_minutes": lambda v: isinstance(v, int) and 1 <= v <= 60,
+        "hung_timeout_minutes": lambda v: isinstance(v, int) and 1 <= v <= 120,
     }
 
     # Clamp max_restarts to [1, 10] range
@@ -3163,6 +3630,14 @@ async def put_config(request: web.Request) -> web.Response:
                    "output_capture_interval": "output_capture_interval_sec",
                    "memory_limit_mb": "memory_limit_mb", "default_backend": "default_backend"}
     llm_keys = {"llm_enabled": "enabled", "llm_model": "model", "llm_summary_interval": "summary_interval_sec"}
+    voice_keys = {"voice_feedback": "feedback_sounds"}
+    alert_keys = {
+        "idle_agent_ttl": "idle_ttl_seconds",
+        "health_low_threshold": "health_low_threshold",
+        "health_critical_threshold": "health_critical_threshold",
+        "stall_timeout_minutes": "stall_timeout_minutes",
+        "hung_timeout_minutes": "hung_timeout_minutes",
+    }
 
     for key, value in data.items():
         if key not in allowed_keys:
@@ -3171,6 +3646,10 @@ async def put_config(request: web.Request) -> web.Response:
             yaml_update.setdefault("agents", {})[agents_keys[key]] = value
         elif key in llm_keys:
             yaml_update.setdefault("llm", {})[llm_keys[key]] = value
+        elif key in voice_keys:
+            yaml_update.setdefault("voice", {})[voice_keys[key]] = value
+        elif key in alert_keys:
+            yaml_update.setdefault("alerts", {})[alert_keys[key]] = value
 
     # FIRST: write YAML to disk. Only update in-memory config on success.
     config_path = ASHLAR_DIR / "ashlar.yaml"
@@ -3645,6 +4124,13 @@ async def handoff_agent(request: web.Request) -> web.Response:
     # Send to target agent's tmux session
     await manager.send_message(to_id, handoff_block[:2000])
 
+    # Auto-write handoff data to scratchpad if agent has a project
+    if from_agent.project_id:
+        if key_findings:
+            await db.upsert_scratchpad(from_agent.project_id, f"handoff_{from_agent.name}_findings", key_findings, from_agent.name)
+        if files_modified:
+            await db.upsert_scratchpad(from_agent.project_id, f"handoff_{from_agent.name}_files", ", ".join(files_modified), from_agent.name)
+
     await hub.broadcast({"type": "agent_message", "message": msg})
     await hub.broadcast({"type": "agent_update", "agent": to_agent.to_dict()})
     await hub.broadcast_event(
@@ -3719,6 +4205,282 @@ async def get_costs(request: web.Request) -> web.Response:
         },
         "total_cost_usd": round(active_cost + hist_cost, 4),
     })
+
+
+# ── Agent Preset endpoints ──
+
+async def list_presets(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=1):
+        return r
+    db: Database = request.app["db"]
+    presets = await db.get_presets()
+    return web.json_response(presets)
+
+
+async def create_preset(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=2):
+        return r
+    db: Database = request.app["db"]
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    if not data.get("name"):
+        return web.json_response({"error": "name is required"}, status=400)
+
+    role = data.get("role", "general")
+    if role not in BUILTIN_ROLES:
+        return web.json_response({"error": f"Invalid role '{role}'. Valid roles: {', '.join(BUILTIN_ROLES.keys())}"}, status=400)
+    backend = data.get("backend", "claude-code")
+    if backend not in KNOWN_BACKENDS:
+        return web.json_response({"error": f"Invalid backend '{backend}'. Valid backends: {', '.join(KNOWN_BACKENDS.keys())}"}, status=400)
+
+    preset = {
+        "id": uuid.uuid4().hex[:8],
+        "name": data["name"][:100],
+        "role": role,
+        "backend": backend,
+        "task": data.get("task", "")[:10000],
+        "system_prompt": data.get("system_prompt", "")[:5000],
+        "model": data.get("model", ""),
+        "tools_allowed": data.get("tools_allowed", ""),
+        "working_dir": data.get("working_dir", ""),
+    }
+    try:
+        await db.save_preset(preset)
+    except Exception as e:
+        if "UNIQUE" in str(e):
+            return web.json_response({"error": f"Preset '{preset['name']}' already exists"}, status=409)
+        raise
+    return web.json_response(preset, status=201)
+
+
+async def update_preset(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=2):
+        return r
+    db: Database = request.app["db"]
+    preset_id = request.match_info["id"]
+    existing = await db.get_preset(preset_id)
+    if not existing:
+        return web.json_response({"error": "Preset not found"}, status=404)
+
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    updated = {**existing}
+    for key in ("name", "role", "backend", "task", "system_prompt", "model", "tools_allowed", "working_dir"):
+        if key in data:
+            updated[key] = data[key]
+    updated["name"] = updated["name"][:100]
+    updated["task"] = updated["task"][:10000]
+
+    if updated.get("role") and updated["role"] not in BUILTIN_ROLES:
+        return web.json_response({"error": f"Invalid role '{updated['role']}'. Valid roles: {', '.join(BUILTIN_ROLES.keys())}"}, status=400)
+    if updated.get("backend") and updated["backend"] not in KNOWN_BACKENDS:
+        return web.json_response({"error": f"Invalid backend '{updated['backend']}'. Valid backends: {', '.join(KNOWN_BACKENDS.keys())}"}, status=400)
+
+    try:
+        await db.save_preset(updated)
+    except Exception as e:
+        if "UNIQUE" in str(e):
+            return web.json_response({"error": f"Preset name '{updated['name']}' already exists"}, status=409)
+        raise
+    return web.json_response(updated)
+
+
+async def delete_preset(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=2):
+        return r
+    db: Database = request.app["db"]
+    preset_id = request.match_info["id"]
+    success = await db.delete_preset(preset_id)
+    if success:
+        return web.json_response({"status": "deleted"})
+    return web.json_response({"error": "Preset not found"}, status=404)
+
+
+# ── Agent Clone endpoint ──
+
+async def clone_agent(request: web.Request) -> web.Response:
+    """POST /api/agents/{id}/clone — clone an agent's config into a new agent."""
+    if r := _check_rate(request, cost=3, rate=1, burst=5):
+        return r
+    manager: AgentManager = request.app["agent_manager"]
+    hub: WebSocketHub = request.app["ws_hub"]
+    source_id = request.match_info["id"]
+
+    source = manager.agents.get(source_id)
+    if not source:
+        return web.json_response({"error": "Source agent not found"}, status=404)
+
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        data = {}
+
+    working_dir = data.get("working_dir", source.working_dir)
+    name = data.get("name", f"{source.name}-clone")
+
+    config: Config = request.app["config"]
+    if len(manager.agents) >= config.max_agents:
+        return web.json_response({"error": "Max agents reached"}, status=503)
+
+    try:
+        agent = await manager.spawn(
+            role=source.role,
+            name=name,
+            working_dir=working_dir,
+            task=source.task,
+            backend=source.backend,
+            model=source.model,
+            tools=source.tools_allowed,
+            system_prompt_extra=source.system_prompt,
+        )
+        if source.project_id:
+            agent.project_id = source.project_id
+        await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
+        await hub.broadcast_event(
+            "agent_spawned",
+            f"Cloned agent: {agent.name} (from {source.name})",
+            agent.id, agent.name,
+        )
+        return web.json_response({"agent": agent.to_dict()}, status=201)
+    except ValueError as e:
+        return web.json_response({"error": str(e)}, status=400)
+
+
+# ── Scratchpad endpoints ──
+
+async def get_scratchpad(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=1):
+        return r
+    db: Database = request.app["db"]
+    project_id = request.query.get("project_id")
+    if not project_id:
+        return web.json_response({"error": "project_id query parameter is required"}, status=400)
+    entries = await db.get_scratchpad(project_id)
+    return web.json_response(entries)
+
+
+async def upsert_scratchpad(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=1):
+        return r
+    db: Database = request.app["db"]
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    project_id = data.get("project_id")
+    key = data.get("key")
+    value = data.get("value", "")
+    set_by = data.get("set_by", "")
+
+    if not project_id or not key:
+        return web.json_response({"error": "project_id and key are required"}, status=400)
+
+    await db.upsert_scratchpad(project_id, key[:200], value[:10000], set_by[:100])
+    return web.json_response({"status": "ok", "key": key})
+
+
+async def delete_scratchpad_entry(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=1):
+        return r
+    db: Database = request.app["db"]
+    key = request.match_info["key"]
+    project_id = request.query.get("project_id")
+    if not project_id:
+        return web.json_response({"error": "project_id query parameter is required"}, status=400)
+    success = await db.delete_scratchpad(project_id, key)
+    if success:
+        return web.json_response({"status": "deleted"})
+    return web.json_response({"error": "Entry not found"}, status=404)
+
+
+# ── Config Import/Export endpoints ──
+
+async def export_config(request: web.Request) -> web.Response:
+    """GET /api/config/export — download full ashlar.yaml as JSON."""
+    if r := _check_rate(request, cost=1):
+        return r
+    config_path = ASHLAR_DIR / "ashlar.yaml"
+    if not config_path.exists():
+        return web.json_response({"error": "Config file not found"}, status=404)
+    try:
+        with open(config_path) as f:
+            raw = yaml.safe_load(f) or {}
+        return web.json_response(raw, headers={
+            "Content-Disposition": "attachment; filename=ashlar_config.json"
+        })
+    except Exception as e:
+        return web.json_response({"error": f"Failed to read config: {e}"}, status=500)
+
+
+async def import_config(request: web.Request) -> web.Response:
+    """POST /api/config/import — import config from JSON, validate, apply."""
+    if r := _check_rate(request, cost=5, rate=0.5, burst=3):
+        return r
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    if not isinstance(data, dict):
+        return web.json_response({"error": "Config must be a JSON object"}, status=400)
+
+    # Read current config for diff
+    config_path = ASHLAR_DIR / "ashlar.yaml"
+    current = {}
+    if config_path.exists():
+        try:
+            with open(config_path) as f:
+                current = yaml.safe_load(f) or {}
+        except Exception:
+            pass
+
+    # Build diff for preview
+    def flat_diff(old: dict, new: dict, prefix: str = "") -> list[dict]:
+        changes = []
+        all_keys = set(list(old.keys()) + list(new.keys()))
+        for k in sorted(all_keys):
+            path = f"{prefix}.{k}" if prefix else k
+            ov = old.get(k)
+            nv = new.get(k)
+            if isinstance(ov, dict) and isinstance(nv, dict):
+                changes.extend(flat_diff(ov, nv, path))
+            elif ov != nv:
+                changes.append({"key": path, "old": ov, "new": nv})
+        return changes
+
+    diff = flat_diff(current, data)
+
+    # Atomic write
+    try:
+        tmp_path = config_path.with_suffix(".yaml.tmp")
+        with open(tmp_path, "w") as f:
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+        tmp_path.rename(config_path)
+    except Exception as e:
+        return web.json_response({"error": f"Failed to write config: {e}"}, status=500)
+
+    # Reload in-memory config
+    config: Config = request.app["config"]
+    try:
+        reloaded = load_config(bool(shutil.which("claude")))
+        for attr in ("max_agents", "default_role", "default_working_dir", "output_capture_interval",
+                      "memory_limit_mb", "default_backend", "llm_enabled", "llm_model",
+                      "llm_summary_interval", "voice_feedback", "idle_agent_ttl",
+                      "health_low_threshold", "health_critical_threshold",
+                      "stall_timeout_minutes", "hung_timeout_minutes"):
+            if hasattr(reloaded, attr):
+                setattr(config, attr, getattr(reloaded, attr))
+    except Exception as e:
+        log.warning(f"Config reload partial failure: {e}")
+
+    return web.json_response({"status": "imported", "changes": diff})
 
 
 # ── History endpoints ──
@@ -3906,6 +4668,51 @@ async def bulk_agent_action(request: web.Request) -> web.Response:
     return web.json_response({"success": success_ids, "failed": failed_items})
 
 
+async def bulk_respond(request: web.Request) -> web.Response:
+    """Send responses to multiple waiting agents at once."""
+    manager: AgentManager = request.app["agent_manager"]
+    hub: WebSocketHub = request.app["ws_hub"]
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    responses = data.get("responses", [])
+    if not responses or not isinstance(responses, list):
+        return web.json_response({"error": "responses must be a non-empty list"}, status=400)
+
+    success_ids = []
+    failed_items = []
+
+    for item in responses:
+        aid = item.get("agent_id", "")
+        message = item.get("message", "")
+        if not aid or not message:
+            failed_items.append({"id": aid, "error": "Missing agent_id or message"})
+            continue
+
+        agent = manager.agents.get(aid)
+        if not agent:
+            failed_items.append({"id": aid, "error": "Agent not found"})
+            continue
+
+        # Sanitize message
+        message = message[:500].replace('\r', '')
+        message = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', message)
+
+        try:
+            await manager._tmux_send_keys(agent.tmux_session, message)
+            agent.needs_input = False
+            agent.input_prompt = None
+            agent.updated_at = datetime.now(timezone.utc).isoformat()
+            success_ids.append(aid)
+            await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
+        except Exception as e:
+            failed_items.append({"id": aid, "error": str(e)})
+
+    return web.json_response({"success": success_ids, "failed": failed_items})
+
+
 # ─────────────────────────────────────────────
 # Section 9: Background Tasks
 # ─────────────────────────────────────────────
@@ -3918,11 +4725,14 @@ async def output_capture_loop(app: web.Application) -> None:
 
     while True:
         try:
-            for agent_id, agent in list(manager.agents.items()):
-                if agent.status in ("paused",):
-                    continue
+            # Phase 1: Parallel output capture
+            active_agents = [
+                (aid, agent) for aid, agent in list(manager.agents.items())
+                if agent.status != "paused"
+            ]
 
-                # Spawn timeout: 30s with no output → error
+            # Check spawn timeouts first (cheap, no I/O)
+            for agent_id, agent in active_agents:
                 if agent.status == "spawning" and agent._spawn_time > 0:
                     if time.monotonic() - agent._spawn_time > 30:
                         agent.status = "error"
@@ -3931,100 +4741,151 @@ async def output_capture_loop(app: web.Application) -> None:
                         agent.updated_at = datetime.now(timezone.utc).isoformat()
                         await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
                         await hub.broadcast_event("agent_error", f"Agent {agent.name} spawn timed out", agent_id, agent.name)
-                        continue
 
-                # Capture output
+            # Parallel capture — all tmux reads happen concurrently
+            async def _capture_one(aid: str) -> tuple[str, list[str] | None]:
                 try:
-                    new_lines = await manager.capture_output(agent_id)
-                    if new_lines:
-                        now_mono = time.monotonic()
-
-                        # -- Per-agent metrics tracking --
-                        # Time to first output
-                        if not agent._first_output_received and agent._spawn_time > 0:
-                            agent._first_output_received = True
-                            agent.time_to_first_output = round(now_mono - agent._spawn_time, 2)
-
-                        # Track output timestamps and line counts
-                        agent.last_output_time = now_mono
-                        line_count = len(new_lines)
-                        agent.total_output_lines += line_count
-                        agent._output_line_timestamps.append((now_mono, line_count))
-
-                        # Calculate rolling output rate (lines per minute over last 60s)
-                        cutoff = now_mono - 60.0
-                        recent_lines_count = sum(
-                            count for ts, count in agent._output_line_timestamps if ts >= cutoff
-                        )
-                        window = min(60.0, now_mono - agent._spawn_time) if agent._spawn_time > 0 else 60.0
-                        agent.output_rate = (recent_lines_count / max(window, 1.0)) * 60.0
-
-                        await hub.broadcast({
-                            "type": "agent_output",
-                            "agent_id": agent_id,
-                            "lines": new_lines,
-                        })
-
-                        # File conflict detection
-                        try:
-                            conflicts = manager._check_file_conflicts(agent_id, new_lines)
-                            for conflict in conflicts:
-                                await hub.broadcast_event(
-                                    "file_conflict",
-                                    f"File conflict: {conflict['agent_name']} and {conflict['other_agent_name']} both working on {conflict['file_path']}",
-                                    agent_id, agent.name,
-                                    conflict,
-                                )
-                        except Exception:
-                            pass
-
-                        # Update summary — try LLM first (throttled), fall back to heuristic
-                        agent.summary = extract_summary(list(agent.output_lines), agent.task)
-                        agent.progress_pct = estimate_progress(agent)
-
-                        # LLM summary with throttling
-                        summarizer: LLMSummarizer | None = app.get("llm_summarizer")
-                        if summarizer and app["config"].llm_enabled:
-                            if now_mono - agent._last_llm_summary_time >= app["config"].llm_summary_interval:
-                                agent._last_llm_summary_time = now_mono
-                                try:
-                                    llm_summary = await summarizer.summarize(
-                                        list(agent.output_lines), agent.task,
-                                        agent.role, agent.status
-                                    )
-                                    if llm_summary:
-                                        agent.summary = llm_summary
-                                        agent._llm_summary = llm_summary
-                                except Exception as e:
-                                    log.debug(f"LLM summary failed for {agent_id}: {e}")
+                    lines = await manager.capture_output(aid)
+                    return (aid, lines)
                 except Exception as e:
-                    log.warning(f"Output capture error for {agent_id}: {e}")
+                    log.warning(f"Output capture error for {aid}: {e}")
+                    return (aid, None)
+
+            capture_tasks = [_capture_one(aid) for aid, agent in active_agents if agent.status != "error"]
+            results = await asyncio.gather(*capture_tasks, return_exceptions=True)
+
+            # Phase 2: Sequential processing of capture results
+            for result in results:
+                if isinstance(result, Exception):
+                    log.warning(f"Capture task exception: {result}")
+                    continue
+                agent_id, new_lines = result
+                agent = manager.agents.get(agent_id)
+                if not agent:
+                    continue
+
+                if new_lines is None:
+                    # Capture failed — mark error
                     agent.status = "error"
-                    agent.error_message = f"Output capture failed: {e}"
+                    agent.error_message = "Output capture failed"
                     agent._error_entered_at = time.monotonic()
                     agent.updated_at = datetime.now(timezone.utc).isoformat()
                     await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
+                    continue
 
-                # Output staleness detection
+                if new_lines:
+                    now_mono = time.monotonic()
+
+                    # -- Per-agent metrics tracking --
+                    if not agent._first_output_received and agent._spawn_time > 0:
+                        agent._first_output_received = True
+                        agent.time_to_first_output = round(now_mono - agent._spawn_time, 2)
+
+                    agent.last_output_time = now_mono
+                    line_count = len(new_lines)
+                    agent.total_output_lines += line_count
+                    agent._output_line_timestamps.append((now_mono, line_count))
+
+                    # Archive overflow lines to DB if flagged by capture_output
+                    if hasattr(agent, '_overflow_to_archive') and agent._overflow_to_archive:
+                        aid_arch, overflow_lines, offset = agent._overflow_to_archive
+                        agent._overflow_to_archive = None
+                        if app.get("db_available", True):
+                            db: Database = app["db"]
+                            try:
+                                await db.archive_output(aid_arch, overflow_lines, offset)
+                            except Exception as e:
+                                log.debug(f"Output archiving failed for {agent_id}: {e}")
+
+                    # Rolling output rate
+                    cutoff = now_mono - 60.0
+                    recent_lines_count = sum(
+                        count for ts, count in agent._output_line_timestamps if ts >= cutoff
+                    )
+                    window = min(60.0, now_mono - agent._spawn_time) if agent._spawn_time > 0 else 60.0
+                    agent.output_rate = (recent_lines_count / max(window, 1.0)) * 60.0
+
+                    await hub.broadcast({
+                        "type": "agent_output",
+                        "agent_id": agent_id,
+                        "lines": new_lines,
+                    })
+
+                    # File conflict detection
+                    try:
+                        conflicts = manager._check_file_conflicts(agent_id, new_lines)
+                        for conflict in conflicts:
+                            await hub.broadcast_event(
+                                "file_conflict",
+                                f"File conflict: {conflict['agent_name']} and {conflict['other_agent_name']} both working on {conflict['file_path']}",
+                                agent_id, agent.name,
+                                conflict,
+                            )
+                    except Exception:
+                        pass
+
+                    # Update summary
+                    agent.summary = extract_summary(list(agent.output_lines), agent.task)
+                    agent.progress_pct = estimate_progress(agent)
+
+                    # LLM summary with throttling
+                    summarizer: LLMSummarizer | None = app.get("llm_summarizer")
+                    if summarizer and app["config"].llm_enabled:
+                        if now_mono - agent._last_llm_summary_time >= app["config"].llm_summary_interval:
+                            agent._last_llm_summary_time = now_mono
+                            try:
+                                llm_summary = await summarizer.summarize(
+                                    list(agent.output_lines), agent.task,
+                                    agent.role, agent.status
+                                )
+                                if llm_summary:
+                                    agent.summary = llm_summary
+                                    agent._llm_summary = llm_summary
+                            except Exception as e:
+                                log.debug(f"LLM summary failed for {agent_id}: {e}")
+
+                # Output staleness detection (runs whether or not there were new lines)
                 if agent.status == "working" and agent.last_output_time > 0:
                     silence = time.monotonic() - agent.last_output_time
-                    if silence > 900:  # 15 minutes
+                    if silence > 900:
                         agent.status = "error"
                         agent.error_message = "No output for 15 minutes"
                         agent._error_entered_at = time.monotonic()
                         agent.updated_at = datetime.now(timezone.utc).isoformat()
                         await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
                         await hub.broadcast_event("agent_stale", f"Agent {agent.name} stale — no output for 15 minutes", agent_id, agent.name)
-                    elif silence > 300:  # 5 minutes
+                    elif silence > 300:
                         await hub.broadcast_event("agent_stale_warning", f"Agent {agent.name} has had no output for {int(silence)}s", agent_id, agent.name)
 
-                # Update health score
+                # Health score
                 try:
-                    agent.health_score = calculate_health_score(
-                        agent, app["config"].memory_limit_mb
-                    )
+                    agent.health_score = calculate_health_score(agent, app["config"].memory_limit_mb)
                 except Exception:
                     pass
+
+                # Health-driven events (using configurable thresholds)
+                _crit_thresh = app["config"].health_critical_threshold
+                _low_thresh = app["config"].health_low_threshold
+                if agent.health_score < _crit_thresh:
+                    if not getattr(agent, '_health_critical_warned', False):
+                        agent._health_critical_warned = True
+                        await hub.broadcast_event(
+                            "agent_health_critical",
+                            f"Agent {agent.name} health critical ({int(agent.health_score * 100)}%) — consider restarting",
+                            agent_id, agent.name,
+                        )
+                elif agent.health_score < _low_thresh:
+                    if not getattr(agent, '_health_low_warned', False):
+                        agent._health_low_warned = True
+                        await hub.broadcast_event(
+                            "agent_health_low",
+                            f"Agent {agent.name} health low ({int(agent.health_score * 100)}%)",
+                            agent_id, agent.name,
+                        )
+                elif agent.health_score >= 0.5:
+                    # Reset warning flags when health recovers
+                    agent._health_low_warned = False
+                    agent._health_critical_warned = False
 
                 # Detect status
                 try:
@@ -4035,15 +4896,26 @@ async def output_capture_loop(app: web.Application) -> None:
                         agent.updated_at = datetime.now(timezone.utc).isoformat()
                         log.debug(f"Agent {agent_id} status: {old_status} -> {new_status}")
 
-                        # Track when error status is entered (for auto-restart timing)
                         if new_status == "error" and old_status != "error":
                             agent._error_entered_at = time.monotonic()
-                            # Workflow failure handling
-                            wf_run = manager.on_agent_failed(agent_id)
+                            wf_run, failure_action = manager.on_agent_failed(agent_id)
                             if wf_run:
+                                if failure_action == "retry":
+                                    await hub.broadcast_event(
+                                        "workflow_agent_retry",
+                                        f"Pipeline: retrying agent {agent.name}",
+                                        agent_id, agent.name,
+                                        {"workflow_run_id": wf_run.id},
+                                    )
+                                elif failure_action == "skip":
+                                    await hub.broadcast_event(
+                                        "workflow_agent_skipped",
+                                        f"Pipeline: skipping failed agent {agent.name} (on_failure=skip)",
+                                        agent_id, agent.name,
+                                        {"workflow_run_id": wf_run.id},
+                                    )
                                 await manager.resolve_workflow_deps(wf_run, hub)
 
-                        # Workflow completion handling
                         if new_status == "idle" and old_status != "idle":
                             wf_run = manager.on_agent_complete(agent_id)
                             if wf_run:
@@ -4052,7 +4924,6 @@ async def output_capture_loop(app: web.Application) -> None:
                         await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
 
                         if agent.needs_input:
-                            # Debounce: suppress duplicate needs_input events within 5s
                             now_mono = time.monotonic()
                             if now_mono - agent._last_needs_input_event > 5.0:
                                 agent._last_needs_input_event = now_mono
@@ -4062,7 +4933,6 @@ async def output_capture_loop(app: web.Application) -> None:
                                     agent_id, agent.name,
                                 )
                     else:
-                        # Broadcast updates even if status unchanged (summary/context may have changed)
                         if new_lines:
                             await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
                 except Exception as e:
@@ -4198,6 +5068,29 @@ async def health_check_loop(app: web.Application) -> None:
                         await manager.kill(agent_id)
                         await hub.broadcast({"type": "agent_removed", "agent_id": agent_id, "reason": "idle_timeout"})
                         await hub.broadcast_event("agent_reaped", f"Agent {name} reaped after {int(idle_duration)}s idle", agent_id, name)
+
+                # -- Workflow stage stall detection --
+                if agent.workflow_run_id and agent.status == "paused":
+                    pause_duration = time.monotonic() - agent.last_output_time if agent.last_output_time > 0 else 0
+                    if pause_duration > app["config"].stall_timeout_minutes * 60:
+                        if not getattr(agent, '_workflow_stall_warned', False):
+                            agent._workflow_stall_warned = True
+                            await hub.broadcast_event(
+                                "workflow_stage_stalled",
+                                f"Workflow agent {agent.name} paused for {int(pause_duration)}s — blocking downstream",
+                                agent_id, agent.name,
+                            )
+
+                if agent.workflow_run_id and agent.status == "working" and agent.last_output_time > 0:
+                    wf_silence = time.monotonic() - agent.last_output_time
+                    if wf_silence > app["config"].hung_timeout_minutes * 60:
+                        if not getattr(agent, '_workflow_hung_warned', False):
+                            agent._workflow_hung_warned = True
+                            await hub.broadcast_event(
+                                "workflow_stage_hung",
+                                f"Workflow agent {agent.name} has no output for {int(wf_silence)}s — may be hung",
+                                agent_id, agent.name,
+                            )
         except Exception as e:
             log.error(f"Health check error: {e}")
 
@@ -4240,7 +5133,11 @@ async def start_background_tasks(app: web.Application) -> None:
     except Exception as e:
         log.error(f"Database init failed: {e}, retrying...")
         await asyncio.sleep(1)
-        await db.init()  # Will raise if second attempt fails too
+        try:
+            await db.init()
+        except Exception as e2:
+            log.error(f"Database init failed on retry: {e2} — running in degraded mode (no persistence)")
+            app["db_available"] = False
 
     app["bg_tasks"] = [
         asyncio.create_task(output_capture_loop(app)),
@@ -4293,6 +5190,7 @@ def create_app(config: Config) -> web.Application:
 
     db = Database()
     app["db"] = db
+    app["db_available"] = True  # Set to False if DB init fails in start_background_tasks
 
     hub = WebSocketHub(manager, config, db)
     app["ws_hub"] = hub
@@ -4318,6 +5216,7 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/agents", list_agents)
     app.router.add_post("/api/agents", spawn_agent)
     app.router.add_post("/api/agents/bulk", bulk_agent_action)
+    app.router.add_post("/api/agents/bulk-respond", bulk_respond)
     app.router.add_patch("/api/agents/{id}", patch_agent)
     app.router.add_get("/api/agents/{id}", get_agent)
     app.router.add_delete("/api/agents/{id}", delete_agent)
@@ -4326,6 +5225,7 @@ def create_app(config: Config) -> web.Application:
     app.router.add_post("/api/agents/{id}/resume", resume_agent)
     app.router.add_post("/api/agents/{id}/restart", restart_agent)
     app.router.add_get("/api/agents/{id}/output", get_agent_output)
+    app.router.add_get("/api/agents/{id}/full-output", get_agent_full_output)
     app.router.add_post("/api/agents/{id}/summarize", generate_summary)
     app.router.add_post("/api/agents/{id}/message", send_agent_message)
     app.router.add_get("/api/agents/{id}/messages", get_agent_messages)
@@ -4362,6 +5262,24 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/history", list_history)
     app.router.add_get("/api/history/{id}", get_history_item)
     app.router.add_get("/api/events", list_events)
+
+    # REST API — Presets
+    app.router.add_get("/api/presets", list_presets)
+    app.router.add_post("/api/presets", create_preset)
+    app.router.add_put("/api/presets/{id}", update_preset)
+    app.router.add_delete("/api/presets/{id}", delete_preset)
+
+    # REST API — Agent Clone
+    app.router.add_post("/api/agents/{id}/clone", clone_agent)
+
+    # REST API — Scratchpad
+    app.router.add_get("/api/scratchpad", get_scratchpad)
+    app.router.add_put("/api/scratchpad", upsert_scratchpad)
+    app.router.add_delete("/api/scratchpad/{key}", delete_scratchpad_entry)
+
+    # REST API — Config Import/Export
+    app.router.add_get("/api/config/export", export_config)
+    app.router.add_post("/api/config/import", import_config)
 
     # CORS
     cors = aiohttp_cors.setup(app, defaults={

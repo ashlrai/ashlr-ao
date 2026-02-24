@@ -351,6 +351,8 @@ body {
     display: flex;
     flex-direction: column;
     animation: fadeUp 0.4s ease-out backwards;
+    will-change: transform;
+    contain: layout style;
 }
 .agent-card:hover {
     border-color: var(--border-light);
@@ -365,7 +367,7 @@ body {
 .agent-card[data-status="paused"] { opacity: 0.45; filter: grayscale(0.3); }
 .agent-card[data-status="idle"] { border-left-color: var(--text-dimmed) !important; opacity: 0.6; }
 .agent-card[data-status="reading"] { border-left-color: #3B82F6 !important; }
-.agent-card[data-status="spawning"] { animation: fadeUp 0.4s ease-out backwards, skeleton-pulse 1.5s ease-in-out infinite; }
+.agent-card[data-status="spawning"] { animation: fadeUp 0.4s ease-out backwards, skeleton-pulse 1.5s ease-in-out infinite; will-change: opacity; }
 
 .agent-card.exiting {
     animation: fadeOut 0.3s ease forwards;
@@ -380,12 +382,12 @@ body {
     to { opacity: 0; transform: translateY(-8px) scale(0.97); }
 }
 @keyframes subtle-glow {
-    0%, 100% { box-shadow: 0 0 0 0 transparent; }
-    50% { box-shadow: 0 0 20px -6px var(--accent-glow); }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
 }
 @keyframes waiting-glow {
-    0%, 100% { box-shadow: 0 0 0 0 transparent; }
-    50% { box-shadow: 0 0 20px -6px rgba(249,115,22,0.4); }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
 }
 @keyframes skeleton-pulse {
     0%, 100% { opacity: 0.5; }
@@ -959,6 +961,145 @@ body {
     to { transform: translateY(0); }
 }
 
+/* ── Attention Queue ── */
+
+.attention-queue-overlay {
+    position: fixed;
+    top: 56px; right: 0; bottom: 0;
+    width: 420px;
+    max-width: 95vw;
+    background: rgba(13,21,32,0.97);
+    backdrop-filter: blur(24px);
+    border-left: 1px solid var(--border);
+    z-index: 155;
+    display: none;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+}
+.attention-queue-overlay.active {
+    display: flex;
+    transform: translateX(0);
+}
+
+.aq-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+.aq-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    flex: 1;
+    margin: 0;
+}
+.aq-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+}
+.aq-close:hover { color: var(--text-primary); }
+
+.aq-bulk-bar {
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+}
+.aq-bulk-btn {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--success-subtle);
+    color: var(--success);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+.aq-bulk-btn:hover { background: var(--success); color: #fff; }
+.aq-bulk-btn.reject {
+    background: var(--danger-subtle);
+    color: var(--danger);
+}
+.aq-bulk-btn.reject:hover { background: var(--danger); color: #fff; }
+
+.aq-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.aq-item {
+    padding: 14px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background var(--transition);
+}
+.aq-item:hover { background: rgba(255,255,255,0.03); }
+
+.aq-item-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.aq-item-icon { font-size: 14px; }
+.aq-item-name {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+}
+.aq-item-time {
+    font-size: 11px;
+    color: var(--text-dimmed);
+    font-family: var(--font-mono);
+}
+
+.aq-item-question {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 10px;
+    max-height: 60px;
+    overflow: hidden;
+}
+
+.aq-item-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.aq-item-actions .btn {
+    padding: 5px 12px;
+    font-size: 11px;
+    border-radius: 6px;
+}
+.aq-item-input {
+    flex: 1;
+    padding: 5px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    outline: none;
+}
+.aq-item-input:focus { border-color: var(--border-focus); }
+
+.aq-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--text-dimmed);
+    font-size: 13px;
+}
+
 .interaction-agent {
     display: flex;
     align-items: center;
@@ -1130,6 +1271,14 @@ body {
     transition: all var(--transition);
     flex-shrink: 0;
 }
+.voice-status {
+    font-size: 11px;
+    color: var(--text-dimmed);
+    letter-spacing: 0.3px;
+    transition: color var(--transition);
+    flex-shrink: 0;
+}
+.voice-status.listening { color: var(--danger); font-weight: 600; }
 .voice-btn:hover { border-color: var(--accent); color: var(--accent); }
 .voice-btn.listening {
     background: var(--danger);
@@ -1619,6 +1768,130 @@ body {
 }
 
 /* ── Terminal Toolbar ── */
+.deep-tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0 16px;
+    background: rgba(13,21,32,0.4);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.deep-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dimmed);
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    transition: all var(--transition);
+}
+.deep-tab:hover { color: var(--text-primary); }
+.deep-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+.deep-scratchpad-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+.scratchpad-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.scratchpad-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.scratchpad-entry {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+.scratchpad-key {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    min-width: 100px;
+}
+.scratchpad-val {
+    flex: 1;
+    font-size: 12px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.scratchpad-by {
+    font-size: 11px;
+    color: var(--text-dimmed);
+    min-width: 60px;
+    text-align: right;
+}
+.scratchpad-actions {
+    display: flex;
+    gap: 4px;
+}
+.scratchpad-actions button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-dimmed);
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+}
+.scratchpad-actions button:hover {
+    color: var(--text-primary);
+    border-color: var(--border-light);
+}
+.scratchpad-actions button.danger:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+}
+.scratchpad-empty {
+    text-align: center;
+    color: var(--text-dimmed);
+    padding: 40px;
+    font-size: 13px;
+}
+.scratchpad-inline-form {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+}
+.scratchpad-inline-form input {
+    flex: 1;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    padding: 4px 8px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+}
+.scratchpad-inline-form button {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--font-sans);
+}
 .terminal-toolbar {
     display: flex;
     align-items: center;
@@ -2219,6 +2492,14 @@ body {
 .card-conflict-badge.active { display: inline-block; }
 @keyframes conflict-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 
+/* ── Files Touched Badge on Cards ── */
+.card-files-badge {
+    font-size: 10px;
+    color: var(--text-dimmed);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+}
+
 /* ── Pipeline Position Badge on Cards ── */
 .card-pipeline-badge { display: none; font-family: 'JetBrains Mono', monospace; font-size: 10px; background: rgba(6,182,212,0.15); color: #06b6d4; padding: 1px 6px; border-radius: 8px; white-space: nowrap; }
 .card-pipeline-badge.active { display: inline-block; }
@@ -2243,6 +2524,61 @@ body {
 .handoff-modal select, .handoff-modal textarea, .handoff-modal input[type="text"] { width: 100%; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--text-primary); font-size: 13px; font-family: inherit; resize: vertical; box-sizing: border-box; }
 .handoff-modal select:focus, .handoff-modal textarea:focus, .handoff-modal input:focus { border-color: var(--accent); outline: none; }
 .handoff-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+/* ── Table View (A2) ── */
+.view-toggle { display: flex; gap: 2px; background: var(--bg-card); border-radius: 8px; padding: 2px; border: 1px solid var(--border); }
+.view-toggle-btn { background: transparent; border: none; color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+.view-toggle-btn.active { background: var(--accent); color: #fff; }
+.agent-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; padding: 0 16px; display: none; }
+.agent-table th { position: sticky; top: 0; background: var(--bg-primary); text-align: left; font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px; cursor: pointer; user-select: none; white-space: nowrap; z-index: 1; }
+.agent-table th:hover { color: var(--text-primary); }
+.agent-table th .sort-arrow { font-size: 10px; margin-left: 2px; opacity: 0.4; }
+.agent-table th .sort-arrow.active { opacity: 1; color: var(--accent); }
+.agent-table tr.table-row { background: var(--bg-card); cursor: pointer; transition: background 0.15s, transform 0.1s; border-radius: 8px; }
+.agent-table tr.table-row:hover { background: var(--bg-elevated); }
+.agent-table tr.table-row.waiting { animation: waiting-pulse 2s ease-in-out infinite; }
+.agent-table td { padding: 8px 10px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+.agent-table td:first-child { border-radius: 8px 0 0 8px; }
+.agent-table td:last-child { border-radius: 0 8px 8px 0; }
+.table-status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+.table-status-dot.working { background: var(--accent); }
+.table-status-dot.planning { background: var(--warning); }
+.table-status-dot.waiting { background: var(--orange); }
+.table-status-dot.error { background: var(--danger); }
+.table-status-dot.idle { background: var(--text-dimmed); }
+.table-status-dot.reading { background: #3B82F6; }
+.table-status-dot.paused { background: var(--text-dimmed); opacity: 0.5; }
+.table-status-dot.spawning { background: var(--text-secondary); animation: spawning-pulse 1s infinite; }
+
+/* ── Sparkline on Cards (A3) ── */
+.card-sparkline { width: 100%; height: 20px; margin: 2px 0; display: block; }
+
+/* ── Pin Indicator (E4) ── */
+.card-pin-indicator { position: absolute; top: 6px; right: 6px; font-size: 10px; opacity: 0.6; display: none; }
+.agent-card.pinned .card-pin-indicator { display: block; }
+
+/* ── Drag and Drop Workflow (E2) ── */
+.wf-agent-row.dragging { opacity: 0.4; }
+.wf-agent-row.drag-over { border-top: 2px solid var(--accent); }
+
+/* ── Scratchpad Tab (C2) ── */
+.scratchpad-panel { padding: 12px 0; }
+.scratchpad-entry { display: flex; align-items: center; gap: 8px; padding: 6px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.scratchpad-key { font-family: var(--font-mono); font-size: 12px; color: var(--accent); min-width: 120px; }
+.scratchpad-val { font-size: 12px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scratchpad-by { font-size: 10px; color: var(--text-dimmed); min-width: 60px; }
+.scratchpad-empty { text-align: center; color: var(--text-dimmed); padding: 24px; font-size: 13px; }
+
+/* ── Preset selector in spawn dialog ── */
+.preset-selector { display: flex; gap: 6px; margin-bottom: 12px; align-items: center; }
+.preset-selector select { flex: 1; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; color: var(--text-primary); font-size: 12px; font-family: inherit; }
+
+/* ── Config Diff Preview (D1) ── */
+.config-diff { max-height: 300px; overflow-y: auto; padding: 8px; font-family: var(--font-mono); font-size: 12px; background: var(--bg-primary); border-radius: 8px; border: 1px solid var(--border); margin: 8px 0; }
+.config-diff-line { padding: 2px 6px; }
+.config-diff-line.changed { background: rgba(234,179,8,0.1); color: var(--warning); }
+.config-diff-line.added { background: rgba(34,197,94,0.1); color: #22c55e; }
+.config-diff-line.removed { background: rgba(239,68,68,0.1); color: #ef4444; }
 </style>
 </head>
 <body>
@@ -2312,10 +2648,29 @@ body {
 <!-- ── Main Content ── -->
 <div class="main-content" id="mainContent">
     <div class="grid-toolbar">
-        <input class="grid-search" id="gridSearch" placeholder="Filter agents..." oninput="filterAgentGrid(this.value)" aria-label="Filter agents">
+        <input class="grid-search" id="gridSearch" placeholder="Filter agents..." oninput="filterAgentGridDebounced(this.value)" aria-label="Filter agents">
         <span class="grid-search-count" id="gridSearchCount"></span>
+        <div class="view-toggle">
+            <button class="view-toggle-btn active" id="viewGridBtn" onclick="setViewMode('grid')" title="Card grid">▦</button>
+            <button class="view-toggle-btn" id="viewTableBtn" onclick="setViewMode('table')" title="Table view">☰</button>
+        </div>
         <button class="btn btn-secondary btn-sm" onclick="openTimeline()" title="Activity Timeline (Cmd+T)">📋 Timeline</button>
     </div>
+    <table class="agent-table" id="agentTable">
+        <thead><tr>
+            <th onclick="sortTable('status')">Status <span class="sort-arrow" data-col="status"></span></th>
+            <th onclick="sortTable('role')">Role <span class="sort-arrow" data-col="role"></span></th>
+            <th onclick="sortTable('name')">Name <span class="sort-arrow" data-col="name"></span></th>
+            <th onclick="sortTable('task')">Task <span class="sort-arrow" data-col="task"></span></th>
+            <th onclick="sortTable('phase')">Phase <span class="sort-arrow" data-col="phase"></span></th>
+            <th onclick="sortTable('context_pct')">Context <span class="sort-arrow" data-col="context_pct"></span></th>
+            <th onclick="sortTable('health_score')">Health <span class="sort-arrow" data-col="health_score"></span></th>
+            <th onclick="sortTable('files_touched')">Files <span class="sort-arrow" data-col="files_touched"></span></th>
+            <th onclick="sortTable('estimated_cost_usd')">Cost <span class="sort-arrow" data-col="estimated_cost_usd"></span></th>
+            <th>Actions</th>
+        </tr></thead>
+        <tbody id="agentTableBody"></tbody>
+    </table>
     <div class="agent-grid" id="agentGrid">
         <div class="empty-state" id="emptyState">
             <div class="empty-illustration">
@@ -2338,6 +2693,13 @@ body {
 <div class="modal-overlay" id="spawnOverlay">
     <div class="spawn-dialog">
         <div class="dialog-title">Spawn New Agent</div>
+
+        <div class="preset-selector">
+            <select id="spawnPresetSelect" onchange="loadPreset(this.value)">
+                <option value="">From preset...</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="saveAsPreset()" title="Save current form as preset">Save Preset</button>
+        </div>
 
         <div class="form-label">Role</div>
         <div class="role-grid" id="roleGrid"></div>
@@ -2440,8 +2802,19 @@ body {
         <div class="toolbar-spacer"></div>
         <div class="follow-indicator" id="followIndicator" style="display:none">FOLLOWING</div>
     </div>
+    <div class="deep-tab-bar" id="deepTabBar" style="display:none">
+        <button class="deep-tab active" id="deepTabTerminal" onclick="switchDeepTab('terminal')">Terminal</button>
+        <button class="deep-tab" id="deepTabScratchpad" onclick="switchDeepTab('scratchpad')">Scratchpad</button>
+    </div>
     <div class="deep-terminal-wrap">
         <div class="deep-terminal" id="deepTerminal"></div>
+        <div class="deep-scratchpad-panel" id="deepScratchpadPanel" style="display:none">
+            <div class="scratchpad-header">
+                <h4 style="margin:0;color:var(--text-primary)">Project Scratchpad</h4>
+                <button class="btn btn-primary" style="font-size:12px;padding:4px 10px" onclick="addScratchpadEntry()">+ Add Entry</button>
+            </div>
+            <div id="scratchpadContent" class="scratchpad-list"></div>
+        </div>
         <div class="deep-search-bar" id="deepSearchBar">
             <button class="deep-search-toggle" id="deepRegexToggle" onclick="toggleDeepRegex()" title="Toggle regex mode">.*</button>
             <select class="deep-log-filter" id="deepLogFilter" onchange="applyLogFilter()">
@@ -2462,6 +2835,23 @@ body {
         <input class="deep-input" id="deepInput" placeholder="Type a message to this agent..."
                onkeydown="handleDeepInputKey(event)">
         <button class="deep-send-btn" onclick="sendDeepMessage()">Send</button>
+    </div>
+</div>
+
+<!-- ── Attention Queue Panel ── -->
+<div class="attention-queue-overlay" id="attentionQueueOverlay">
+    <div class="aq-header">
+        <span style="font-size:18px">⚡</span>
+        <h3>Attention Queue</h3>
+        <span id="aqCount" style="font-size:12px;color:var(--text-dimmed)"></span>
+        <button class="aq-close" onclick="closeAttentionQueue()">&times;</button>
+    </div>
+    <div class="aq-bulk-bar" id="aqBulkBar" style="display:none">
+        <button class="aq-bulk-btn" onclick="bulkApproveAll()">&#10003; Approve All</button>
+        <button class="aq-bulk-btn reject" onclick="bulkRejectAll()">&#10005; Reject All</button>
+    </div>
+    <div class="aq-list" id="aqList">
+        <div class="aq-empty">No agents waiting for input</div>
     </div>
 </div>
 
@@ -2501,6 +2891,7 @@ body {
 <!-- ── Command Bar ── -->
 <div class="command-bar">
     <button class="voice-btn" id="voiceBtn" onmousedown="startVoice()" onmouseup="stopVoice()" aria-label="Push to talk">🎤</button>
+    <span class="voice-status" id="voiceStatus">PTT Ready</span>
     <div class="voice-transcript" id="voiceTranscript"></div>
     <input class="command-input" id="commandInput" placeholder="Type a command or message..."
            onkeydown="handleCommandKey(event)">
@@ -2546,9 +2937,23 @@ body {
                 </div>
         </div>
         <div class="settings-section">
+            <div class="settings-section-title"><span class="settings-section-icon">⚠</span> Alert Thresholds</div>
+            <div class="settings-row"><span class="settings-label">Health low threshold</span><input class="settings-input" id="setHealthLow" type="number" min="0.05" max="1.0" step="0.05"></div>
+            <div class="settings-row"><span class="settings-label">Health critical threshold</span><input class="settings-input" id="setHealthCritical" type="number" min="0.01" max="1.0" step="0.01"></div>
+            <div class="settings-row"><span class="settings-label">Stall timeout (minutes)</span><input class="settings-input" id="setStallTimeout" type="number" min="1" max="60" step="1"></div>
+            <div class="settings-row"><span class="settings-label">Hung timeout (minutes)</span><input class="settings-input" id="setHungTimeout" type="number" min="1" max="120" step="1"></div>
+        </div>
+        <div class="settings-section">
             <div class="settings-section-title"><span class="settings-section-icon">🎛</span> Display</div>
             <div class="settings-row"><span class="settings-label">Voice feedback sounds</span><div class="settings-toggle" id="setVoiceSounds" onclick="this.classList.toggle('active')"></div></div>
             <div class="settings-row"><span class="settings-label">Browser notifications</span><div class="settings-toggle" id="setBrowserNotifs" onclick="this.classList.toggle('active')"></div></div>
+        </div>
+        <div class="settings-section">
+            <div class="settings-section-title"><span class="settings-section-icon">📦</span> Import / Export</div>
+            <div class="settings-row" style="gap:8px">
+                <button class="btn btn-secondary btn-sm" onclick="exportSettings()">Export Settings</button>
+                <button class="btn btn-secondary btn-sm" onclick="importSettings()">Import Settings</button>
+            </div>
         </div>
         <div class="settings-actions">
             <button class="settings-reset-btn" onclick="resetSettings()">Reset to Defaults</button>
@@ -2614,6 +3019,19 @@ body {
         <div class="confirm-actions">
             <button class="btn btn-secondary" id="confirmCancel">Cancel</button>
             <button class="btn btn-danger" id="confirmOk">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Prompt Input Modal ── -->
+<div class="confirm-overlay" id="promptInputOverlay">
+    <div class="confirm-dialog">
+        <div class="confirm-icon" id="promptInputIcon">📋</div>
+        <h3 class="confirm-title" id="promptInputTitle"></h3>
+        <input type="text" id="promptInputField" class="deep-input" style="width:100%;margin:12px 0;box-sizing:border-box" placeholder="">
+        <div class="confirm-actions">
+            <button class="btn btn-secondary" id="promptInputCancel">Cancel</button>
+            <button class="btn btn-primary" id="promptInputOk">Save</button>
         </div>
     </div>
 </div>
@@ -2746,6 +3164,12 @@ const state = {
     unreadCount: 0,
     workflowRuns: new Map(),
     conflicts: new Map(),
+    presets: [],
+    viewMode: localStorage.getItem('ashlar_view_mode') || 'grid',
+    pinnedAgents: new Set(JSON.parse(localStorage.getItem('ashlar_pinned') || '[]')),
+    commandHistory: new Map(),
+    tableSortCol: 'name',
+    tableSortAsc: true,
 };
 
 const ROLE_INFO = {
@@ -2877,6 +3301,44 @@ function confirmAction(title, message, confirmText = 'Confirm', options = {}) {
 
         okBtn.addEventListener('click', onOk);
         cancelBtn.addEventListener('click', onCancel);
+        overlay.addEventListener('click', onOverlay);
+    });
+}
+
+function promptInput(title, placeholder = '', options = {}) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('promptInputOverlay');
+        const iconEl = document.getElementById('promptInputIcon');
+        const titleEl = document.getElementById('promptInputTitle');
+        const field = document.getElementById('promptInputField');
+        const okBtn = document.getElementById('promptInputOk');
+        const cancelBtn = document.getElementById('promptInputCancel');
+
+        iconEl.textContent = options.icon || '📋';
+        titleEl.textContent = title;
+        field.placeholder = placeholder;
+        field.value = options.defaultValue || '';
+        okBtn.textContent = options.confirmText || 'Save';
+
+        overlay.classList.add('active');
+        setTimeout(() => field.focus(), 50);
+
+        function cleanup(result) {
+            overlay.classList.remove('active');
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            field.removeEventListener('keydown', onKey);
+            overlay.removeEventListener('click', onOverlay);
+            resolve(result);
+        }
+        function onOk() { const v = field.value.trim(); cleanup(v || null); }
+        function onCancel() { cleanup(null); }
+        function onKey(e) { if (e.key === 'Enter') onOk(); if (e.key === 'Escape') onCancel(); }
+        function onOverlay(e) { if (e.target === overlay) cleanup(null); }
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        field.addEventListener('keydown', onKey);
         overlay.addEventListener('click', onOverlay);
     });
 }
@@ -3022,7 +3484,7 @@ class AshlarSocket {
     constructor() {
         this.ws = null;
         this.reconnectDelay = 1000;
-        this.maxDelay = 30000;
+        this.maxDelay = 10000;
     }
 
     connect() {
@@ -3038,6 +3500,7 @@ class AshlarSocket {
         };
 
         this.ws.onmessage = (e) => {
+            this.reconnectDelay = 1000;
             try {
                 const msg = JSON.parse(e.data);
                 this.handleMessage(msg);
@@ -3049,8 +3512,9 @@ class AshlarSocket {
         this.ws.onclose = () => {
             state.connected = false;
             document.getElementById('connectionBanner').classList.add('active');
-            setTimeout(() => this.connect(), this.reconnectDelay);
-            this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxDelay);
+            const jitter = this.reconnectDelay * (0.5 + Math.random());
+            setTimeout(() => this.connect(), jitter);
+            this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, this.maxDelay);
         };
 
         this.ws.onerror = () => {};
@@ -3084,10 +3548,12 @@ async function handleSync(data) {
     state.config = data.config || {};
     state.projects = data.projects || [];
     state.workflows = data.workflows || [];
+    state.presets = data.presets || [];
     state.backends = data.backends || {};
     if (state.config.demo_mode) document.getElementById('demoBadge').style.display = '';
     renderProjectSelector();
     renderAgentGrid();
+    if (state.viewMode === 'table') renderAgentTable();
     updateTabTitle();
     // Fetch active workflow runs
     try {
@@ -3108,6 +3574,7 @@ function handleAgentUpdate(agent) {
     if (prev?._outputBuffer) agent._outputBuffer = prev._outputBuffer;
 
     scheduleRender();
+    if (state.viewMode === 'table') renderAgentTable();
     if (state.view === 'deep' && state.focusedAgentId === agent.id) updateDeepViewHeader(agent);
     updateTabTitle();
     updateAttentionBadge();
@@ -3122,6 +3589,10 @@ function handleAgentOutput(data) {
     if (agent._outputBuffer.length > 10000) {
         agent._outputBuffer = agent._outputBuffer.slice(-10000);
     }
+    // Track sparkline output history
+    if (!agent._outputHistory) agent._outputHistory = [];
+    agent._outputHistory.push(data.lines.length);
+    if (agent._outputHistory.length > 60) agent._outputHistory.shift();
 
     if (state.view === 'deep' && state.focusedAgentId === data.agent_id) {
         appendDeepOutput(data.lines);
@@ -3252,6 +3723,13 @@ function handleEvent(data) {
     }
 }
 
+// ── Utilities ──
+
+function debounce(fn, delay) {
+    let timer;
+    return function(...args) { clearTimeout(timer); timer = setTimeout(() => fn.apply(this, args), delay); };
+}
+
 // ── Render Scheduling ──
 
 let renderScheduled = false;
@@ -3340,6 +3818,7 @@ function createAgentCard(agent) {
             <span class="card-health" title="Health" role="img" aria-label="Agent health"></span>
             <span class="card-message-badge" id="msgBadge-${agent.id}" aria-label="Unread messages"></span>
             <span class="card-conflict-badge"></span>
+            <span class="card-files-badge"></span>
             <button class="card-menu-btn" onclick="event.stopPropagation();toggleCardMenu('${agent.id}')">⋯</button>
         </div>
         <div class="card-info-row">
@@ -3355,7 +3834,9 @@ function createAgentCard(agent) {
             <button class="card-respond-btn" onclick="event.stopPropagation();openInteraction('${agent.id}')">Respond</button>
         </div>
         <div class="progress-bar" role="progressbar" aria-label="Task progress"><div class="progress-bar-fill"></div></div>
+        <canvas class="card-sparkline" width="160" height="20"></canvas>
         <div class="context-bar" role="progressbar" aria-label="Context window usage"><div class="context-bar-fill"></div></div>
+        <span class="card-pin-indicator">📌</span>
         <div class="card-footer">
             <span class="status-badge"></span>
             <span class="card-meta"></span>
@@ -3364,10 +3845,18 @@ function createAgentCard(agent) {
             <div class="card-menu-item" onclick="event.stopPropagation();openDeepView('${agent.id}')">🔍 View Terminal</div>
             <div class="card-menu-item" onclick="event.stopPropagation();openEditAgent('${agent.id}')">✏️ Edit</div>
             <div class="card-menu-item" onclick="event.stopPropagation();pauseResumeAgent('${agent.id}')">⏸ Pause/Resume</div>
+            <div class="card-menu-item" onclick="event.stopPropagation();cloneAgent('${agent.id}')">📋 Clone</div>
+            <div class="card-menu-item" onclick="event.stopPropagation();togglePin('${agent.id}')">📌 Pin/Unpin</div>
             <div class="card-menu-item" onclick="event.stopPropagation();restartAgent('${agent.id}')">🔄 Restart</div>
             <div class="card-menu-item danger" onclick="event.stopPropagation();killAgent('${agent.id}')">✕ Kill</div>
         </div>
     `;
+    // Hover glow — set up once, reads roleColor from dataset
+    card.addEventListener('mouseenter', () => {
+        const rc = card.dataset.roleColor || '#64748B';
+        card.style.boxShadow = `0 12px 36px -8px ${rc}22, 0 0 0 1px rgba(255,255,255,0.06)`;
+    });
+    card.addEventListener('mouseleave', () => { card.style.boxShadow = ''; });
     card.onclick = () => openDeepView(agent.id);
     return card;
 }
@@ -3377,9 +3866,7 @@ function updateAgentCard(card, agent) {
     const roleColor = agent.role_color || ROLE_INFO[agent.role]?.color || '#64748B';
     card.style.borderLeftColor = roleColor;
 
-    // Hover glow with role color
-    card.onmouseenter = () => { card.style.boxShadow = `0 12px 36px -8px ${roleColor}22, 0 0 0 1px rgba(255,255,255,0.06)`; };
-    card.onmouseleave = () => { card.style.boxShadow = ''; };
+    card.dataset.roleColor = roleColor;
 
     card.querySelector('.card-icon').textContent = agent.role_icon || ROLE_INFO[agent.role]?.icon || '🤖';
     card.querySelector('.card-name').textContent = agent.name;
@@ -3473,6 +3960,43 @@ function updateAgentCard(card, agent) {
             conflictBadge.classList.remove('active');
         }
     }
+
+    // Files touched badge
+    const filesBadge = card.querySelector('.card-files-badge');
+    if (agent.files_touched > 0) {
+        filesBadge.textContent = `${agent.files_touched} files`;
+        filesBadge.style.display = '';
+    } else {
+        filesBadge.style.display = 'none';
+    }
+
+    // Sparkline (A3)
+    const sparkCanvas = card.querySelector('.card-sparkline');
+    if (sparkCanvas && agent._outputHistory?.length > 1) {
+        const ctx = sparkCanvas.getContext('2d');
+        const w = sparkCanvas.width, h = sparkCanvas.height;
+        ctx.clearRect(0, 0, w, h);
+        const data = agent._outputHistory;
+        const maxVal = Math.max(1, ...data);
+        const step = w / Math.max(1, data.length - 1);
+        ctx.beginPath();
+        ctx.moveTo(0, h - (data[0] / maxVal) * h);
+        for (let i = 1; i < data.length; i++) {
+            ctx.lineTo(i * step, h - (data[i] / maxVal) * h);
+        }
+        ctx.strokeStyle = roleColor;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Fill below
+        ctx.lineTo((data.length - 1) * step, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fillStyle = roleColor + '33';
+        ctx.fill();
+    }
+
+    // Pin indicator (E4)
+    card.classList.toggle('pinned', state.pinnedAgents.has(agent.id));
 
     // Pipeline position badge
     const pipelineBadge = card.querySelector('.card-pipeline-badge');
@@ -3725,15 +4249,35 @@ function openDeepView(agentId) {
     }
     scrollDeepToBottom();
 
-    terminal.onscroll = () => {
+    // Remove old scroll handler to prevent leak, then add fresh one
+    if (terminal._ashlarScrollHandler) terminal.removeEventListener('scroll', terminal._ashlarScrollHandler);
+    terminal._ashlarScrollHandler = () => {
         const isBottom = terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight < 40;
         deepAutoScroll = isBottom;
         document.getElementById('jumpToBottom').classList.toggle('visible', !isBottom);
         document.getElementById('toolbarAutoScroll').classList.toggle('active', isBottom);
         document.getElementById('followIndicator').style.display = isBottom ? '' : 'none';
     };
+    terminal.addEventListener('scroll', terminal._ashlarScrollHandler);
 
     setTimeout(() => document.getElementById('deepInput').focus(), 100);
+
+    // Set up scratchpad tab if agent has a project
+    const tabBar = document.getElementById('deepTabBar');
+    const scratchpadPanel = document.getElementById('deepScratchpadPanel');
+    if (agent.project_id) {
+        tabBar.style.display = '';
+        _scratchpadProjectId = agent.project_id;
+    } else {
+        tabBar.style.display = 'none';
+        _scratchpadProjectId = null;
+    }
+    // Always reset to terminal tab
+    scratchpadPanel.style.display = 'none';
+    terminal.style.display = '';
+    document.getElementById('terminalToolbar').style.display = '';
+    document.getElementById('deepTabTerminal').classList.add('active');
+    document.getElementById('deepTabScratchpad').classList.remove('active');
 }
 
 function updateDeepViewHeader(agent) {
@@ -3816,14 +4360,38 @@ function closeDeepView() {
     state.view = 'grid';
 }
 
+let _cmdHistIdx = -1;
+let _cmdHistDraft = '';
 function handleDeepInputKey(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendDeepMessage(); }
+    const input = document.getElementById('deepInput');
+    const agentId = state.focusedAgentId;
+    if (!agentId) return;
+    const history = state.commandHistory.get(agentId) || [];
+    if (e.key === 'ArrowUp' && !e.shiftKey) {
+        e.preventDefault();
+        if (_cmdHistIdx === -1) _cmdHistDraft = input.value;
+        if (_cmdHistIdx < history.length - 1) { _cmdHistIdx++; input.value = history[history.length - 1 - _cmdHistIdx]; }
+    } else if (e.key === 'ArrowDown' && !e.shiftKey) {
+        e.preventDefault();
+        if (_cmdHistIdx > 0) { _cmdHistIdx--; input.value = history[history.length - 1 - _cmdHistIdx]; }
+        else if (_cmdHistIdx === 0) { _cmdHistIdx = -1; input.value = _cmdHistDraft; }
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendDeepMessage();
+    }
 }
 
 function sendDeepMessage() {
     const input = document.getElementById('deepInput');
     const msg = input.value.trim();
     if (!msg || !state.focusedAgentId) return;
+    // Save to command history
+    if (!state.commandHistory.has(state.focusedAgentId)) state.commandHistory.set(state.focusedAgentId, []);
+    const hist = state.commandHistory.get(state.focusedAgentId);
+    hist.push(msg);
+    if (hist.length > 50) hist.shift();
+    _cmdHistIdx = -1;
+    _cmdHistDraft = '';
     socket.send({ type: 'send', agent_id: state.focusedAgentId, message: msg });
     input.value = '';
     const terminal = document.getElementById('deepTerminal');
@@ -3916,8 +4484,12 @@ function closeDeepSearch() {
     applyLogFilter();
 }
 
+// Virtual scroll search state
+let _virtualSearchMatches = []; // [{lineIdx, charIdx, length}]
+
 function deepSearch() {
     clearSearchHighlights();
+    _virtualSearchMatches = [];
     const query = document.getElementById('deepSearchInput').value;
     if (!query) { document.getElementById('deepSearchCount').textContent = ''; return; }
 
@@ -3935,7 +4507,36 @@ function deepSearch() {
         regex = new RegExp(escaped, 'gi');
     }
 
-    // TreeWalker to find text nodes only — preserves ANSI <span> tags
+    const isVirtual = virtualTermData.length > 0 && document.getElementById('vtContent') !== null;
+
+    if (isVirtual) {
+        // Search against full virtualTermData array instead of visible DOM
+        for (let i = 0; i < virtualTermData.length; i++) {
+            // Strip HTML/ANSI for plain text matching
+            const plain = virtualTermData[i].replace(/<[^>]*>/g, '').replace(/\x1b\[[0-9;]*m/g, '');
+            regex.lastIndex = 0;
+            let match;
+            while (match = regex.exec(plain)) {
+                _virtualSearchMatches.push({ lineIdx: i, charIdx: match.index, length: match[0].length });
+            }
+        }
+        deepSearchIdx = _virtualSearchMatches.length > 0 ? 0 : -1;
+        const countEl = document.getElementById('deepSearchCount');
+        if (_virtualSearchMatches.length > 0) {
+            countEl.textContent = `1 of ${_virtualSearchMatches.length}`;
+            countEl.style.color = '';
+            // Scroll to first match
+            _virtualSearchScrollTo(terminal, 0);
+        } else {
+            countEl.textContent = 'No matches';
+            countEl.style.color = 'var(--danger)';
+        }
+        // Store match count for navigation compatibility
+        deepSearchMatches = { length: _virtualSearchMatches.length };
+        return;
+    }
+
+    // Non-virtual: TreeWalker to find text nodes only — preserves ANSI <span> tags
     const walker = document.createTreeWalker(terminal, NodeFilter.SHOW_TEXT, null);
     const textNodes = [];
     let node;
@@ -3975,6 +4576,44 @@ function deepSearch() {
     if (deepSearchIdx >= 0) deepSearchMatches[0].scrollIntoView({ block: 'center' });
 }
 
+function _virtualSearchScrollTo(terminal, matchIdx) {
+    if (matchIdx < 0 || matchIdx >= _virtualSearchMatches.length) return;
+    const m = _virtualSearchMatches[matchIdx];
+    // Scroll terminal so the match line is visible
+    terminal.scrollTop = m.lineIdx * virtualTermLineH - terminal.clientHeight / 2;
+    // Re-render the virtual range then highlight the match in DOM
+    renderVirtualRange(terminal);
+    // Find and highlight the match in the now-visible content
+    const content = document.getElementById('vtContent');
+    if (!content) return;
+    const lines = content.querySelectorAll('.terminal-line');
+    const firstVisible = Math.max(0, Math.floor(terminal.scrollTop / virtualTermLineH) - VIRTUAL_BUFFER);
+    const domIdx = m.lineIdx - firstVisible;
+    if (domIdx >= 0 && domIdx < lines.length) {
+        // Highlight in the DOM line
+        const line = lines[domIdx];
+        const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT, null);
+        let pos = 0;
+        let textNode;
+        while (textNode = walker.nextNode()) {
+            const end = pos + textNode.textContent.length;
+            if (m.charIdx >= pos && m.charIdx < end) {
+                const offset = m.charIdx - pos;
+                const range = document.createRange();
+                range.setStart(textNode, Math.min(offset, textNode.textContent.length));
+                range.setEnd(textNode, Math.min(offset + m.length, textNode.textContent.length));
+                const mark = document.createElement('mark');
+                mark.className = 'search-hl';
+                mark.style.cssText = 'background:rgba(37,99,235,0.4);color:white;border-radius:2px';
+                range.surroundContents(mark);
+                mark.scrollIntoView({ block: 'center' });
+                break;
+            }
+            pos = end;
+        }
+    }
+}
+
 function clearSearchHighlights() {
     const terminal = document.getElementById('deepTerminal');
     terminal.querySelectorAll('.search-hl').forEach(m => {
@@ -3986,14 +4625,22 @@ function clearSearchHighlights() {
 function deepSearchNext() {
     if (deepSearchMatches.length === 0) return;
     deepSearchIdx = (deepSearchIdx + 1) % deepSearchMatches.length;
-    deepSearchMatches[deepSearchIdx].scrollIntoView({ block: 'center' });
+    if (_virtualSearchMatches.length > 0) {
+        _virtualSearchScrollTo(document.getElementById('deepTerminal'), deepSearchIdx);
+    } else {
+        deepSearchMatches[deepSearchIdx].scrollIntoView({ block: 'center' });
+    }
     document.getElementById('deepSearchCount').textContent = `${deepSearchIdx + 1} of ${deepSearchMatches.length}`;
 }
 
 function deepSearchPrev() {
     if (deepSearchMatches.length === 0) return;
     deepSearchIdx = (deepSearchIdx - 1 + deepSearchMatches.length) % deepSearchMatches.length;
-    deepSearchMatches[deepSearchIdx].scrollIntoView({ block: 'center' });
+    if (_virtualSearchMatches.length > 0) {
+        _virtualSearchScrollTo(document.getElementById('deepTerminal'), deepSearchIdx);
+    } else {
+        deepSearchMatches[deepSearchIdx].scrollIntoView({ block: 'center' });
+    }
     document.getElementById('deepSearchCount').textContent = `${deepSearchIdx + 1} of ${deepSearchMatches.length}`;
 }
 
@@ -4304,7 +4951,8 @@ function sendCommand() {
 // ── Keyboard Shortcuts ──
 
 document.addEventListener('keydown', (e) => {
-    const isInput = ['INPUT', 'TEXTAREA'].includes(e.target.tagName);
+    const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
+    const hasActiveOverlay = document.querySelector('.confirm-overlay.active');
 
     // Escape always works
     if (e.key === 'Escape') {
@@ -4317,12 +4965,16 @@ document.addEventListener('keydown', (e) => {
         if (document.getElementById('wfEditorOverlay').classList.contains('active')) { closeWfEditor(); return; }
         if (document.getElementById('wfPickerOverlay').classList.contains('active')) { closeWfPicker(); return; }
         if (document.getElementById('msgPanelOverlay').classList.contains('active')) { closeMsgPanel(); return; }
+        if (document.getElementById('attentionQueueOverlay').classList.contains('active')) { closeAttentionQueue(); return; }
         if (document.getElementById('interactionOverlay').classList.contains('active')) { closeInteraction(); return; }
         if (document.getElementById('timelineOverlay').style.display !== 'none') { closeTimeline(); return; }
         if (document.getElementById('pipelineOverlay').style.display !== 'none') { closePipeline(); return; }
         if (document.getElementById('handoffOverlay').classList.contains('active')) { closeHandoff(); return; }
         return;
     }
+
+    // Skip all non-Escape shortcuts when a confirm overlay is active
+    if (hasActiveOverlay) return;
 
     // Cmd+K — palette
     if (e.metaKey && e.key === 'k') {
@@ -4347,12 +4999,10 @@ document.addEventListener('keydown', (e) => {
     // Cmd+F — search in deep view
     if (e.metaKey && e.key === 'f' && state.view === 'deep') { e.preventDefault(); openDeepSearch(); return; }
 
-    // Cmd+Shift+A — approve first waiting
+    // Cmd+Shift+A — open attention queue
     if (e.metaKey && e.shiftKey && e.key === 'A') {
         e.preventDefault();
-        for (const [id, a] of state.agents) {
-            if (a.needs_input) { socket.send({ type: 'send', agent_id: id, message: 'yes' }); showToast(`Approved ${a.name}`, 'success'); break; }
-        }
+        openAttentionQueue();
         return;
     }
 
@@ -4613,7 +5263,11 @@ class VoiceInput {
                 showVoiceTranscript(transcript);
                 this.processCommand(transcript);
             };
-            this.recognition.onerror = () => this.stopUI();
+            this.recognition.onerror = (e) => {
+                this.stopUI();
+                if (e.error === 'not-allowed') showToast('Microphone access denied', 'error');
+                else if (e.error !== 'aborted') showToast('Voice recognition error', 'warning');
+            };
             this.recognition.onend = () => this.stopUI();
         }
     }
@@ -4624,6 +5278,9 @@ class VoiceInput {
             this.recognition.start();
             this.isListening = true;
             document.getElementById('voiceBtn').classList.add('listening');
+            const vs = document.getElementById('voiceStatus');
+            vs.textContent = 'Listening...';
+            vs.classList.add('listening');
             playTone([440], 0.1);
         } catch (e) {}
     }
@@ -4636,6 +5293,9 @@ class VoiceInput {
     stopUI() {
         this.isListening = false;
         document.getElementById('voiceBtn').classList.remove('listening');
+        const vs = document.getElementById('voiceStatus');
+        vs.textContent = 'PTT Ready';
+        vs.classList.remove('listening');
     }
 
     async processCommand(text) {
@@ -4697,6 +5357,7 @@ class VoiceInput {
             socket.send({ type: 'send', agent_id: targetId, message: text });
             showToast(`Sent to ${state.agents.get(targetId)?.name}`, 'info');
         } else {
+            playTone([220, 165], 0.15);
             showToast(`Voice command not recognized: "${text.slice(0, 40)}"`, 'warning');
         }
     }
@@ -4715,19 +5376,20 @@ function showVoiceTranscript(text) {
 
 // PTT via Space
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName) && state.view === 'grid') {
+    if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) && !document.querySelector('.confirm-overlay.active')) {
         e.preventDefault();
         startVoice();
     }
 });
 document.addEventListener('keyup', (e) => {
-    if (e.code === 'Space' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) stopVoice();
+    if (e.code === 'Space' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) stopVoice();
 });
 
 // ── Audio Feedback ──
 
 let audioCtx = null;
 function playTone(freqs, duration) {
+    if (!document.getElementById('setVoiceSounds')?.classList.contains('active')) return;
     try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         freqs.forEach((freq, i) => {
@@ -4766,7 +5428,9 @@ function toggleLineWrap() {
 
 function exportTerminalTxt() {
     const terminal = document.getElementById('deepTerminal');
-    const text = terminal.innerText;
+    const text = virtualTermData.length > 0 && document.getElementById('vtContent')
+        ? virtualTermData.join('\n')
+        : terminal.innerText;
     const agent = state.agents.get(state.focusedAgentId);
     const name = agent?.name || 'agent';
     const blob = new Blob([text], { type: 'text/plain' });
@@ -4780,6 +5444,8 @@ function exportTerminalTxt() {
 }
 
 function clearTerminalDisplay() {
+    virtualTermData = [];
+    _virtualSearchMatches = [];
     document.getElementById('deepTerminal').innerHTML = '<span style="color:var(--text-dimmed)">Display cleared (output continues collecting)</span>';
 }
 
@@ -4787,19 +5453,33 @@ function clearTerminalDisplay() {
 
 function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
+    // Deduplicate: if identical message already visible, reset its timer instead
+    for (const existing of container.children) {
+        if (existing._toastMessage === message && existing._toastType === type && !existing.classList.contains('toast-out')) {
+            clearTimeout(existing._toastTimer);
+            existing._toastTimer = setTimeout(existing._dismiss, 3000);
+            // Reset progress bar animation
+            const progress = existing.querySelector('.toast-progress');
+            if (progress) { progress.style.animation = 'none'; progress.offsetHeight; progress.style.animation = ''; }
+            return;
+        }
+    }
     // Cap at 5 simultaneous toasts
     while (container.children.length >= 5) container.removeChild(container.firstChild);
     const icons = { info: 'ℹ️', success: '✓', warning: '⚠', error: '✕' };
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.style.cursor = 'pointer';
+    toast._toastMessage = message;
+    toast._toastType = type;
     toast.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ️'}</span><span>${message}</span><div class="toast-progress"></div>`;
     const dismiss = () => { toast.classList.add('toast-out'); setTimeout(() => toast.remove(), 300); };
+    toast._dismiss = dismiss;
     toast.onclick = dismiss;
     container.appendChild(toast);
-    const timer = setTimeout(dismiss, 3000);
-    toast.onmouseenter = () => clearTimeout(timer);
-    toast.onmouseleave = () => setTimeout(dismiss, 1500);
+    toast._toastTimer = setTimeout(dismiss, 3000);
+    toast.onmouseenter = () => clearTimeout(toast._toastTimer);
+    toast.onmouseleave = () => { toast._toastTimer = setTimeout(dismiss, 1500); };
 }
 
 // ── Notifications ──
@@ -4865,18 +5545,133 @@ function updateTabTitle() {
     document.title = waiting > 0 ? `(${waiting}) Ashlar AO` : 'Ashlar AO';
 }
 
-// ── Attention Badge ──
+// ── Attention Badge + Queue ──
 
 function updateAttentionBadge() {
     const waiting = [...state.agents.values()].filter(a => a.needs_input).length;
     const badge = document.getElementById('attentionBadge');
     badge.textContent = waiting;
     badge.classList.toggle('active', waiting > 0);
+    // Also refresh the queue if it's open
+    if (document.getElementById('attentionQueueOverlay').classList.contains('active')) {
+        renderAttentionQueue();
+    }
 }
 
 function focusFirstWaiting() {
-    for (const [id, a] of state.agents) {
-        if (a.needs_input) { openInteraction(id); return; }
+    openAttentionQueue();
+}
+
+function openAttentionQueue() {
+    const overlay = document.getElementById('attentionQueueOverlay');
+    overlay.classList.add('active');
+    renderAttentionQueue();
+}
+
+function closeAttentionQueue() {
+    document.getElementById('attentionQueueOverlay').classList.remove('active');
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function renderAttentionQueue() {
+    const list = document.getElementById('aqList');
+    const bulkBar = document.getElementById('aqBulkBar');
+    const countEl = document.getElementById('aqCount');
+
+    const waiting = [...state.agents.values()]
+        .filter(a => a.needs_input)
+        .sort((a, b) => {
+            // Sort by updated_at ascending (longest waiting first)
+            const ta = a.updated_at || a.created_at || '';
+            const tb = b.updated_at || b.created_at || '';
+            return ta.localeCompare(tb);
+        });
+
+    countEl.textContent = waiting.length ? `${waiting.length} waiting` : '';
+    bulkBar.style.display = waiting.length > 1 ? '' : 'none';
+
+    if (!waiting.length) {
+        list.innerHTML = '<div class="aq-empty">No agents waiting for input</div>';
+        return;
+    }
+
+    list.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    for (const agent of waiting) {
+        const info = ROLE_INFO[agent.role] || ROLE_INFO.general;
+        const icon = agent.role_icon || info.icon;
+        const elapsed = agent.updated_at ? timeAgo(agent.updated_at) : '';
+
+        const item = document.createElement('div');
+        item.className = 'aq-item';
+        item.dataset.agentId = agent.id;
+        item.innerHTML = `
+            <div class="aq-item-header">
+                <span class="aq-item-icon">${icon}</span>
+                <span class="aq-item-name">${escapeHtml(agent.name)}</span>
+                <span class="aq-item-time">${elapsed}</span>
+            </div>
+            <div class="aq-item-question">${escapeHtml(agent.input_prompt || 'Waiting for input...')}</div>
+            <div class="aq-item-actions">
+                <button class="btn btn-primary" onclick="respondToAgent('${agent.id}','yes')">Approve</button>
+                <button class="btn btn-secondary" onclick="respondToAgent('${agent.id}','no')">Reject</button>
+                <input class="aq-item-input" placeholder="Custom..." onkeydown="if(event.key==='Enter'){respondToAgent('${agent.id}',this.value);this.value=''}">
+            </div>
+        `;
+        frag.appendChild(item);
+    }
+    list.appendChild(frag);
+}
+
+function respondToAgent(agentId, message) {
+    if (!message) return;
+    socket.send({ type: 'send', agent_id: agentId, message: message });
+    showToast(`Responded to ${state.agents.get(agentId)?.name || agentId}`, 'success');
+    // Remove the item from the list immediately
+    const item = document.querySelector(`.aq-item[data-agent-id="${agentId}"]`);
+    if (item) item.remove();
+    // Update badge
+    setTimeout(updateAttentionBadge, 300);
+}
+
+async function bulkApproveAll() {
+    const waiting = [...state.agents.values()].filter(a => a.needs_input);
+    if (!waiting.length) return;
+    const responses = waiting.map(a => ({ agent_id: a.id, message: 'yes' }));
+    try {
+        const res = await apiFetch('/api/agents/bulk-respond', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ responses }),
+        });
+        const result = await res.json();
+        showToast(`Approved ${result.success?.length || 0} agents`, 'success');
+        renderAttentionQueue();
+    } catch (e) {
+        showToast('Bulk approve failed', 'error');
+    }
+}
+
+async function bulkRejectAll() {
+    const waiting = [...state.agents.values()].filter(a => a.needs_input);
+    if (!waiting.length) return;
+    const responses = waiting.map(a => ({ agent_id: a.id, message: 'no' }));
+    try {
+        const res = await apiFetch('/api/agents/bulk-respond', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ responses }),
+        });
+        const result = await res.json();
+        showToast(`Rejected ${result.success?.length || 0} agents`, 'warning');
+        renderAttentionQueue();
+    } catch (e) {
+        showToast('Bulk reject failed', 'error');
     }
 }
 
@@ -5068,6 +5863,7 @@ async function saveSettings() {
         llm_model: document.getElementById('setLlmModel').value,
         llm_summary_interval: parseFloat(document.getElementById('setLlmInterval').value),
         idle_agent_ttl: parseInt(document.getElementById('setIdleTtl').value),
+        voice_feedback: document.getElementById('setVoiceSounds').classList.contains('active'),
     };
 
     // Validate settings
@@ -5182,7 +5978,7 @@ function editWorkflow(wfId) {
         <div id="wfAgentsList">`;
 
     agents.forEach((a, i) => {
-        html += buildWfAgentRow(i, a.role, a.task, a.depends_on || []);
+        html += buildWfAgentRow(i, a.role, a.task, a.depends_on || [], a);
     });
 
     html += `</div>
@@ -5235,14 +6031,21 @@ function rebuildWfIndices() {
         const task = row.querySelector('input[type="text"]')?.value || '';
         const deps = [];
         row.querySelectorAll('.wf-dep-check input:checked').forEach(cb => deps.push(parseInt(cb.dataset.depIdx)));
-        agents.push({ role, task, depends_on: deps });
+        const onFailSel = row.querySelector('.wf-on-failure');
+        const retryCntInput = row.querySelector('.wf-retry-count');
+        const skipIfInput = row.querySelector('.wf-skip-if');
+        const extra = { role, task, depends_on: deps };
+        if (onFailSel) extra.on_failure = onFailSel.value;
+        if (retryCntInput) extra.retry_count = parseInt(retryCntInput.value) || 0;
+        if (skipIfInput) extra.skip_if = skipIfInput.value;
+        agents.push(extra);
     });
     // Re-render with corrected indices
     list.innerHTML = '';
     agents.forEach((a, i) => {
         // Filter out deps that reference removed/invalid indices
         const validDeps = (a.depends_on || []).filter(d => d < i);
-        list.insertAdjacentHTML('beforeend', buildWfAgentRow(i, a.role, a.task, validDeps));
+        list.insertAdjacentHTML('beforeend', buildWfAgentRow(i, a.role, a.task, validDeps, a));
         // Re-set the input value (dataset bindings)
         const newRow = list.children[i];
         newRow.querySelector('input[type="text"]').value = a.task;
@@ -5269,7 +6072,7 @@ function duplicateWorkflow(wfId) {
         </div>
         <label class="form-label">Agents</label>
         <div id="wfAgentsList">`;
-    agents.forEach((a, i) => { html += buildWfAgentRow(i, a.role, a.task, a.depends_on || []); });
+    agents.forEach((a, i) => { html += buildWfAgentRow(i, a.role, a.task, a.depends_on || [], a); });
     html += `</div>
         <div class="wf-add-btn" onclick="addWfAgent()">+ Add Agent</div>
         <div class="settings-actions">
@@ -5300,6 +6103,13 @@ async function saveWorkflow() {
         row.querySelectorAll('.wf-dep-check input:checked').forEach(cb => deps.push(parseInt(cb.dataset.depIdx)));
         const entry = { role, task };
         if (deps.length > 0) entry.depends_on = deps;
+        // Read conditional branching fields (C1)
+        const onFailSel = row.querySelector('.wf-on-failure');
+        const retryCntInput = row.querySelector('.wf-retry-count');
+        const skipIfInput = row.querySelector('.wf-skip-if');
+        if (onFailSel && onFailSel.value !== 'abort') entry.on_failure = onFailSel.value;
+        if (retryCntInput && parseInt(retryCntInput.value) > 0) entry.retry_count = parseInt(retryCntInput.value);
+        if (skipIfInput && skipIfInput.value.trim()) entry.skip_if = skipIfInput.value.trim();
         agents.push(entry);
     });
 
@@ -5646,6 +6456,12 @@ async function saveEditAgent() {
 
 let gridSearchQuery = '';
 
+let _gridSearchTimer = null;
+function filterAgentGridDebounced(query) {
+    clearTimeout(_gridSearchTimer);
+    _gridSearchTimer = setTimeout(() => filterAgentGrid(query), 150);
+}
+
 function filterAgentGrid(query) {
     gridSearchQuery = (query || '').toLowerCase().trim();
     const grid = document.getElementById('agentGrid');
@@ -5689,6 +6505,7 @@ function filterAgentGrid(query) {
 let timelineRefreshTimer = null;
 
 function openTimeline() {
+    if (timelineRefreshTimer) { clearInterval(timelineRefreshTimer); timelineRefreshTimer = null; }
     const overlay = document.getElementById('timelineOverlay');
     overlay.style.display = '';
     // Populate agent filter
@@ -5768,6 +6585,7 @@ let currentPipelineRunId = null;
 
 function openPipeline(runId) {
     currentPipelineRunId = runId || null;
+    if (pipelineRefreshTimer) { clearInterval(pipelineRefreshTimer); pipelineRefreshTimer = null; }
     const overlay = document.getElementById('pipelineOverlay');
     overlay.style.display = '';
     if (runId) {
@@ -5920,13 +6738,760 @@ function getGridColumns() {
     return columns ? columns.split(' ').length : 4;
 }
 
+// ── View Mode Toggle (A2) ──
+
+function setViewMode(mode) {
+    state.viewMode = mode;
+    localStorage.setItem('ashlar_view_mode', mode);
+    document.getElementById('viewGridBtn').classList.toggle('active', mode === 'grid');
+    document.getElementById('viewTableBtn').classList.toggle('active', mode === 'table');
+    document.getElementById('agentGrid').style.display = mode === 'grid' ? '' : 'none';
+    document.getElementById('agentTable').style.display = mode === 'table' ? '' : 'none';
+    if (mode === 'table') renderAgentTable();
+}
+
+function renderAgentTable() {
+    const tbody = document.getElementById('agentTableBody');
+    if (!tbody) return;
+    const agents = [...state.agents.values()];
+    // Sort pinned first, then by selected column
+    const col = state.tableSortCol;
+    const asc = state.tableSortAsc;
+    agents.sort((a, b) => {
+        const pa = state.pinnedAgents.has(a.id) ? 0 : 1;
+        const pb = state.pinnedAgents.has(b.id) ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+        let va = a[col] ?? '', vb = b[col] ?? '';
+        if (typeof va === 'number') return asc ? va - vb : vb - va;
+        va = String(va).toLowerCase(); vb = String(vb).toLowerCase();
+        return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    // Apply search filter
+    const query = gridSearchQuery;
+    const filtered = query ? agents.filter(a => {
+        const s = [a.name, a.role, a.status, a.task, a.summary, a.backend].filter(Boolean).join(' ').toLowerCase();
+        return s.includes(query);
+    }) : agents;
+
+    tbody.innerHTML = '';
+    for (const agent of filtered) {
+        const role = ROLE_INFO[agent.role] || ROLE_INFO.general;
+        const pct = Math.round((agent.context_pct || 0) * 100);
+        const hs = Math.round((agent.health_score ?? 1) * 100);
+        const cost = agent.estimated_cost_usd || 0;
+        const tr = document.createElement('tr');
+        tr.className = 'table-row' + (agent.needs_input ? ' waiting' : '');
+        tr.style.setProperty('--role-color', role.color);
+        tr.onclick = () => openDeepView(agent.id);
+        tr.innerHTML = `
+            <td><span class="table-status-dot ${agent.status}"></span>${agent.status}</td>
+            <td>${role.icon}</td>
+            <td>${state.pinnedAgents.has(agent.id) ? '📌 ' : ''}${agent.name}</td>
+            <td title="${(agent.task || '').replace(/"/g, '&quot;')}">${(agent.task || '').substring(0, 60)}</td>
+            <td>${agent.phase || '-'}</td>
+            <td>${pct}%</td>
+            <td>${hs}%</td>
+            <td>${agent.files_touched || 0}</td>
+            <td>${cost > 0 ? '$' + cost.toFixed(4) : '-'}</td>
+            <td><button class="card-menu-btn" onclick="event.stopPropagation();toggleCardMenu('${agent.id}')" style="border:none;background:none;cursor:pointer;color:var(--text-secondary)">⋯</button></td>
+        `;
+        tbody.appendChild(tr);
+    }
+    // Update sort arrows
+    document.querySelectorAll('.agent-table .sort-arrow').forEach(el => {
+        el.textContent = el.dataset.col === col ? (asc ? '▲' : '▼') : '';
+        el.classList.toggle('active', el.dataset.col === col);
+    });
+}
+
+function sortTable(col) {
+    if (state.tableSortCol === col) state.tableSortAsc = !state.tableSortAsc;
+    else { state.tableSortCol = col; state.tableSortAsc = true; }
+    renderAgentTable();
+}
+
+// ── Virtual Terminal Scroll (A1) ──
+
+let virtualTermData = [];
+let virtualTermLineH = 0;
+const VIRTUAL_BUFFER = 50;
+const VIRTUAL_THRESHOLD = 500;
+
+function openDeepViewVirtual(agentId) {
+    const agent = state.agents.get(agentId);
+    if (!agent) return;
+    virtualTermData = agent._outputBuffer || [];
+    if (virtualTermData.length <= VIRTUAL_THRESHOLD) return false; // use normal render
+    const terminal = document.getElementById('deepTerminal');
+    terminal.innerHTML = '';
+    // Measure line height
+    const probe = document.createElement('div');
+    probe.className = 'terminal-line';
+    probe.textContent = 'X';
+    terminal.appendChild(probe);
+    virtualTermLineH = probe.offsetHeight || 18;
+    terminal.removeChild(probe);
+    // Set up virtual scroll containers
+    terminal.innerHTML = '<div id="vtSpacer" style="pointer-events:none"></div><div id="vtContent"></div><div id="vtSpacerBottom" style="pointer-events:none"></div>';
+    renderVirtualRange(terminal);
+    // Scroll to bottom
+    terminal.scrollTop = terminal.scrollHeight;
+    return true;
+}
+
+function renderVirtualRange(terminal) {
+    if (!terminal) terminal = document.getElementById('deepTerminal');
+    if (!virtualTermData.length || !virtualTermLineH) return;
+    const scrollTop = terminal.scrollTop;
+    const viewH = terminal.clientHeight;
+    const totalH = virtualTermData.length * virtualTermLineH;
+    const firstVisible = Math.max(0, Math.floor(scrollTop / virtualTermLineH) - VIRTUAL_BUFFER);
+    const lastVisible = Math.min(virtualTermData.length - 1, Math.ceil((scrollTop + viewH) / virtualTermLineH) + VIRTUAL_BUFFER);
+    document.getElementById('vtSpacer').style.height = (firstVisible * virtualTermLineH) + 'px';
+    document.getElementById('vtSpacerBottom').style.height = ((virtualTermData.length - 1 - lastVisible) * virtualTermLineH) + 'px';
+    const content = document.getElementById('vtContent');
+    const frag = document.createDocumentFragment();
+    for (let i = firstVisible; i <= lastVisible; i++) {
+        const div = document.createElement('div');
+        div.className = 'terminal-line';
+        div.innerHTML = ansiToHtml(virtualTermData[i]);
+        frag.appendChild(div);
+    }
+    content.innerHTML = '';
+    content.appendChild(frag);
+}
+
+// Patch openDeepView to use virtual scroll for large output
+const _origOpenDeepView = openDeepView;
+openDeepView = function(agentId) {
+    _origOpenDeepView(agentId);
+    const agent = state.agents.get(agentId);
+    if (agent && (agent._outputBuffer?.length || 0) > VIRTUAL_THRESHOLD) {
+        if (openDeepViewVirtual(agentId)) {
+            const terminal = document.getElementById('deepTerminal');
+            if (terminal._ashlarVScrollHandler) terminal.removeEventListener('scroll', terminal._ashlarVScrollHandler);
+            terminal._ashlarVScrollHandler = () => {
+                renderVirtualRange(terminal);
+                // Also update auto-scroll state
+                const isBottom = terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight < 40;
+                deepAutoScroll = isBottom;
+                document.getElementById('jumpToBottom')?.classList.toggle('visible', !isBottom);
+            };
+            terminal.addEventListener('scroll', terminal._ashlarVScrollHandler);
+        }
+    }
+};
+
+// Patch appendDeepOutput for virtual mode
+const _origAppendDeep = appendDeepOutput;
+appendDeepOutput = function(lines) {
+    if (virtualTermData.length > 0 && document.getElementById('vtContent')) {
+        virtualTermData.push(...lines);
+        if (virtualTermData.length > 10000) virtualTermData = virtualTermData.slice(-10000);
+        if (deepAutoScroll) {
+            const terminal = document.getElementById('deepTerminal');
+            renderVirtualRange(terminal);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+    } else {
+        _origAppendDeep(lines);
+    }
+};
+
+// Reset virtual state on close
+const _origCloseDeep = closeDeepView;
+closeDeepView = function() {
+    virtualTermData = [];
+    _virtualSearchMatches = [];
+    _origCloseDeep();
+};
+
+// Recalculate virtual scroll line height on resize
+window.addEventListener('resize', debounce(() => {
+    if (virtualTermData.length > 0 && document.getElementById('vtContent')) {
+        const terminal = document.getElementById('deepTerminal');
+        const probe = document.createElement('div');
+        probe.className = 'terminal-line';
+        probe.textContent = 'X';
+        terminal.appendChild(probe);
+        virtualTermLineH = probe.offsetHeight || 18;
+        terminal.removeChild(probe);
+        renderVirtualRange(terminal);
+    }
+}, 200));
+
+// ── Agent Clone (B2) ──
+
+async function cloneAgent(id) {
+    if (activeMenu) { activeMenu.classList.remove('active'); activeMenu = null; }
+    const agent = state.agents.get(id);
+    if (!agent) return;
+    // Open spawn dialog pre-filled
+    openSpawnDialog();
+    document.getElementById('spawnName').value = agent.name + '-clone';
+    document.getElementById('spawnDir').value = agent.working_dir || '';
+    document.getElementById('spawnTask').value = agent.task || '';
+    // Select matching role
+    document.querySelectorAll('#roleGrid .role-option').forEach(o => {
+        o.classList.toggle('selected', o.dataset.role === agent.role);
+    });
+    state.selectedRole = agent.role;
+    // Set backend
+    const backendSel = document.getElementById('spawnBackend');
+    if (backendSel) backendSel.value = agent.backend || 'claude-code';
+}
+
+// ── Agent Presets (B1) ──
+
+function populatePresetSelector() {
+    const sel = document.getElementById('spawnPresetSelect');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">From preset...</option>';
+    state.presets.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${ROLE_INFO[p.role]?.icon || '🤖'} ${p.name}`;
+        sel.appendChild(opt);
+    });
+}
+
+function loadPreset(presetId) {
+    if (!presetId) return;
+    const preset = state.presets.find(p => p.id === presetId);
+    if (!preset) return;
+    document.getElementById('spawnName').value = '';
+    document.getElementById('spawnDir').value = preset.working_dir || '';
+    document.getElementById('spawnTask').value = preset.task || '';
+    if (preset.role) {
+        document.querySelectorAll('#roleGrid .role-option').forEach(o => {
+            o.classList.toggle('selected', o.dataset.role === preset.role);
+        });
+        state.selectedRole = preset.role;
+    }
+    const backendSel = document.getElementById('spawnBackend');
+    if (backendSel && preset.backend) backendSel.value = preset.backend;
+    const modelInput = document.getElementById('spawnModel');
+    if (modelInput && preset.model) modelInput.value = preset.model;
+    const toolsInput = document.getElementById('spawnTools');
+    if (toolsInput && preset.tools_allowed) toolsInput.value = preset.tools_allowed;
+}
+
+async function saveAsPreset() {
+    const name = await promptInput('Save as Preset', 'Enter preset name...', { icon: '💾', confirmText: 'Save' });
+    if (!name) return;
+    const payload = {
+        name,
+        role: state.selectedRole,
+        backend: document.getElementById('spawnBackend')?.value || 'claude-code',
+        task: document.getElementById('spawnTask')?.value || '',
+        model: document.getElementById('spawnModel')?.value || '',
+        tools_allowed: document.getElementById('spawnTools')?.value || '',
+        working_dir: document.getElementById('spawnDir')?.value || '',
+    };
+    try {
+        const res = await apiFetch('/api/presets', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+            const preset = await res.json();
+            state.presets.push(preset);
+            populatePresetSelector();
+            showToast(`Preset saved: ${name}`, 'success');
+        } else {
+            const err = await res.json();
+            showToast(err.error || 'Failed to save preset', 'error');
+        }
+    } catch (e) {
+        showToast('Failed to save preset', 'error');
+    }
+}
+
+// ── Agent Pinning (E4) ──
+
+function togglePin(id) {
+    if (activeMenu) { activeMenu.classList.remove('active'); activeMenu = null; }
+    if (state.pinnedAgents.has(id)) state.pinnedAgents.delete(id);
+    else state.pinnedAgents.add(id);
+    localStorage.setItem('ashlar_pinned', JSON.stringify([...state.pinnedAgents]));
+    scheduleRender();
+    if (state.viewMode === 'table') renderAgentTable();
+}
+
+// ── Fuzzy Search in Command Palette (E1) ──
+
+function fuzzyScore(query, text) {
+    const lq = query.toLowerCase();
+    const lt = text.toLowerCase();
+    // Exact match gets highest score
+    if (lt.includes(lq)) return { score: 1.0, matches: [] };
+    let qi = 0, score = 0, matches = [], consecutiveBonus = 0;
+    for (let i = 0; i < lt.length && qi < lq.length; i++) {
+        if (lt[i] === lq[qi]) {
+            matches.push(i);
+            let bonus = 1;
+            // Word start bonus
+            if (i === 0 || lt[i - 1] === ' ' || lt[i - 1] === ':') bonus += 2;
+            // Consecutive bonus
+            if (matches.length > 1 && matches[matches.length - 2] === i - 1) {
+                consecutiveBonus += 1;
+                bonus += consecutiveBonus;
+            } else {
+                consecutiveBonus = 0;
+            }
+            score += bonus;
+            qi++;
+        }
+    }
+    if (qi < lq.length) return { score: 0, matches: [] };
+    return { score: score / (lq.length * 4), matches };
+}
+
+// ── Drag-and-Drop Workflow Reordering (E2) ──
+
+let dragSrcIdx = null;
+
+function enableWfAgentDragDrop() {
+    const list = document.getElementById('wfAgentsList');
+    if (!list) return;
+    if (list._dndEnabled) return;
+    list._dndEnabled = true;
+    list.querySelectorAll('.wf-agent-row').forEach((row, idx) => {
+        row.setAttribute('draggable', 'true');
+        row.dataset.wfIdx = idx;
+        row.addEventListener('dragstart', (e) => {
+            dragSrcIdx = idx;
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragend', () => {
+            row.classList.remove('dragging');
+            list.querySelectorAll('.wf-agent-row').forEach(r => r.classList.remove('drag-over'));
+        });
+        row.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            list.querySelectorAll('.wf-agent-row').forEach(r => r.classList.remove('drag-over'));
+            row.classList.add('drag-over');
+        });
+        row.addEventListener('drop', (e) => {
+            e.preventDefault();
+            row.classList.remove('drag-over');
+            const targetIdx = parseInt(row.dataset.wfIdx);
+            if (dragSrcIdx !== null && dragSrcIdx !== targetIdx) {
+                // Reorder the DOM
+                const rows = [...list.querySelectorAll('.wf-agent-row')];
+                const moved = rows[dragSrcIdx];
+                if (targetIdx < dragSrcIdx) row.parentNode.insertBefore(moved, row);
+                else row.parentNode.insertBefore(moved, row.nextSibling);
+                // Update data-wfIdx
+                list.querySelectorAll('.wf-agent-row').forEach((r, i) => r.dataset.wfIdx = i);
+            }
+            dragSrcIdx = null;
+        });
+    });
+}
+
+// ── Settings Import/Export (D1) ──
+
+async function exportSettings() {
+    try {
+        const res = await apiFetch('/api/config/export');
+        if (!res.ok) { showToast('Export failed', 'error'); return; }
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ashlar_config.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Settings exported', 'success');
+    } catch (e) {
+        showToast('Export failed', 'error');
+    }
+}
+
+async function importSettings() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async () => {
+        const file = input.files[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            const res = await apiFetch('/api/config/import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            const result = await res.json();
+            if (res.ok) {
+                const changes = result.changes || [];
+                if (changes.length > 0) {
+                    showToast(`Imported ${changes.length} config changes`, 'success');
+                } else {
+                    showToast('No changes detected', 'info');
+                }
+                // Refresh config
+                socket.send({ type: 'sync_request' });
+            } else {
+                showToast(result.error || 'Import failed', 'error');
+            }
+        } catch (e) {
+            showToast('Invalid config file', 'error');
+        }
+    };
+    input.click();
+}
+
+// ── Scratchpad (C2) ──
+
+let _scratchpadProjectId = null;
+
+async function loadScratchpad(projectId) {
+    if (!projectId) return [];
+    try {
+        const res = await apiFetch(`/api/scratchpad?project_id=${encodeURIComponent(projectId)}`);
+        if (res.ok) return await res.json();
+    } catch (e) { /* ignore */ }
+    return [];
+}
+
+function renderScratchpadTab(entries) {
+    const container = document.getElementById('scratchpadContent');
+    if (!container) return;
+    if (!entries.length) {
+        container.innerHTML = '<div class="scratchpad-empty">No scratchpad entries for this project</div>';
+        return;
+    }
+    let html = '';
+    entries.forEach(e => {
+        const safeKey = (e.key || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const safeVal = (e.value || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const safeBy = (e.set_by || '-').replace(/</g, '&lt;');
+        html += `<div class="scratchpad-entry">
+            <span class="scratchpad-key">${safeKey}</span>
+            <span class="scratchpad-val" title="${safeVal}">${safeVal}</span>
+            <span class="scratchpad-by">${safeBy}</span>
+            <div class="scratchpad-actions">
+                <button onclick="editScratchpadEntry('${safeKey}', '${safeVal}')">Edit</button>
+                <button class="danger" onclick="deleteScratchpadEntry('${safeKey}')">Delete</button>
+            </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
+
+function switchDeepTab(tab) {
+    const terminal = document.getElementById('deepTerminal');
+    const scratchpad = document.getElementById('deepScratchpadPanel');
+    const tabTerminal = document.getElementById('deepTabTerminal');
+    const tabScratchpad = document.getElementById('deepTabScratchpad');
+    const toolbar = document.getElementById('terminalToolbar');
+    const searchBar = document.getElementById('deepSearchBar');
+
+    if (tab === 'terminal') {
+        terminal.style.display = '';
+        scratchpad.style.display = 'none';
+        toolbar.style.display = '';
+        searchBar.style.display = '';
+        tabTerminal.classList.add('active');
+        tabScratchpad.classList.remove('active');
+    } else {
+        terminal.style.display = 'none';
+        scratchpad.style.display = '';
+        toolbar.style.display = 'none';
+        searchBar.style.display = 'none';
+        tabTerminal.classList.remove('active');
+        tabScratchpad.classList.add('active');
+        if (_scratchpadProjectId) refreshScratchpad();
+    }
+}
+
+async function refreshScratchpad() {
+    if (!_scratchpadProjectId) return;
+    const entries = await loadScratchpad(_scratchpadProjectId);
+    renderScratchpadTab(entries);
+}
+
+async function addScratchpadEntry() {
+    const container = document.getElementById('scratchpadContent');
+    // Remove existing inline form if any
+    container.querySelectorAll('.scratchpad-inline-form').forEach(f => f.remove());
+    const form = document.createElement('div');
+    form.className = 'scratchpad-inline-form';
+    form.innerHTML = `
+        <input type="text" placeholder="Key" id="spNewKey">
+        <input type="text" placeholder="Value" id="spNewVal" style="flex:2">
+        <button style="background:var(--accent);color:white" onclick="saveScratchpadEntry()">Save</button>
+        <button style="background:var(--bg-surface);color:var(--text-dimmed)" onclick="this.parentElement.remove()">Cancel</button>
+    `;
+    container.prepend(form);
+    form.querySelector('#spNewKey').focus();
+    // Allow Enter to save
+    form.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveScratchpadEntry(); });
+}
+
+async function saveScratchpadEntry() {
+    const key = document.getElementById('spNewKey')?.value.trim();
+    const value = document.getElementById('spNewVal')?.value.trim();
+    if (!key) { showToast('Key is required', 'error'); return; }
+    try {
+        const res = await apiFetch('/api/scratchpad', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: _scratchpadProjectId, key, value, set_by: 'dashboard' }),
+        });
+        if (res.ok) {
+            showToast(`Scratchpad entry saved: ${key}`, 'success');
+            refreshScratchpad();
+        } else {
+            const err = await res.json();
+            showToast(err.error || 'Failed to save', 'error');
+        }
+    } catch (e) { showToast('Failed to save entry', 'error'); }
+}
+
+async function editScratchpadEntry(key, currentValue) {
+    const newValue = await promptInput(`Edit "${key}"`, 'Enter new value...', { defaultValue: currentValue, icon: '✏️', confirmText: 'Update' });
+    if (newValue === null) return;
+    try {
+        const res = await apiFetch('/api/scratchpad', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: _scratchpadProjectId, key, value: newValue, set_by: 'dashboard' }),
+        });
+        if (res.ok) {
+            showToast(`Updated: ${key}`, 'success');
+            refreshScratchpad();
+        } else {
+            showToast('Failed to update', 'error');
+        }
+    } catch (e) { showToast('Failed to update entry', 'error'); }
+}
+
+async function deleteScratchpadEntry(key) {
+    const confirmed = await confirmAction('Delete Entry', `Delete scratchpad entry "${key}"?`, 'Delete');
+    if (!confirmed) return;
+    try {
+        const res = await apiFetch(`/api/scratchpad/${encodeURIComponent(key)}?project_id=${encodeURIComponent(_scratchpadProjectId)}`, {
+            method: 'DELETE',
+        });
+        if (res.ok) {
+            showToast(`Deleted: ${key}`, 'success');
+            refreshScratchpad();
+        } else {
+            showToast('Failed to delete', 'error');
+        }
+    } catch (e) { showToast('Failed to delete entry', 'error'); }
+}
+
 // ── Init ──
 
-// Add timeline + pipeline to command palette
+// Restore view mode
+if (state.viewMode === 'table') {
+    document.getElementById('agentGrid').style.display = 'none';
+    document.getElementById('agentTable').style.display = '';
+    document.getElementById('viewGridBtn').classList.remove('active');
+    document.getElementById('viewTableBtn').classList.add('active');
+}
+
+// Add timeline + pipeline + new features to command palette
 PALETTE_ACTIONS.push(
     { icon: '📋', label: 'Activity Timeline', shortcut: '⌘T', action: () => { closePalette(); openTimeline(); } },
     { icon: '🔀', label: 'Pipeline Graph', shortcut: '', action: () => { closePalette(); openPipeline(); } },
+    { icon: '📊', label: 'Toggle Table View', shortcut: '', action: () => { closePalette(); setViewMode(state.viewMode === 'table' ? 'grid' : 'table'); }, section: 'view' },
+    { icon: '💾', label: 'Manage Presets', shortcut: '', action: () => { closePalette(); openSettings(); }, section: 'config' },
+    { icon: '📝', label: 'View Scratchpad', shortcut: '', action: () => { closePalette(); if (state.focusedAgentId) { switchDeepTab('scratchpad'); } else { showToast('Open an agent first to view its scratchpad', 'info'); } }, section: 'view' },
 );
+
+// Override palette rendering for improved fuzzy scoring (E1)
+const _origRenderPalette = renderPaletteItems;
+renderPaletteItems = function(query) {
+    if (!query || query.length < 1) { _origRenderPalette(query); return; }
+    const list = document.getElementById('paletteList');
+    list.innerHTML = '';
+
+    const allItems = [...PALETTE_ACTIONS];
+    for (const [id, agent] of state.agents) {
+        allItems.push(
+            { icon: agent.role_icon || '🤖', label: `View: ${agent.name}`, shortcut: '', action: () => { closePalette(); openDeepView(id); }, section: 'agents' },
+            { icon: '✕', label: `Kill: ${agent.name}`, shortcut: '', action: () => { closePalette(); killAgent(id); }, section: 'agents' },
+        );
+    }
+
+    // Score and sort by fuzzy relevance
+    const scored = allItems.map(item => ({ item, ...fuzzyScore(query, item.label) }))
+        .filter(s => s.score > 0)
+        .sort((a, b) => b.score - a.score);
+
+    let lastSection = '';
+    scored.forEach((s, i) => {
+        if (s.item.section && s.item.section !== lastSection) {
+            const label = document.createElement('div');
+            label.className = 'palette-section-label';
+            label.textContent = s.item.section === 'agents' ? 'Agents' : s.item.section;
+            list.appendChild(label);
+            lastSection = s.item.section;
+        }
+        const el = document.createElement('div');
+        el.className = 'palette-item' + (i === state.paletteIndex ? ' selected' : '');
+        // Highlight matched characters
+        let labelHtml = '';
+        const matchSet = new Set(s.matches);
+        for (let ci = 0; ci < s.item.label.length; ci++) {
+            if (matchSet.has(ci)) labelHtml += `<mark>${s.item.label[ci]}</mark>`;
+            else labelHtml += s.item.label[ci];
+        }
+        el.innerHTML = `
+            <span class="palette-item-icon">${s.item.icon}</span>
+            <span class="palette-item-label">${labelHtml}</span>
+            ${s.item.shortcut ? `<span class="palette-item-shortcut">${s.item.shortcut}</span>` : ''}
+        `;
+        el.onclick = () => s.item.action();
+        el._action = s.item.action;
+        list.appendChild(el);
+    });
+};
+
+// Populate presets on spawn dialog open
+const _origOpenSpawn = openSpawnDialog;
+openSpawnDialog = function() {
+    _origOpenSpawn();
+    populatePresetSelector();
+};
+
+// Pin-aware grid rendering: pinned agents first
+const _origRenderGrid = renderAgentGrid;
+renderAgentGrid = function() {
+    if (state.pinnedAgents.size > 0) {
+        // Sort state.agents Map so pinned come first
+        const entries = [...state.agents.entries()];
+        entries.sort((a, b) => {
+            const pa = state.pinnedAgents.has(a[0]) ? 0 : 1;
+            const pb = state.pinnedAgents.has(b[0]) ? 0 : 1;
+            return pa - pb;
+        });
+        state.agents = new Map(entries);
+    }
+    _origRenderGrid();
+};
+
+// Settings: populate alert thresholds
+const _origOpenSettings = openSettings;
+openSettings = function() {
+    _origOpenSettings();
+    const cfg = state.config;
+    document.getElementById('setHealthLow').value = cfg.health_low_threshold ?? 0.3;
+    document.getElementById('setHealthCritical').value = cfg.health_critical_threshold ?? 0.1;
+    document.getElementById('setStallTimeout').value = cfg.stall_timeout_minutes ?? 5;
+    document.getElementById('setHungTimeout').value = cfg.hung_timeout_minutes ?? 10;
+};
+
+// Settings: include alert thresholds in save
+saveSettings = async function() {
+    const btn = document.querySelector('#settingsOverlay .btn-primary');
+    await withLoading(btn, async () => {
+        const payload = {
+            max_agents: parseInt(document.getElementById('setMaxAgents').value),
+            default_role: document.getElementById('setDefaultRole').value,
+            default_working_dir: document.getElementById('setDefaultDir').value,
+            default_backend: document.getElementById('setDefaultBackend').value,
+            output_capture_interval: parseFloat(document.getElementById('setOutputInterval').value),
+            memory_limit_mb: parseInt(document.getElementById('setMemoryLimit').value),
+            llm_enabled: document.getElementById('setLlmEnabled').classList.contains('active'),
+            llm_model: document.getElementById('setLlmModel').value,
+            llm_summary_interval: parseFloat(document.getElementById('setLlmInterval').value),
+            idle_agent_ttl: parseInt(document.getElementById('setIdleTtl').value),
+            voice_feedback: document.getElementById('setVoiceSounds').classList.contains('active'),
+            health_low_threshold: parseFloat(document.getElementById('setHealthLow').value),
+            health_critical_threshold: parseFloat(document.getElementById('setHealthCritical').value),
+            stall_timeout_minutes: parseInt(document.getElementById('setStallTimeout').value),
+            hung_timeout_minutes: parseInt(document.getElementById('setHungTimeout').value),
+        };
+
+        // Validate
+        const errors = [];
+        if (isNaN(payload.max_agents) || payload.max_agents < 1 || payload.max_agents > 100) errors.push(['setMaxAgents', '1-100']);
+        if (isNaN(payload.output_capture_interval) || payload.output_capture_interval < 0.5 || payload.output_capture_interval > 30) errors.push(['setOutputInterval', '0.5-30']);
+        if (isNaN(payload.memory_limit_mb) || payload.memory_limit_mb < 256 || payload.memory_limit_mb > 65536) errors.push(['setMemoryLimit', '256-65536']);
+        if (isNaN(payload.llm_summary_interval) || payload.llm_summary_interval < 5 || payload.llm_summary_interval > 300) errors.push(['setLlmInterval', '5-300']);
+        if (isNaN(payload.idle_agent_ttl) || payload.idle_agent_ttl < 300 || payload.idle_agent_ttl > 86400) errors.push(['setIdleTtl', '300-86400']);
+        if (isNaN(payload.health_low_threshold) || payload.health_low_threshold <= 0 || payload.health_low_threshold > 1) errors.push(['setHealthLow', '0.01-1.0']);
+        if (isNaN(payload.health_critical_threshold) || payload.health_critical_threshold <= 0 || payload.health_critical_threshold > 1) errors.push(['setHealthCritical', '0.01-1.0']);
+        if (isNaN(payload.stall_timeout_minutes) || payload.stall_timeout_minutes < 1 || payload.stall_timeout_minutes > 60) errors.push(['setStallTimeout', '1-60']);
+        if (isNaN(payload.hung_timeout_minutes) || payload.hung_timeout_minutes < 1 || payload.hung_timeout_minutes > 120) errors.push(['setHungTimeout', '1-120']);
+        document.querySelectorAll('#settingsOverlay .field-error').forEach(e => e.remove());
+        document.querySelectorAll('#settingsOverlay .settings-input').forEach(e => e.style.borderColor = '');
+        if (errors.length) {
+            errors.forEach(([fid, msg]) => {
+                const f = document.getElementById(fid);
+                if (f) { f.style.borderColor = 'var(--danger)'; const e = document.createElement('div'); e.className = 'field-error'; e.style.cssText = 'color:var(--danger);font-size:11px;margin-top:2px'; e.textContent = msg; f.parentElement.appendChild(e); }
+            });
+            showToast('Fix validation errors', 'warning');
+            return;
+        }
+
+        try {
+            const res = await apiFetch('/api/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (res.ok) { state.config = data; showToast('Settings saved', 'success'); closeSettings(); }
+            else showToast(data.error || 'Failed to save', 'error');
+        } catch (e) { showToast('Failed to save settings', 'error'); }
+    }, 'Saving...');
+};
+
+// Wire drag-and-drop on workflow editor
+const _origEditWf = typeof editWorkflow === 'function' ? editWorkflow : null;
+if (_origEditWf) {
+    const __origEditWf = editWorkflow;
+    editWorkflow = function(wfId) {
+        __origEditWf(wfId);
+        setTimeout(enableWfAgentDragDrop, 100);
+    };
+}
+
+// Add workflow editor fields for on_failure and skip_if (C1)
+const _origBuildWfRow = typeof buildWfAgentRow === 'function' ? buildWfAgentRow : null;
+if (_origBuildWfRow) {
+    const __origBuild = buildWfAgentRow;
+    buildWfAgentRow = function(idx, role, task, dependsOn, extra) {
+        let html = __origBuild(idx, role, task, dependsOn);
+        const onFailure = extra?.on_failure || 'abort';
+        const skipIf = extra?.skip_if || '';
+        const retryCount = extra?.retry_count || 0;
+        // Insert before closing div
+        const insertPoint = html.lastIndexOf('</div>');
+        const extraHtml = `
+            <div style="display:flex;gap:8px;margin-top:6px">
+                <div style="flex:1"><label class="form-label" style="font-size:10px">On failure</label>
+                    <select class="form-input wf-on-failure" data-idx="${idx}" style="font-size:11px;padding:4px 6px">
+                        <option value="abort" ${onFailure === 'abort' ? 'selected' : ''}>Abort</option>
+                        <option value="skip" ${onFailure === 'skip' ? 'selected' : ''}>Skip</option>
+                        <option value="retry" ${onFailure === 'retry' ? 'selected' : ''}>Retry</option>
+                    </select>
+                </div>
+                <div style="flex:1"><label class="form-label" style="font-size:10px">Retry count</label>
+                    <input class="form-input wf-retry-count" data-idx="${idx}" type="number" min="0" max="3" value="${retryCount}" style="font-size:11px;padding:4px 6px">
+                </div>
+            </div>
+            <div style="margin-top:4px"><label class="form-label" style="font-size:10px">Skip if (condition)</label>
+                <input class="form-input wf-skip-if" data-idx="${idx}" type="text" value="${skipIf}" placeholder="prev.status == 'complete'" style="font-size:11px;padding:4px 6px">
+            </div>`;
+        html = html.substring(0, insertPoint) + extraHtml + html.substring(insertPoint);
+        return html;
+    };
+}
 
 socket.connect();
 renderAgentGrid();
