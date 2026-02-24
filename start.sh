@@ -39,12 +39,22 @@ if ! command -v tmux &>/dev/null; then
 fi
 echo "✓ tmux $(tmux -V | cut -d' ' -f2)"
 
-# 3. Check claude CLI (warn but don't fail)
+# 3. Check agent backends
+BACKENDS_FOUND=0
 if command -v claude &>/dev/null; then
     echo "✓ claude CLI found"
+    BACKENDS_FOUND=$((BACKENDS_FOUND + 1))
 else
-    echo "⚠ claude CLI not found — agents will run in demo mode"
-    echo "  Install: npm install -g @anthropic-ai/claude-code"
+    echo "  ○ claude CLI not found (npm i -g @anthropic-ai/claude-code)"
+fi
+if command -v codex &>/dev/null; then
+    echo "✓ codex CLI found"
+    BACKENDS_FOUND=$((BACKENDS_FOUND + 1))
+else
+    echo "  ○ codex CLI not found (npm i -g @openai/codex)"
+fi
+if [ "$BACKENDS_FOUND" -eq 0 ]; then
+    echo "⚠ No agent backends found — agents will run in demo mode"
 fi
 
 # 4. Check port availability
@@ -100,7 +110,8 @@ fi
 # 10. Launch server
 echo ""
 echo "→ Starting Ashlar server..."
-echo "  Dashboard: http://127.0.0.1:$PORT"
+echo "  Dashboard:  http://127.0.0.1:$PORT"
+echo "  Health API: http://127.0.0.1:$PORT/api/health"
 echo "  Press Ctrl+C to stop"
 echo ""
 

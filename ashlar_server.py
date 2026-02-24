@@ -3533,6 +3533,22 @@ async def system_metrics(request: web.Request) -> web.Response:
     return web.json_response(data)
 
 
+async def health_check(request: web.Request) -> web.Response:
+    """Lightweight health check — no auth required."""
+    config: Config = request.app["config"]
+    manager: AgentManager = request.app["agent_manager"]
+    agents = manager.agents
+    return web.json_response({
+        "status": "ok",
+        "agents": len(agents),
+        "agents_active": sum(1 for a in agents.values() if a.status in ("working", "planning", "reading")),
+        "agents_waiting": sum(1 for a in agents.values() if a.needs_input),
+        "db_available": request.app.get("db_available", True),
+        "llm_enabled": config.llm_enabled,
+        "backends": {k: v.available for k, v in manager.backend_configs.items()},
+    })
+
+
 async def list_roles(request: web.Request) -> web.Response:
     roles = {k: v.to_dict() for k, v in BUILTIN_ROLES.items()}
     return web.json_response(roles)
@@ -5283,6 +5299,7 @@ def create_app(config: Config) -> web.Application:
     app.router.add_post("/api/agents/{id}/handoff", handoff_agent)
 
     # REST API — System
+    app.router.add_get("/api/health", health_check)
     app.router.add_get("/api/system", system_metrics)
     app.router.add_get("/api/roles", list_roles)
     app.router.add_get("/api/config", get_config)
