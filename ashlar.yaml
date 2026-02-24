@@ -1,0 +1,59 @@
+# ╔═══════════════════════════════════════╗
+# ║        Ashlar AO Configuration        ║
+# ╚═══════════════════════════════════════╝
+# This file is auto-copied to ~/.ashlar/ashlar.yaml on first run.
+# Edit the one in ~/.ashlar/ to persist changes across updates.
+
+server:
+  host: "127.0.0.1"
+  port: 5000
+  log_level: "INFO"
+
+agents:
+  # Maximum concurrent agents (adjust based on your machine's RAM)
+  max_concurrent: 16
+
+  # Default role for new agents when none specified
+  default_role: "general"
+
+  # Default working directory for new agents
+  default_working_dir: "~/Projects"
+
+  # How often to capture terminal output (seconds)
+  output_capture_interval_sec: 1.0
+
+  # Memory limit per agent in MB (warning at 75%, kill at 100%)
+  memory_limit_mb: 2048
+
+  # Agent backend configurations
+  backends:
+    claude-code:
+      command: "claude"
+      args: ["--dangerously-skip-permissions"]
+    codex:
+      command: "codex"
+      args: []
+
+  # Which backend to use by default
+  default_backend: "claude-code"
+
+voice:
+  enabled: true
+  ptt_key: "Space"
+  feedback_sounds: true
+  language: "en-US"
+
+display:
+  theme: "dark"
+  cards_per_row: 4
+  show_metrics_bar: true
+  notification_sound: true
+
+# Projects are added via the dashboard UI
+# Example:
+# projects:
+#   - name: "payment-service"
+#     path: "/Users/mason/Desktop/payment-service"
+#   - name: "web-dashboard"
+#     path: "/Users/mason/Desktop/web-dashboard"
+projects: []
