@@ -1236,7 +1236,7 @@ class AgentManager:
         ])
 
         def rsleep(lo: float = 0.5, hi: float = 3.0) -> str:
-            return f"sleep $(echo \"scale=1; {_rand.uniform(lo, hi):.1f}\" | bc)"
+            return f"sleep {_rand.uniform(lo, hi):.1f}"
 
         # Build script lines — header is shared
         script_lines = [
@@ -1412,7 +1412,9 @@ class AgentManager:
             return False
 
         await self._tmux_send_raw(agent.tmux_session, "C-c")
-        agent.status = "paused"
+        agent.set_status("paused")
+        agent.needs_input = False
+        agent.input_prompt = None
         agent.updated_at = datetime.now(timezone.utc).isoformat()
         log.info(f"Paused agent {agent_id}")
         return True
@@ -3366,7 +3368,7 @@ class WebSocketHub:
             case "send":
                 agent_id = data.get("agent_id")
                 message = data.get("message", "")
-                if agent_id and message:
+                if agent_id and isinstance(message, str) and message:
                     await self.agent_manager.send_message(agent_id, message)
                     agent = self.agent_manager.agents.get(agent_id)
                     if agent:
@@ -3402,6 +3404,8 @@ class WebSocketHub:
             case "resume":
                 agent_id = data.get("agent_id")
                 message = data.get("message")
+                if message is not None and not isinstance(message, str):
+                    message = None
                 if agent_id:
                     await self.agent_manager.resume(agent_id, message)
                     agent = self.agent_manager.agents.get(agent_id)
@@ -3735,14 +3739,17 @@ async def send_to_agent(request: web.Request) -> web.Response:
         return web.json_response({"error": "Invalid JSON"}, status=400)
 
     message = data.get("message", "")
-    if not message:
-        return web.json_response({"error": "No message provided"}, status=400)
+    if not isinstance(message, str) or not message:
+        return web.json_response({"error": "No message provided (must be a string)"}, status=400)
     if len(message) > 50_000:
         return web.json_response({"error": "Message too long (max 50,000 chars)"}, status=400)
 
     success = await manager.send_message(agent_id, message)
     if success:
-        await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
+        # Re-fetch agent after async operation to get latest state
+        agent = manager.agents.get(agent_id)
+        if agent:
+            await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
         return web.json_response({"status": "sent"})
     return web.json_response({"error": f"Failed to send message to '{agent.name}' — agent may have terminated"}, status=500)
 
@@ -3758,7 +3765,10 @@ async def pause_agent(request: web.Request) -> web.Response:
 
     success = await manager.pause(agent_id)
     if success:
-        await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
+        # Re-fetch agent after async operation to get latest state
+        agent = manager.agents.get(agent_id)
+        if agent:
+            await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
         return web.json_response({"status": "paused"})
     return web.json_response({"error": "Failed to pause"}, status=500)
 
@@ -3775,12 +3785,17 @@ async def resume_agent(request: web.Request) -> web.Response:
     try:
         data = await request.json()
         message = data.get("message")
+        if message is not None and not isinstance(message, str):
+            return web.json_response({"error": "Message must be a string"}, status=400)
     except Exception:
         message = None
 
     success = await manager.resume(agent_id, message)
     if success:
-        await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
+        # Re-fetch agent after async operation to get latest state
+        agent = manager.agents.get(agent_id)
+        if agent:
+            await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
         return web.json_response({"status": "resumed"})
     return web.json_response({"error": "Failed to resume"}, status=500)
 
@@ -5550,19 +5565,19 @@ async def memory_watchdog_loop(app: web.Application) -> None:
             _cleanup_counter = 0
             try:
                 db: Database = app["db"]
-                if app.get("db_available", True) and db.db:
+                if app.get("db_available", True) and db._db:
                     cutoff = datetime.now(timezone.utc).replace(microsecond=0)
                     cutoff_str = cutoff.isoformat().replace("+00:00", "Z")
                     # Delete archive rows older than 24h for agents no longer running
                     active_ids = set(manager.agents.keys())
-                    async with db.db.execute(
+                    async with db._db.execute(
                         "SELECT DISTINCT agent_id FROM agent_output_archive WHERE created_at < datetime('now', '-24 hours')"
                     ) as cursor:
                         old_agents = [row[0] async for row in cursor]
                     for aid in old_agents:
                         if aid not in active_ids:
-                            await db.db.execute("DELETE FROM agent_output_archive WHERE agent_id = ?", (aid,))
-                    await db.db.commit()
+                            await db._db.execute("DELETE FROM agent_output_archive WHERE agent_id = ?", (aid,))
+                    await db._db.commit()
                     if old_agents:
                         cleaned = [a for a in old_agents if a not in active_ids]
                         if cleaned:

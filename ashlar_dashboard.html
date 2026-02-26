@@ -6954,6 +6954,7 @@ function updateFavicon(agents, waiting, active) {
     _faviconCanvas.width = 32;
     _faviconCanvas.height = 32;
     const ctx = _faviconCanvas.getContext('2d');
+    if (!ctx) return;
 
     // Background
     ctx.clearRect(0, 0, 32, 32);
