@@ -4014,12 +4014,21 @@ async function apiFetch(url, options = {}) {
             options.headers['Authorization'] = `Bearer ${authToken}`;
         }
     }
-    const resp = await fetch(url, options);
-    if (resp.status === 401) {
-        showAuthLogin();
-        throw new Error('Unauthorized');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    try {
+        const resp = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (resp.status === 401) {
+            showAuthLogin();
+            throw new Error('Unauthorized');
+        }
+        return resp;
+    } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') throw new Error('Request timed out');
+        throw e;
     }
-    return resp;
 }
 
 function showAuthLogin() {
@@ -4374,6 +4383,12 @@ async function handleSync(data) {
     state.workflows = data.workflows || [];
     state.presets = data.presets || [];
     state.backends = data.backends || {};
+    // Clean stale pinned agents that no longer exist
+    let pinsChanged = false;
+    state.pinnedAgents.forEach(id => {
+        if (!state.agents.has(id)) { state.pinnedAgents.delete(id); pinsChanged = true; }
+    });
+    if (pinsChanged) localStorage.setItem('ashlar_pinned', JSON.stringify([...state.pinnedAgents]));
     if (state.config.demo_mode) document.getElementById('demoBadge').style.display = '';
     // Show degraded-mode toast if DB unavailable
     if (data.db_available === false) {
@@ -4463,6 +4478,11 @@ function handleAgentRemoved(agentId) {
     state.agents.delete(agentId);
     state.conflicts.delete(agentId);
     selectedAgents.delete(agentId);
+    _activityCache.delete(agentId);
+    state.commandHistory.delete(agentId);
+    if (state.pinnedAgents.delete(agentId)) {
+        localStorage.setItem('ashlar_pinned', JSON.stringify([...state.pinnedAgents]));
+    }
     if (state.view === 'deep' && state.focusedAgentId === agentId) closeDeepView();
     setTimeout(() => { scheduleRender(); updateTabTitle(); updateAttentionBadge(); updateBulkUI(); }, 350);
 }
@@ -5385,6 +5405,8 @@ function closeDeepView() {
     closeDeepSearch();
     state.focusedAgentId = null;
     state.view = 'grid';
+    _cmdHistIdx = -1;
+    _cmdHistDraft = '';
 }
 
 let _cmdHistIdx = -1;
@@ -6310,11 +6332,14 @@ document.addEventListener('keydown', (e) => {
         }
     }
 
-    // 1-9 — focus agent
+    // 1-9 — focus agent (respects active filters)
     if (e.key >= '1' && e.key <= '9') {
-        const agents = [...state.agents.values()];
+        const grid = document.getElementById('agentGrid');
+        const visibleCards = [...grid.children].filter(c =>
+            c.style.display !== 'none' && c.dataset.agentId
+        );
         const idx = parseInt(e.key) - 1;
-        if (agents[idx]) openDeepView(agents[idx].id);
+        if (visibleCards[idx]) openDeepView(visibleCards[idx].dataset.agentId);
         return;
     }
 });
