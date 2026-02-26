@@ -4684,7 +4684,7 @@ function createAgentCard(agent) {
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
     card.setAttribute('aria-label', `Agent ${agent.name}`);
-    card.onkeydown = (e) => { if (e.key === 'Enter') openDeepView(agent.id); };
+    card.onkeydown = (e) => { if (e.key === 'Enter') { if (document.getElementById('agentGrid').classList.contains('bulk-mode')) { toggleAgentSelection(agent.id); } else { openDeepView(agent.id); } } };
     card.innerHTML = `
         <div class="card-select" data-agent-id="${agent.id}" onclick="toggleAgentSelection('${agent.id}', event)"></div>
         <div class="card-header">
@@ -4736,7 +4736,13 @@ function createAgentCard(agent) {
         card.style.boxShadow = `0 16px 40px -6px ${rc}44, 0 4px 16px -4px ${rc}33, inset 0 1px 0 rgba(255,255,255,0.06)`;
     });
     card.addEventListener('mouseleave', () => { card.style.boxShadow = ''; });
-    card.onclick = () => openDeepView(agent.id);
+    card.onclick = () => {
+        if (document.getElementById('agentGrid').classList.contains('bulk-mode')) {
+            toggleAgentSelection(agent.id);
+            return;
+        }
+        openDeepView(agent.id);
+    };
     return card;
 }
 
@@ -4799,7 +4805,7 @@ function updateAgentCard(card, agent) {
     // Input prompt
     const inputSection = card.querySelector('.card-input-section');
     if (agent.needs_input && agent.input_prompt) {
-        inputSection.style.display = '';
+        inputSection.style.display = 'block';
         card.querySelector('.card-input-prompt').textContent = agent.input_prompt;
     } else {
         inputSection.style.display = 'none';
@@ -5188,6 +5194,11 @@ function openDeepView(agentId) {
     state.focusedAgentId = agentId;
     state.view = 'deep';
     deepAutoScroll = true;
+    // Clear stale search/virtual terminal state from previous agent
+    deepSearchMatches = [];
+    deepSearchIdx = -1;
+    _virtualSearchMatches = [];
+    virtualTermData = [];
 
     document.getElementById('deepView').classList.add('active');
     updateDeepViewHeader(agent);
