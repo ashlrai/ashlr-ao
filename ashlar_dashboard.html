@@ -5211,7 +5211,22 @@ function openDeepView(agentId) {
         }
         terminal.appendChild(frag);
     } else {
-        terminal.innerHTML = '<span style="color:var(--text-dimmed)">Waiting for output...</span>';
+        terminal.innerHTML = '<span style="color:var(--text-dimmed)">Loading output...</span>';
+        // Fetch output from API when buffer is empty (e.g. after page refresh)
+        apiFetch(`/api/agents/${agentId}`).then(r => r.ok ? r.json() : null).then(data => {
+            if (!data?.output_lines?.length || state.focusedAgentId !== agentId) return;
+            agent._outputBuffer = data.output_lines;
+            terminal.innerHTML = '';
+            const frag = document.createDocumentFragment();
+            for (const line of data.output_lines) {
+                const div = document.createElement('div');
+                div.className = 'terminal-line';
+                div.innerHTML = ansiToHtml(line);
+                frag.appendChild(div);
+            }
+            terminal.appendChild(frag);
+            scrollDeepToBottom();
+        }).catch(() => {});
     }
     scrollDeepToBottom();
 
@@ -8722,17 +8737,30 @@ async function refreshScratchpad() {
 // ── Activity Feed ──
 
 const ACTIVITY_PATTERNS = [
+    // Claude Code tool-call syntax
     { pattern: /Read\(\s*["']?([^"'\s,)]+)/, icon: '📖', label: line => { const m = line.match(/Read\(\s*["']?([^"'\s,)]+)/); return `Read ${m?.[1] || 'file'}`; }, cat: 'files' },
     { pattern: /(?:Edit|Write)\(\s*["']?([^"'\s,)]+)/, icon: '✏️', label: line => { const m = line.match(/(?:Edit|Write)\(\s*["']?([^"'\s,)]+)/); return `Edited ${m?.[1] || 'file'}`; }, cat: 'files' },
     { pattern: /(?:Glob|Grep|LS)\(/, icon: '🔍', label: () => 'Searching codebase', cat: 'search' },
     { pattern: /Bash\(\s*["']?(.{1,60})/, icon: '💻', label: line => { const m = line.match(/Bash\(\s*["']?(.{1,60})/); return `$ ${m?.[1]?.replace(/["'].*/, '') || 'command'}`; }, cat: 'commands' },
+    // Natural language output patterns
+    { pattern: /Reading\s+(\S+)/i, icon: '📖', label: line => { const m = line.match(/Reading\s+(\S+)/i); return `Read ${m?.[1] || 'file'}`; }, cat: 'files' },
+    { pattern: /(?:Editing|Writing|Wrote)\s+(\S+)/i, icon: '✏️', label: line => { const m = line.match(/(?:Editing|Writing|Wrote)\s+(\S+)/i); return `Edited ${m?.[1] || 'file'}`; }, cat: 'files' },
+    { pattern: /(?:Checking|Auditing|Reviewing)\s+(.+)/i, icon: '🔍', label: line => { const m = line.match(/(?:Checking|Auditing|Reviewing)\s+(.+)/i); return `Checking ${m?.[1]?.replace(/\.\.\.$/, '').slice(0, 50) || ''}`; }, cat: 'search' },
+    { pattern: /Scanning\s+(.{1,50})/i, icon: '🔍', label: line => { const m = line.match(/Scanning\s+(.{1,50})/i); return `Scanning ${m?.[1]?.replace(/\.\.\..*/, '') || ''}`; }, cat: 'search' },
+    { pattern: /Running\s+(prettier|linter|eslint|lint|tests?|build)\b/i, icon: '💻', label: line => { const m = line.match(/Running\s+(\S+(?:\s+\S+)?)/i); return `$ ${m?.[1] || 'command'}`; }, cat: 'commands' },
+    { pattern: /Found\s+(\d+)\s+(?:potential\s+)?(.{1,40})/i, icon: '⚠️', label: line => { const m = line.match(/Found\s+(\d+)\s+(?:potential\s+)?(.{1,40})/i); return `Found ${m?.[1]} ${m?.[2]?.replace(/\s+in\s+.*/, '') || 'issues'}`; }, cat: 'errors' },
+    // Test results
     { pattern: /(\d+)\s+(?:tests?\s+)?pass(?:ed|ing)?/i, icon: '✅', label: line => { const m = line.match(/(\d+)\s+(?:tests?\s+)?pass/i); return `${m?.[1] || ''} tests passed`; }, cat: 'tests' },
     { pattern: /(\d+)\s+(?:tests?\s+)?fail(?:ed|ing)?/i, icon: '❌', label: line => { const m = line.match(/(\d+)\s+(?:tests?\s+)?fail/i); return `${m?.[1] || ''} tests failed`; }, cat: 'tests' },
-    { pattern: /<thinking>|Let me (?:think|analyze|plan)/i, icon: '💭', label: () => 'Thinking...', cat: 'thinking' },
+    // Status patterns
+    { pattern: /<thinking>|Let me (?:think|analyze|plan)|Planning approach/i, icon: '💭', label: () => 'Thinking...', cat: 'thinking' },
     { pattern: /(?:error|exception|traceback)/i, icon: '🚨', label: line => { const m = line.match(/(?:Error|Exception|Traceback)[:\s]*(.{0,50})/i); return m?.[1]?.trim() || 'Error detected'; }, cat: 'errors' },
     { pattern: /(?:installing|npm install|pip install|yarn add)/i, icon: '📦', label: line => { const m = line.match(/(?:installing|npm install|pip install|yarn add)\s+(.{0,40})/i); return `Installing ${m?.[1] || 'dependencies'}`; }, cat: 'commands' },
     { pattern: /(?:changes committed|git commit)/i, icon: '📝', label: () => 'Committed changes', cat: 'git' },
     { pattern: /Tool Result:/, icon: '🔧', label: () => 'Tool executed', cat: 'tools' },
+    // Check results (✓/✗ style)
+    { pattern: /[✓✔]\s+No\s+(.{1,40})/i, icon: '✅', label: line => { const m = line.match(/[✓✔]\s+(.{1,50})/); return m?.[1] || 'Check passed'; }, cat: 'tests' },
+    { pattern: /[△⚠]\s+(\d+)\s+(.{1,40})/i, icon: '⚠️', label: line => { const m = line.match(/[△⚠]\s+(.{1,50})/); return m?.[1] || 'Warning'; }, cat: 'errors' },
 ];
 
 const _activityCache = new Map(); // agentId → { lastIdx, events[] }
