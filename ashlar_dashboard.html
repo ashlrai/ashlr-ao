@@ -4388,6 +4388,7 @@ async function handleSync(data) {
     }
     if (state.viewMode === 'table') renderAgentTable();
     updateTabTitle();
+    updateAttentionBadge();
     // Fetch active workflow runs
     try {
         const res = await apiFetch('/api/workflow-runs');
@@ -5995,8 +5996,8 @@ function handleCommandInput(e) {
     const input = document.getElementById('commandInput');
     const val = input.value;
 
-    // Detect @mention
-    const atMatch = val.match(/@(\w*)$/);
+    // Detect @mention (allow hyphens, dots, underscores in agent names)
+    const atMatch = val.match(/@([\w\-.]*)$/);
     if (atMatch) {
         const query = atMatch[1].toLowerCase();
         const matches = [...state.agents.values()].filter(a =>
@@ -6158,6 +6159,8 @@ document.addEventListener('keydown', (e) => {
         if (state.view === 'deep') { closeDeepView(); return; }
         if (state.view === 'spawn') { closeSpawnDialog(); return; }
         if (state.view === 'palette') { closePalette(); return; }
+        if (document.getElementById('notifDropdown').classList.contains('active')) { closeNotifications(); return; }
+        if (document.getElementById('projectDetailPanel')?.classList.contains('active')) { closeProjectDetail(); return; }
         if (document.getElementById('historyOverlay').classList.contains('active')) { closeHistory(); return; }
         if (document.getElementById('cheatsheetOverlay').classList.contains('active')) { closeCheatsheet(); return; }
         if (document.getElementById('settingsOverlay').classList.contains('active')) { closeSettings(); return; }
@@ -6881,7 +6884,7 @@ function updateFavicon(agents, waiting, active) {
     else if (waiting > 0) color = '#F97316';
     else if (active > 0) color = '#2563EB';
     else if (agents.length > 0) color = '#64748B';
-    else color = '#F97316'; // default Ashlar orange
+    else color = '#64748B'; // no agents — neutral gray
 
     if (color === _faviconLastColor) return;
     _faviconLastColor = color;
@@ -7823,6 +7826,7 @@ function toggleAgentSelection(agentId, e) {
 function clearBulkSelection() {
     selectedAgents.clear();
     document.getElementById('agentGrid').classList.remove('bulk-mode');
+    document.getElementById('bulkSelectBtn').classList.remove('active');
     updateBulkUI();
 }
 
@@ -8774,6 +8778,8 @@ function parseActivityFromOutput(agentId) {
     if (!cache) { cache = { lastIdx: 0, events: [] }; _activityCache.set(agentId, cache); }
 
     // Only scan new lines
+    const newLineCount = lines.length - cache.lastIdx;
+    const isBulkScan = newLineCount > 10; // bulk load (API fetch / initial sync)
     for (let i = cache.lastIdx; i < lines.length; i++) {
         const line = lines[i];
         if (!line || !line.trim()) continue;
@@ -8787,7 +8793,7 @@ function parseActivityFromOutput(agentId) {
                     raw: stripped.trim().slice(0, 200),
                     cat: pat.cat,
                     lineIdx: i,
-                    time: new Date(),
+                    time: isBulkScan ? null : new Date(), // null = historical (no misleading "just now")
                 });
                 break; // one event per line
             }
@@ -8830,6 +8836,7 @@ function renderActivityFeed(agentId) {
 }
 
 function formatActivityTime(date) {
+    if (!date) return ''; // historical event (bulk-loaded) — no misleading timestamp
     const now = new Date();
     const diff = Math.floor((now - date) / 1000);
     if (diff < 5) return 'just now';
