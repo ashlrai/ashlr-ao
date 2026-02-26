@@ -4106,7 +4106,10 @@ function confirmAction(title, message, confirmText = 'Confirm', options = {}) {
 
         overlay.classList.add('active');
 
+        let resolved = false;
         function cleanup(result) {
+            if (resolved) return;
+            resolved = true;
             overlay.classList.remove('active');
             okBtn.removeEventListener('click', onOk);
             cancelBtn.removeEventListener('click', onCancel);
@@ -4442,7 +4445,12 @@ function handleAgentUpdate(agent) {
     scheduleRender();
     if (state.viewMode === 'table') renderAgentTable();
     if (state.view === 'deep' && state.focusedAgentId === agent.id) updateDeepViewHeader(agent);
-    if (state._projectDetailId) updateProjectDetailContent(state._projectDetailId);
+    if (state._projectDetailId) {
+        updateProjectDetailContent(state._projectDetailId);
+        // Auto-close project panel if no agents remain in the project
+        const projAgents = [...state.agents.values()].filter(a => a.project_id === state._projectDetailId);
+        if (projAgents.length === 0) closeProjectDetail();
+    }
     updateTabTitle();
     updateAttentionBadge();
 }
@@ -4484,6 +4492,11 @@ function handleAgentRemoved(agentId) {
         localStorage.setItem('ashlar_pinned', JSON.stringify([...state.pinnedAgents]));
     }
     if (state.view === 'deep' && state.focusedAgentId === agentId) closeDeepView();
+    // Auto-close project panel if this was the last agent in the project
+    if (state._projectDetailId) {
+        const projAgents = [...state.agents.values()].filter(a => a.project_id === state._projectDetailId);
+        if (projAgents.length === 0) closeProjectDetail();
+    }
     setTimeout(() => { scheduleRender(); updateTabTitle(); updateAttentionBadge(); updateBulkUI(); }, 350);
 }
 
@@ -6920,6 +6933,7 @@ let _faviconCanvas = null;
 let _faviconLastColor = '';
 
 function updateFavicon(agents, waiting, active) {
+    if (document.hidden) return; // Skip expensive canvas + toDataURL when tab not visible
     let color;
     const hasError = agents.some(a => a.status === 'error');
     if (hasError) color = '#EF4444';
