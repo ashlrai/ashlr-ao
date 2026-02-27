@@ -422,6 +422,7 @@ class BackendConfig:
     # Automation
     auto_approve_flag: str = ""
     plan_mode_flag: str = ""  # CLI flag to enable plan/review mode (e.g. "--permission-mode plan")
+    inject_role_prompt: bool = True  # Whether to inject role system prompt (disable for tools with their own context)
     # Status detection overrides (merge with defaults)
     status_patterns: dict[str, list[str]] = field(default_factory=dict)
     # Cost rates (per 1K tokens)
@@ -443,6 +444,7 @@ class BackendConfig:
             "supports_model_select": self.supports_model_select,
             "auto_approve_flag": self.auto_approve_flag,
             "plan_mode_flag": self.plan_mode_flag,
+            "inject_role_prompt": self.inject_role_prompt,
             "cost_input_per_1k": self.cost_input_per_1k,
             "cost_output_per_1k": self.cost_output_per_1k,
             "context_window": self.context_window,
@@ -462,8 +464,10 @@ KNOWN_BACKENDS: dict[str, BackendConfig] = {
         auto_approve_flag="--dangerously-skip-permissions",
         plan_mode_flag="--permission-mode plan",
         status_patterns={
-            "working": [r"⎿", r"Tool Use:", r"Bash:"],
-            "waiting": [r"Do you want to proceed", r"Allow once", r"Allow always"],
+            "working": [r"⎿", r"╭─", r"╰─", r"Tool Use:", r"Bash:", r"\$ "],
+            "waiting": [r"Do you want to proceed", r"Allow once", r"Allow always",
+                        r"Press Enter to retry", r"Type your response"],
+            "planning": [r"Thinking\.\.\."],
         },
         cost_input_per_1k=0.003,
         cost_output_per_1k=0.015,
@@ -1091,12 +1095,15 @@ class AgentManager:
                 cmd_parts.extend(bc.plan_mode_flag.split())
 
             # System prompt injection (role context + predecessor output)
+            # Skip role prompt for backends that manage their own context (e.g. claude-code has CLAUDE.md)
             role_obj = BUILTIN_ROLES.get(role, BUILTIN_ROLES["general"])
-            role_prompt = f"You are a {role_obj.name}. {role_obj.system_prompt}"
-            full_system = role_prompt
+            parts = []
+            if bc.inject_role_prompt and role != "general":
+                parts.append(f"You are a {role_obj.name}. {role_obj.system_prompt}")
             if system_prompt_extra:
-                full_system += f"\n\n{system_prompt_extra}"
-            if bc.supports_system_prompt:
+                parts.append(system_prompt_extra)
+            full_system = "\n\n".join(parts)
+            if full_system and bc.supports_system_prompt:
                 cmd_parts.extend(["--append-system-prompt", full_system])
                 agent.system_prompt = full_system
 
