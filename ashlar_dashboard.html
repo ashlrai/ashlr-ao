@@ -128,7 +128,7 @@
 
 body {
     font-family: var(--font-sans);
-    background: var(--bg-primary);
+    background: var(--bg-page);
     color: var(--text-primary);
     overflow: hidden;
     height: 100vh;
@@ -146,11 +146,9 @@ body {
 .top-bar {
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: 56px;
-    background: rgba(13,21,32,0.8);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border);
+    height: 52px;
+    background: var(--bg-page);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     padding: 0 20px;
@@ -191,8 +189,8 @@ body {
 }
 
 .project-selector {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 4px 10px;
     color: var(--text-secondary);
@@ -209,12 +207,12 @@ body {
     max-width: 180px;
 }
 .project-selector:focus { border-color: var(--accent); }
-.project-selector option { background: #0D1520; color: var(--text-primary); }
+.project-selector option { background: #0A0F1A; color: var(--text-primary); }
 .project-metrics-badge {
     font-size: 11px;
-    color: var(--text-dimmed);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    color: var(--text-tertiary);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 3px 8px;
     white-space: nowrap;
@@ -238,7 +236,7 @@ body {
     gap: 6px;
     font-size: 12px;
 }
-.metric-label { color: var(--text-dimmed); font-weight: 500; }
+.metric-label { color: var(--text-tertiary); font-weight: 500; }
 .metric-value {
     color: var(--text-primary);
     font-weight: 600;
@@ -249,6 +247,11 @@ body {
 .metric-value.green { color: var(--success); }
 .metric-value.yellow { color: var(--warning); }
 .metric-value.red { color: var(--danger); }
+
+.intelligence-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.intelligence-dot.connected { background: var(--success); }
+.intelligence-dot.disabled { background: var(--text-tertiary); }
+.intelligence-dot.error { background: var(--danger); }
 
 .cpu-sparkline {
     width: 60px;
@@ -277,14 +280,14 @@ body {
     position: relative;
     background: none;
     border: none;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     font-size: 18px;
     cursor: pointer;
     padding: 4px 6px;
     border-radius: var(--radius-sm);
     transition: all var(--transition);
 }
-.notification-bell:hover { color: var(--text-primary); background: var(--bg-card); }
+.notification-bell:hover { color: var(--text-primary); background: var(--bg-surface); }
 .notification-bell .unread-dot {
     position: absolute;
     top: 2px; right: 4px;
@@ -304,7 +307,7 @@ body {
     max-height: 400px;
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(20px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     box-shadow: 0 16px 48px rgba(0,0,0,0.5);
     overflow-y: auto;
@@ -318,7 +321,7 @@ body {
     font-size: 12px;
     font-weight: 600;
     color: var(--text-secondary);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     justify-content: space-between;
 }
@@ -333,10 +336,10 @@ body {
     align-items: flex-start;
     transition: background var(--transition);
 }
-.notification-item:hover { background: var(--bg-card); }
+.notification-item:hover { background: var(--bg-surface); }
 .notification-item .ni-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
 .notification-item .ni-text { flex: 1; line-height: 1.4; }
-.notification-item .ni-time { color: var(--text-dimmed); font-size: 10px; flex-shrink: 0; margin-top: 2px; }
+.notification-item .ni-time { color: var(--text-tertiary); font-size: 10px; flex-shrink: 0; margin-top: 2px; }
 
 .btn-new-agent {
     background: var(--accent);
@@ -352,17 +355,16 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    box-shadow: 0 0 20px var(--accent-glow);
     flex-shrink: 0;
 }
-.btn-new-agent:hover { background: var(--accent-hover); box-shadow: 0 0 30px var(--accent-glow); }
+.btn-new-agent:hover { background: var(--accent-hover); }
 
 /* ── Agent Grid ── */
 
 .main-content {
     position: fixed;
-    top: 56px;
-    bottom: 54px;
+    top: 52px;
+    bottom: 52px;
     left: 0; right: 0;
     overflow-y: auto;
     padding: 24px;
@@ -380,7 +382,7 @@ body {
     grid-column: 1 / -1;
     text-align: center;
     padding: 100px 20px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
 }
 .empty-state h2 {
     font-size: 22px;
@@ -389,7 +391,7 @@ body {
     color: var(--text-secondary);
     letter-spacing: -0.02em;
 }
-.empty-state p { font-size: 14px; margin-bottom: 20px; color: var(--text-dimmed); }
+.empty-state p { font-size: 14px; margin-bottom: 20px; color: var(--text-tertiary); }
 .empty-state .shortcuts {
     display: flex;
     gap: 12px;
@@ -401,12 +403,12 @@ body {
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
 }
 .kbd {
     display: inline-block;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     padding: 2px 7px;
     border-radius: 5px;
     font-family: var(--font-mono);
@@ -423,12 +425,10 @@ body {
 }
 
 .agent-card {
-    background: var(--bg-card);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-    border-left: 4px solid var(--text-dimmed);
-    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-left: 2px solid var(--text-tertiary);
+    border-radius: var(--radius-md);
     padding: 16px;
     cursor: pointer;
     transition: all var(--transition);
@@ -441,9 +441,10 @@ body {
     contain: layout style;
 }
 .agent-card:hover {
-    border-color: var(--border-light);
+    border-color: var(--border-default);
     background: var(--bg-elevated);
-    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
 }
 
 .agent-card[data-status="working"] { animation: fadeUp 0.4s ease-out backwards, subtle-glow 3s ease-in-out infinite; }
@@ -452,7 +453,7 @@ body {
 .agent-card[data-status="error"] { border-left-color: var(--danger) !important; }
 .agent-card[data-status="paused"] { opacity: 0.45; filter: grayscale(0.3); cursor: default; }
 .agent-card[data-status="paused"]:hover { opacity: 0.75; filter: grayscale(0.1); cursor: pointer; }
-.agent-card[data-status="idle"] { border-left-color: var(--text-dimmed) !important; opacity: 0.6; }
+.agent-card[data-status="idle"] { border-left-color: var(--text-tertiary) !important; opacity: 0.6; }
 .agent-card[data-status="idle"]:hover { opacity: 0.85; }
 .agent-card[data-status="reading"] { border-left-color: #3B82F6 !important; }
 .agent-card[data-status="spawning"] { animation: fadeUp 0.4s ease-out backwards, skeleton-pulse 1.5s ease-in-out infinite; will-change: opacity; }
@@ -492,7 +493,8 @@ body {
     gap: 8px;
     margin-bottom: 4px;
 }
-.card-icon { font-size: 16px; }
+.card-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.06); color: var(--text-secondary); font-size: 16px; }
+.card-icon .lucide { color: inherit; }
 .card-name {
     font-size: 14px;
     font-weight: 600;
@@ -505,7 +507,7 @@ body {
 .card-menu-btn {
     background: none;
     border: none;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     cursor: pointer;
     font-size: 16px;
     padding: 4px 8px;
@@ -526,7 +528,7 @@ body {
 
 .card-dir {
     font-size: 11px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     margin-bottom: 10px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -590,7 +592,7 @@ body {
 .card-quick-btn.approve:hover { filter: brightness(1.1); }
 .card-quick-btn.reject {
     background: var(--bg-elevated); color: var(--text-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
 }
 .card-quick-btn.reject:hover { background: var(--danger); color: white; border-color: var(--danger); }
 
@@ -666,7 +668,7 @@ body {
 .context-pct-label.high { color: #F87171; }
 .context-text {
     font-size: 9px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     white-space: nowrap;
     font-family: 'JetBrains Mono', monospace;
     display: none;
@@ -708,23 +710,38 @@ body {
 }
 
 .status-badge {
-    font-size: 11px;
-    font-weight: 700;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-family: var(--font-mono);
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     line-height: 1.1;
+}
+.status-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
 }
 .status-badge.working { background: var(--accent-subtle); color: var(--accent-hover); }
 .status-badge.planning { background: var(--warning-subtle); color: var(--warning); }
 .status-badge.waiting { background: var(--orange-subtle); color: var(--orange); }
 .status-badge.error { background: var(--danger-subtle); color: var(--danger); }
-.status-badge.paused { background: rgba(255,255,255,0.06); color: var(--text-dimmed); }
-.status-badge.idle { background: rgba(255,255,255,0.06); color: var(--text-dimmed); }
+.status-badge.paused { background: rgba(255,255,255,0.06); color: var(--text-tertiary); }
+.status-badge.idle { background: rgba(255,255,255,0.06); color: var(--text-tertiary); }
 .status-badge.spawning { background: rgba(168,85,247,0.15); color: var(--purple); }
 .status-badge.reading { background: rgba(59,130,246,0.15); color: #60A5FA; }
+
+/* ── Lucide SVG Icons ── */
+.lucide { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+.card-menu-item .lucide { margin-right: 6px; opacity: 0.7; }
+.settings-section-icon .lucide { vertical-align: -2px; }
 
 .plan-mode-indicator {
     display: none;
@@ -743,7 +760,7 @@ body {
 
 .card-meta {
     font-size: 10px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     display: flex;
     gap: 8px;
     align-items: center;
@@ -762,12 +779,12 @@ body {
     justify-content: center;
     min-height: 170px;
     transition: all var(--transition);
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
 }
 .new-agent-card:hover {
     border-color: var(--accent);
     color: var(--accent);
-    background: rgba(37,99,235,0.05);
+    background: rgba(99,102,241,0.05);
 }
 .new-agent-card .plus { font-size: 28px; margin-bottom: 6px; font-weight: 300; }
 .new-agent-card .label { font-size: 13px; font-weight: 500; }
@@ -778,7 +795,7 @@ body {
     top: 40px; right: 8px;
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(20px);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     padding: 4px;
     z-index: 50;
@@ -798,7 +815,7 @@ body {
     color: var(--text-secondary);
     transition: all var(--transition);
 }
-.card-menu-item:hover { background: var(--bg-card); color: var(--text-primary); }
+.card-menu-item:hover { background: var(--bg-surface); color: var(--text-primary); }
 .card-menu-item:active { background: var(--accent-subtle); transform: scale(0.98); }
 .card-menu-item.danger { color: var(--danger); }
 .card-menu-item.danger:hover { background: var(--danger-subtle); }
@@ -821,7 +838,7 @@ body {
 .spawn-dialog {
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(24px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl);
     padding: 28px;
     width: 540px;
@@ -850,7 +867,7 @@ body {
     margin-bottom: 24px;
 }
 .role-option {
-    background: var(--bg-card);
+    background: var(--bg-surface);
     border: 2px solid transparent;
     border-radius: var(--radius-md);
     padding: 14px 8px;
@@ -858,12 +875,12 @@ body {
     text-align: center;
     transition: all var(--transition);
 }
-.role-option:hover { border-color: var(--border-light); background: var(--bg-elevated); transform: translateY(-1px); }
+.role-option:hover { border-color: var(--border-strong); background: var(--bg-elevated); transform: translateY(-1px); }
 .role-option:active { transform: scale(0.97); }
-.role-option.selected { border-color: var(--accent); background: var(--accent-subtle); box-shadow: 0 0 20px rgba(37,99,235,0.15), inset 0 0 0 1px rgba(37,99,235,0.1); transform: translateY(-2px); }
+.role-option.selected { border-color: var(--accent); background: var(--accent-subtle); box-shadow: 0 0 20px rgba(99,102,241,0.15), inset 0 0 0 1px rgba(99,102,241,0.1); transform: translateY(-2px); }
 .role-option .role-icon { font-size: 24px; margin-bottom: 4px; }
 .role-option .role-name { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
-.role-option .role-desc { font-size: 9px; color: var(--text-dimmed); margin-top: 2px; display: none; }
+.role-option .role-desc { font-size: 9px; color: var(--text-tertiary); margin-top: 2px; display: none; }
 .role-option.selected .role-desc { display: block; }
 
 .form-group { margin-bottom: 16px; }
@@ -878,7 +895,7 @@ body {
 .form-input, .form-textarea {
     width: 100%;
     background: var(--bg-input);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 10px 12px;
     color: var(--text-primary);
@@ -889,7 +906,7 @@ body {
 }
 .form-input:focus, .form-textarea:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
 }
 .form-input.error, .form-textarea.error {
     border-color: var(--danger);
@@ -900,7 +917,7 @@ body {
     box-shadow: 0 0 0 3px rgba(239,68,68,0.2);
 }
 .form-textarea { resize: vertical; min-height: 80px; }
-.form-input::placeholder, .form-textarea::placeholder { color: var(--text-dimmed); }
+.form-input::placeholder, .form-textarea::placeholder { color: var(--text-tertiary); }
 
 .form-row { display: flex; gap: 12px; }
 .form-row > .form-group { flex: 1; }
@@ -911,9 +928,9 @@ body {
     justify-content: space-between;
     margin-bottom: 24px;
     padding: 10px 14px;
-    background: var(--bg-card);
+    background: var(--bg-surface);
     border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
 }
 .toggle {
     width: 42px;
@@ -925,7 +942,7 @@ body {
     position: relative;
     transition: all var(--transition);
 }
-.toggle.active { background: var(--accent); box-shadow: 0 0 12px rgba(37,99,235,0.3); }
+.toggle.active { background: var(--accent); box-shadow: 0 0 12px rgba(99,102,241,0.3); }
 .toggle:active { transform: scale(0.95); }
 .toggle::after {
     content: '';
@@ -937,7 +954,7 @@ body {
     transition: transform var(--transition), box-shadow var(--transition);
     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
-.toggle.active::after { transform: translateX(18px); box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 4px rgba(37,99,235,0.4); }
+.toggle.active::after { transform: translateX(18px); box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 4px rgba(99,102,241,0.4); }
 
 .dialog-actions {
     display: flex;
@@ -960,9 +977,9 @@ body {
 .btn-primary {
     background: var(--accent);
     color: white;
-    box-shadow: 0 0 20px var(--accent-glow);
 }
 .btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:active { transform: scale(0.97); }
 .btn-spinner {
     display: inline-block;
     width: 14px;
@@ -976,18 +993,20 @@ body {
 }
 @keyframes btn-spin { to { transform: rotate(360deg); } }
 .btn-secondary {
-    background: var(--bg-card);
+    background: transparent;
     color: var(--text-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-default);
 }
-.btn-secondary:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.btn-secondary:hover { border-color: var(--border-strong); color: var(--text-primary); background: var(--bg-surface); }
+.btn-ghost { background: transparent; border: none; color: var(--text-secondary); }
+.btn-ghost:hover { color: var(--text-primary); background: var(--bg-surface); }
 
 /* ── Deep View (Full Terminal) ── */
 
 .deep-view {
     position: fixed;
     inset: 0;
-    background: var(--bg-primary);
+    background: var(--bg-page);
     z-index: 150;
     display: none;
     flex-direction: column;
@@ -998,7 +1017,7 @@ body {
     height: 56px;
     background: rgba(13,21,32,0.8);
     backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     padding: 0 16px;
@@ -1019,8 +1038,8 @@ body {
 .deep-prompt-text { flex: 1; color: var(--warning); font-weight: 500; }
 
 .back-btn {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     color: var(--text-secondary);
     padding: 6px 12px;
     border-radius: var(--radius-sm);
@@ -1059,8 +1078,8 @@ body {
 .deep-view.archived-view .deep-input-bar,
 .deep-view.archived-view .deep-prompt-bar { display: none !important; }
 .deep-action-btn {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     color: var(--text-secondary);
     padding: 6px 10px;
     border-radius: var(--radius-sm);
@@ -1095,7 +1114,7 @@ body {
     gap: 6px;
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 6px 10px;
     z-index: 5;
@@ -1110,7 +1129,7 @@ body {
     width: 200px;
     outline: none;
 }
-.deep-search-count { font-size: 11px; color: var(--text-dimmed); font-family: var(--font-mono); }
+.deep-search-count { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
 .deep-search-btn {
     background: none;
     border: none;
@@ -1127,7 +1146,7 @@ body {
     transform: translateX(-50%);
     background: rgba(13,21,32,0.9);
     backdrop-filter: blur(8px);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-strong);
     color: var(--text-secondary);
     padding: 6px 18px;
     border-radius: 20px;
@@ -1140,13 +1159,13 @@ body {
 }
 .jump-to-bottom:hover { background: var(--bg-elevated); color: var(--text-primary); }
 .jump-to-bottom.visible { display: block; animation: jumpPulse 2s ease-in-out infinite; }
-@keyframes jumpPulse { 0%,100% { box-shadow: 0 2px 8px rgba(0,0,0,0.3); } 50% { box-shadow: 0 2px 16px rgba(37,99,235,0.3); } }
+@keyframes jumpPulse { 0%,100% { box-shadow: 0 2px 8px rgba(0,0,0,0.3); } 50% { box-shadow: 0 2px 16px rgba(99,102,241,0.3); } }
 
 .deep-input-bar {
     height: 54px;
     background: rgba(13,21,32,0.8);
     backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     padding: 0 16px;
@@ -1156,7 +1175,7 @@ body {
 .deep-input {
     flex: 1;
     background: var(--bg-input);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 8px 12px;
     color: var(--text-primary);
@@ -1200,7 +1219,7 @@ body {
     max-height: 70vh;
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(24px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-bottom: none;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     padding: 24px;
@@ -1222,7 +1241,7 @@ body {
     max-width: 95vw;
     background: rgba(13,21,32,0.97);
     backdrop-filter: blur(24px);
-    border-left: 1px solid var(--border);
+    border-left: 1px solid var(--border-subtle);
     z-index: 155;
     display: none;
     flex-direction: column;
@@ -1236,7 +1255,7 @@ body {
 
 .aq-header {
     padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1260,14 +1279,14 @@ body {
 
 .aq-bulk-bar {
     padding: 10px 20px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     gap: 8px;
 }
 .aq-bulk-btn {
     padding: 6px 14px;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     background: var(--success-subtle);
     color: var(--success);
     font-size: 12px;
@@ -1309,17 +1328,17 @@ body {
 }
 .aq-item-time {
     font-size: 11px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     font-family: var(--font-mono);
 }
 
 .aq-item-preview {
     font-size: 11px; font-family: var(--font-mono);
-    color: var(--text-dimmed); line-height: 1.4;
-    background: var(--bg-card); border-radius: var(--radius-sm);
+    color: var(--text-tertiary); line-height: 1.4;
+    background: var(--bg-surface); border-radius: var(--radius-sm);
     padding: 6px 8px; margin-bottom: 6px;
     max-height: 48px; overflow: hidden;
-    border-left: 2px solid var(--border);
+    border-left: 2px solid var(--border-subtle);
 }
 .aq-item-question {
     font-size: 12px;
@@ -1344,7 +1363,7 @@ body {
     flex: 1;
     padding: 5px 10px;
     background: var(--bg-input);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: 6px;
     color: var(--text-primary);
     font-family: var(--font-sans);
@@ -1356,7 +1375,7 @@ body {
 .aq-empty {
     padding: 40px 20px;
     text-align: center;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     font-size: 13px;
 }
 
@@ -1370,8 +1389,8 @@ body {
 .interaction-agent-name { font-weight: 600; font-size: 15px; }
 
 .interaction-question {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 14px;
     font-size: 13px;
@@ -1391,7 +1410,7 @@ body {
 .interaction-divider {
     text-align: center;
     font-size: 11px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     margin-bottom: 12px;
 }
 
@@ -1399,7 +1418,7 @@ body {
 .interaction-input {
     flex: 1;
     background: var(--bg-input);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 10px 12px;
     color: var(--text-primary);
@@ -1432,7 +1451,7 @@ body {
     max-width: 92vw;
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(24px);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-lg);
     box-shadow: 0 24px 64px rgba(0,0,0,0.5);
     overflow: hidden;
@@ -1445,12 +1464,12 @@ body {
 
 .palette-input-wrap {
     padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     gap: 10px;
 }
-.palette-search-icon { color: var(--text-dimmed); font-size: 16px; }
+.palette-search-icon { color: var(--text-tertiary); font-size: 16px; }
 .palette-input {
     flex: 1;
     background: transparent;
@@ -1460,7 +1479,7 @@ body {
     font-family: var(--font-sans);
     outline: none;
 }
-.palette-input::placeholder { color: var(--text-dimmed); }
+.palette-input::placeholder { color: var(--text-tertiary); }
 
 .palette-list {
     max-height: 340px;
@@ -1487,9 +1506,9 @@ body {
 .palette-item-label mark { background: transparent; color: var(--accent); font-weight: 600; }
 .palette-item-shortcut {
     font-size: 10px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     font-family: var(--font-mono);
-    background: var(--bg-card);
+    background: var(--bg-surface);
     padding: 2px 6px;
     border-radius: 4px;
 }
@@ -1497,7 +1516,7 @@ body {
 .palette-section-label {
     font-size: 10px;
     font-weight: 600;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     padding: 10px 14px 4px;
@@ -1508,10 +1527,9 @@ body {
 .command-bar {
     position: fixed;
     bottom: 0; left: 0; right: 0;
-    height: 54px;
-    background: rgba(13,21,32,0.8);
-    backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border);
+    height: 52px;
+    background: var(--bg-page);
+    border-top: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     padding: 0 20px;
@@ -1521,9 +1539,9 @@ body {
 }
 
 .voice-btn {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    color: var(--text-dimmed);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-tertiary);
     width: 36px; height: 36px;
     border-radius: 50%;
     cursor: pointer;
@@ -1536,7 +1554,7 @@ body {
 }
 .voice-status {
     font-size: 11px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     letter-spacing: 0.3px;
     transition: color var(--transition);
     flex-shrink: 0;
@@ -1559,7 +1577,7 @@ body {
     bottom: 60px;
     left: 20px;
     background: rgba(13,21,32,0.9);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 8px 14px;
     font-size: 13px;
@@ -1573,7 +1591,7 @@ body {
 .command-input {
     flex: 1;
     background: var(--bg-input);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 8px 14px;
     color: var(--text-primary);
@@ -1583,12 +1601,12 @@ body {
     transition: border-color var(--transition);
 }
 .command-input:focus { border-color: var(--accent); }
-.command-input::placeholder { color: var(--text-dimmed); }
+.command-input::placeholder { color: var(--text-tertiary); }
 
 .command-target {
-    background: var(--bg-card);
+    background: var(--bg-surface);
     color: var(--text-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     padding: 6px 8px;
     border-radius: var(--radius-sm);
     font-size: 12px;
@@ -1631,7 +1649,7 @@ body {
 .toast {
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 12px 16px;
     font-size: 13px;
@@ -1673,7 +1691,7 @@ body {
     grid-column: 1 / -1;
     text-align: center;
     padding: 60px 20px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     font-size: 14px;
 }
 
@@ -1693,7 +1711,7 @@ body {
 .cheatsheet {
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(24px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl);
     padding: 28px;
     width: 420px;
@@ -1713,7 +1731,7 @@ body {
     padding: 6px 0;
     font-size: 13px;
 }
-.cheatsheet-row .keys { color: var(--text-dimmed); }
+.cheatsheet-row .keys { color: var(--text-tertiary); }
 .cheatsheet-row .keys .kbd { margin-left: 4px; }
 .cheatsheet-row .desc { color: var(--text-secondary); }
 
@@ -1732,7 +1750,7 @@ body {
 .history-panel {
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(24px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl);
     padding: 24px;
     width: 640px;
@@ -1751,15 +1769,15 @@ body {
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: background var(--transition);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
 }
 .history-item:last-child { border-bottom: none; }
-.history-item:hover { background: var(--bg-card); }
+.history-item:hover { background: var(--bg-surface); }
 .history-item .hi-icon { font-size: 16px; flex-shrink: 0; }
 .history-item .hi-name { font-weight: 600; font-size: 13px; min-width: 100px; }
 .history-item .hi-task { flex: 1; font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.history-item .hi-meta { font-size: 11px; color: var(--text-dimmed); font-family: var(--font-mono); white-space: nowrap; }
-.history-empty { text-align: center; padding: 40px; color: var(--text-dimmed); font-size: 13px; }
+.history-item .hi-meta { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); white-space: nowrap; }
+.history-empty { text-align: center; padding: 40px; color: var(--text-tertiary); font-size: 13px; }
 
 /* ── Metrics Dropdown ── */
 .metrics-dropdown {
@@ -1769,7 +1787,7 @@ body {
     width: 360px;
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(20px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     box-shadow: 0 16px 48px rgba(0,0,0,0.5);
     z-index: 200;
@@ -1785,9 +1803,9 @@ body {
 .metrics-dropdown th {
     text-align: left;
     padding: 6px 8px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     font-weight: 500;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
 }
 .metrics-dropdown td {
     padding: 6px 8px;
@@ -1802,7 +1820,7 @@ body {
 }
 .settings-overlay.active { display: grid; }
 .settings-panel {
-    background: var(--bg-primary); border: 1px solid var(--border);
+    background: var(--bg-page); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl); padding: 28px;
     width: min(560px, 90vw); max-height: 80vh; overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0,0,0,0.5);
@@ -1811,7 +1829,7 @@ body {
 .settings-section { margin-bottom: 20px; }
 .settings-section-title {
     font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
-    color: var(--text-dimmed); margin-bottom: 10px; font-weight: 600;
+    color: var(--text-tertiary); margin-bottom: 10px; font-weight: 600;
 }
 .settings-row {
     display: flex; align-items: center; gap: 12px;
@@ -1820,19 +1838,19 @@ body {
 .settings-label { flex: 1; font-size: 13px; color: var(--text-secondary); }
 .settings-input {
     width: 160px; padding: 6px 10px; font-size: 13px;
-    background: var(--bg-input); border: 1px solid var(--border);
+    background: var(--bg-input); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm); color: var(--text-primary);
     font-family: var(--font-mono);
 }
 .settings-input:focus { outline: none; border-color: var(--border-focus); }
 .settings-select {
     width: 160px; padding: 6px 10px; font-size: 13px;
-    background: var(--bg-input); border: 1px solid var(--border);
+    background: var(--bg-input); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm); color: var(--text-primary);
 }
 .settings-toggle {
     width: 40px; height: 22px; border-radius: 11px;
-    background: var(--bg-elevated); border: 1px solid var(--border);
+    background: var(--bg-elevated); border: 1px solid var(--border-subtle);
     cursor: pointer; position: relative; transition: var(--transition);
 }
 .settings-toggle.active { background: var(--accent); border-color: var(--accent); }
@@ -1844,7 +1862,7 @@ body {
 .settings-toggle.active::after { left: 20px; }
 .settings-actions {
     display: flex; gap: 10px; justify-content: flex-end;
-    padding-top: 16px; border-top: 1px solid var(--border);
+    padding-top: 16px; border-top: 1px solid var(--border-subtle);
 }
 .settings-badge {
     font-size: 10px; padding: 2px 6px; border-radius: 10px;
@@ -1853,7 +1871,7 @@ body {
 
 /* ── Extensions Panel ── */
 .btn-extensions {
-    background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: none; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
     color: var(--text-secondary); cursor: pointer; padding: 4px 8px; font-size: 16px;
     transition: var(--transition); line-height: 1;
 }
@@ -1865,7 +1883,7 @@ body {
 }
 .extensions-overlay.active { display: grid; }
 .extensions-panel {
-    background: var(--bg-primary); border: 1px solid var(--border);
+    background: var(--bg-page); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl); padding: 24px;
     width: min(640px, 92vw); max-height: 80vh;
     box-shadow: 0 20px 60px rgba(0,0,0,0.5);
@@ -1877,24 +1895,24 @@ body {
 .ext-header h3 { margin: 0; font-size: 18px; color: var(--text-primary); }
 .ext-header-actions { display: flex; gap: 8px; align-items: center; }
 .ext-close-btn {
-    background: none; border: none; color: var(--text-dimmed); font-size: 22px;
+    background: none; border: none; color: var(--text-tertiary); font-size: 22px;
     cursor: pointer; padding: 0 4px; line-height: 1;
 }
 .ext-close-btn:hover { color: var(--text-primary); }
 .ext-tabs {
-    display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle);
     padding-bottom: 0;
 }
 .ext-tab {
     background: none; border: none; border-bottom: 2px solid transparent;
-    color: var(--text-dimmed); cursor: pointer; padding: 8px 16px; font-size: 13px;
+    color: var(--text-tertiary); cursor: pointer; padding: 8px 16px; font-size: 13px;
     font-weight: 500; transition: var(--transition);
 }
 .ext-tab:hover { color: var(--text-secondary); }
 .ext-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .ext-search {
     width: 100%; padding: 8px 12px; font-size: 13px; margin-bottom: 12px;
-    background: var(--bg-input); border: 1px solid var(--border);
+    background: var(--bg-input); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm); color: var(--text-primary);
     font-family: var(--font-mono);
 }
@@ -1910,7 +1928,7 @@ body {
 .ext-item:hover { background: var(--bg-elevated); }
 .ext-item-icon {
     width: 32px; height: 32px; border-radius: var(--radius-sm);
-    background: var(--bg-card); border: 1px solid var(--border);
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
     display: flex; align-items: center; justify-content: center;
     font-size: 14px; flex-shrink: 0;
 }
@@ -1920,19 +1938,19 @@ body {
     font-family: var(--font-mono);
 }
 .ext-item-desc {
-    font-size: 11px; color: var(--text-dimmed); margin-top: 2px;
+    font-size: 11px; color: var(--text-tertiary); margin-top: 2px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ext-item-badge {
     font-size: 9px; padding: 2px 6px; border-radius: 8px;
-    background: var(--bg-card); border: 1px solid var(--border);
-    color: var(--text-dimmed); text-transform: uppercase; letter-spacing: 0.5px;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px;
     flex-shrink: 0;
 }
 .ext-item-badge.user { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent); }
 .ext-item-badge.project { background: var(--success-subtle); color: var(--success); border-color: var(--success); }
 .ext-item-badge.enabled { background: var(--success-subtle); color: var(--success); border-color: var(--success); }
-.ext-item-badge.disabled { background: var(--bg-card); color: var(--text-dimmed); }
+.ext-item-badge.disabled { background: var(--bg-surface); color: var(--text-tertiary); }
 .ext-item-action {
     background: var(--accent); color: white; border: none; border-radius: var(--radius-sm);
     padding: 4px 10px; font-size: 11px; cursor: pointer; font-weight: 600;
@@ -1941,11 +1959,11 @@ body {
 .ext-item-action:hover { filter: brightness(1.1); }
 .ext-item-action:disabled { opacity: 0.4; cursor: not-allowed; }
 .ext-footer {
-    padding-top: 10px; border-top: 1px solid var(--border); margin-top: 8px;
-    font-size: 11px; color: var(--text-dimmed);
+    padding-top: 10px; border-top: 1px solid var(--border-subtle); margin-top: 8px;
+    font-size: 11px; color: var(--text-tertiary);
 }
 .ext-empty {
-    text-align: center; padding: 40px 20px; color: var(--text-dimmed); font-size: 13px;
+    text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 13px;
 }
 
 /* ── Workflow Editor ── */
@@ -1956,7 +1974,7 @@ body {
 }
 .wf-editor-overlay.active { display: grid; }
 .wf-editor {
-    background: var(--bg-primary); border: 1px solid var(--border);
+    background: var(--bg-page); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl); padding: 28px;
     width: min(620px, 92vw); max-height: 85vh; overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0,0,0,0.5);
@@ -1965,12 +1983,12 @@ body {
 .wf-agent-row {
     display: flex; gap: 8px; align-items: center;
     padding: 10px; margin-bottom: 8px;
-    background: var(--bg-card); border: 1px solid var(--border);
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
 }
 .wf-agent-row select, .wf-agent-row input {
     padding: 6px 8px; font-size: 12px;
-    background: var(--bg-input); border: 1px solid var(--border);
+    background: var(--bg-input); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm); color: var(--text-primary);
     font-family: var(--font-sans);
 }
@@ -1983,8 +2001,8 @@ body {
 .wf-add-btn {
     display: flex; align-items: center; justify-content: center;
     gap: 6px; width: 100%; padding: 10px;
-    background: var(--bg-card); border: 1px dashed var(--border);
-    border-radius: var(--radius-md); color: var(--text-dimmed);
+    background: var(--bg-surface); border: 1px dashed var(--border-subtle);
+    border-radius: var(--radius-md); color: var(--text-tertiary);
     cursor: pointer; font-size: 13px; margin-bottom: 16px;
     transition: var(--transition);
 }
@@ -1992,19 +2010,19 @@ body {
 .wf-list-item {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 12px; margin-bottom: 6px;
-    background: var(--bg-card); border: 1px solid var(--border);
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md); cursor: pointer;
     transition: var(--transition);
 }
-.wf-list-item:hover { background: var(--bg-elevated); border-color: var(--border-light); }
+.wf-list-item:hover { background: var(--bg-elevated); border-color: var(--border-strong); }
 .wf-list-item .wf-name { flex: 1; font-size: 14px; color: var(--text-primary); }
-.wf-list-item .wf-desc { font-size: 11px; color: var(--text-dimmed); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-list-item .wf-count { font-size: 11px; color: var(--text-dimmed); }
+.wf-list-item .wf-desc { font-size: 11px; color: var(--text-tertiary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-list-item .wf-count { font-size: 11px; color: var(--text-tertiary); }
 .wf-list-item .wf-builtin { font-size: 9px; padding: 1px 5px; border-radius: 8px; background: var(--accent-subtle); color: var(--accent); }
 .wf-list-item .wf-actions { display: flex; gap: 6px; }
 .wf-list-item .wf-actions button {
     background: none; border: none; cursor: pointer;
-    font-size: 13px; color: var(--text-dimmed); padding: 2px 6px;
+    font-size: 13px; color: var(--text-tertiary); padding: 2px 6px;
 }
 .wf-list-item .wf-actions button:hover { color: var(--text-primary); }
 
@@ -2021,24 +2039,20 @@ body {
 
 /* ── Deep view messaging ── */
 .deep-message-panel {
-    padding: 12px; border-top: 1px solid var(--border);
+    padding: 12px; border-top: 1px solid var(--border-subtle);
     max-height: 200px; overflow-y: auto;
 }
 /* ══════════════════════════════════════════════
    Enhanced Design System — Overhaul v2
    ══════════════════════════════════════════════ */
 
-/* ── Top Bar Glow ── */
+/* ── Top Bar — clean ── */
 .top-bar {
-    border-bottom: 1px solid rgba(37,99,235,0.15);
-    box-shadow: 0 1px 24px -4px rgba(37,99,235,0.12), 0 0 1px rgba(37,99,235,0.3);
+    border-bottom: 1px solid var(--border-subtle);
+    box-shadow: none;
 }
 .top-bar::after {
-    content: '';
-    position: absolute;
-    bottom: -1px; left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent 5%, rgba(37,99,235,0.4) 30%, rgba(37,99,235,0.6) 50%, rgba(37,99,235,0.4) 70%, transparent 95%);
+    display: none;
 }
 
 /* ── Enhanced Agent Card ── */
@@ -2046,14 +2060,14 @@ body {
     transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .agent-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 36px -8px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
 }
 
 /* Card project badge */
 .card-project-badge {
     font-size: 10px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.06);
     padding: 1px 6px;
@@ -2068,7 +2082,7 @@ body {
 /* Card backend label */
 .card-backend-label {
     font-size: 9px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     font-family: var(--font-mono);
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.06);
@@ -2096,7 +2110,7 @@ body {
 }
 @keyframes workflow-dot-pulse {
     0%, 100% { opacity: 0.5; }
-    50% { opacity: 1; box-shadow: 0 0 6px var(--accent-glow); }
+    50% { opacity: 1; box-shadow: 0 0 6px var(--accent-muted); }
 }
 
 /* Phase-colored progress bars */
@@ -2158,8 +2172,8 @@ body {
     top: 56px; right: 0; bottom: 0;
     width: 440px;
     max-width: 100vw;
-    background: var(--bg-primary);
-    border-left: 1px solid var(--border);
+    background: var(--bg-page);
+    border-left: 1px solid var(--border-subtle);
     z-index: 160;
     display: flex;
     flex-direction: column;
@@ -2178,7 +2192,7 @@ body {
     padding: 16px 20px;
     background: rgba(13,21,32,0.8);
     backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
     flex-shrink: 0;
 }
 .project-detail-header h3 {
@@ -2203,14 +2217,14 @@ body {
     margin-bottom: 20px;
 }
 .project-stat-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 12px;
 }
 .project-stat-label {
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 4px;
@@ -2225,7 +2239,7 @@ body {
 }
 .project-detail-section h4 {
     font-size: 12px;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin: 0 0 10px 0;
@@ -2240,8 +2254,8 @@ body {
     align-items: center;
     gap: 10px;
     padding: 10px 12px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all var(--transition);
@@ -2264,19 +2278,19 @@ body {
 }
 .project-agent-role {
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
 }
 .project-detail-path {
     font-size: 11px;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     font-family: var(--font-mono);
     margin-bottom: 16px;
     word-break: break-all;
 }
 .project-scratchpad-entry {
     padding: 10px 12px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     margin-bottom: 8px;
     font-size: 12px;
@@ -2284,12 +2298,12 @@ body {
 }
 .project-scratchpad-entry .entry-time {
     font-size: 10px;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     margin-bottom: 4px;
 }
 .project-empty-state {
     text-align: center;
-    color: var(--text-muted);
+    color: var(--text-tertiary);
     font-size: 12px;
     padding: 20px 0;
 }
@@ -2303,14 +2317,14 @@ body {
     gap: 0;
     padding: 0 16px;
     background: rgba(13,21,32,0.4);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
     flex-shrink: 0;
 }
 .deep-tab {
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     padding: 8px 16px;
     cursor: pointer;
     font-size: 12px;
@@ -2355,8 +2369,8 @@ body {
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
 }
 .scratchpad-key {
@@ -2376,7 +2390,7 @@ body {
 }
 .scratchpad-by {
     font-size: 11px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     min-width: 60px;
     text-align: right;
 }
@@ -2386,8 +2400,8 @@ body {
 }
 .scratchpad-actions button {
     background: none;
-    border: 1px solid var(--border);
-    color: var(--text-dimmed);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-tertiary);
     padding: 2px 8px;
     border-radius: 4px;
     cursor: pointer;
@@ -2395,7 +2409,7 @@ body {
 }
 .scratchpad-actions button:hover {
     color: var(--text-primary);
-    border-color: var(--border-light);
+    border-color: var(--border-strong);
 }
 .scratchpad-actions button.danger:hover {
     color: var(--danger);
@@ -2403,7 +2417,7 @@ body {
 }
 .scratchpad-empty {
     text-align: center;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     padding: 40px;
     font-size: 13px;
 }
@@ -2411,14 +2425,14 @@ body {
     display: flex;
     gap: 8px;
     padding: 10px 12px;
-    background: var(--bg-card);
+    background: var(--bg-surface);
     border: 1px solid var(--accent);
     border-radius: 8px;
 }
 .scratchpad-inline-form input {
     flex: 1;
     background: var(--bg-surface);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: 4px;
     color: var(--text-primary);
     padding: 4px 8px;
@@ -2439,13 +2453,13 @@ body {
     gap: 4px;
     padding: 6px 16px;
     background: rgba(13,21,32,0.6);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
     flex-shrink: 0;
 }
 .terminal-toolbar-btn {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    color: var(--text-dimmed);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-tertiary);
     padding: 4px 10px;
     border-radius: 6px;
     cursor: pointer;
@@ -2460,7 +2474,7 @@ body {
 .terminal-toolbar-btn:hover {
     color: var(--text-primary);
     background: var(--bg-elevated);
-    border-color: var(--border-light);
+    border-color: var(--border-strong);
 }
 .terminal-toolbar-btn.active {
     color: var(--accent);
@@ -2498,7 +2512,7 @@ body {
 .wf-picker {
     background: rgba(13,21,32,0.97);
     backdrop-filter: blur(24px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl);
     padding: 28px;
     width: min(600px, 92vw);
@@ -2516,11 +2530,11 @@ body {
     letter-spacing: -0.03em;
 }
 .wf-picker-subtitle {
-    font-size: 13px; color: var(--text-dimmed); margin-bottom: 20px;
+    font-size: 13px; color: var(--text-tertiary); margin-bottom: 20px;
 }
 .wf-picker-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     padding: 16px;
     margin-bottom: 10px;
@@ -2549,12 +2563,12 @@ body {
     letter-spacing: -0.01em;
 }
 .wf-picker-card-desc {
-    font-size: 12px; color: var(--text-dimmed); margin-bottom: 6px;
+    font-size: 12px; color: var(--text-tertiary); margin-bottom: 6px;
     line-height: 1.4;
 }
 .wf-picker-card-meta {
     display: flex; gap: 8px; align-items: center;
-    font-size: 11px; color: var(--text-dimmed);
+    font-size: 11px; color: var(--text-tertiary);
 }
 .wf-picker-card-meta .agent-count {
     background: var(--accent-subtle); color: var(--accent);
@@ -2582,7 +2596,7 @@ body {
 .wf-picker-dir-section {
     margin-top: 16px;
     padding-top: 16px;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border-subtle);
 }
 
 /* ── Messaging Panel (Deep View) ── */
@@ -2598,7 +2612,7 @@ body {
     width: min(380px, 90vw);
     background: rgba(13,21,32,0.97);
     backdrop-filter: blur(24px);
-    border-left: 1px solid var(--border);
+    border-left: 1px solid var(--border-subtle);
     display: flex;
     flex-direction: column;
     z-index: 260;
@@ -2610,25 +2624,25 @@ body {
     transform: translateX(0);
 }
 .msg-panel-header {
-    padding: 16px; border-bottom: 1px solid var(--border);
+    padding: 16px; border-bottom: 1px solid var(--border-subtle);
     display: flex; align-items: center; gap: 10px;
 }
 .msg-panel-header h4 {
     flex: 1; font-size: 15px; font-weight: 600; margin: 0;
 }
 .msg-panel-close {
-    background: none; border: none; color: var(--text-dimmed);
+    background: none; border: none; color: var(--text-tertiary);
     cursor: pointer; font-size: 18px; padding: 4px 8px;
     border-radius: var(--radius-sm); transition: all var(--transition);
 }
-.msg-panel-close:hover { color: var(--text-primary); background: var(--bg-card); }
+.msg-panel-close:hover { color: var(--text-primary); background: var(--bg-surface); }
 .msg-panel-agents {
-    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    padding: 12px 16px; border-bottom: 1px solid var(--border-subtle);
     display: flex; gap: 8px; flex-wrap: wrap;
 }
 .msg-agent-chip {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     border-radius: 20px;
     padding: 6px 12px;
     font-size: 12px;
@@ -2637,7 +2651,7 @@ body {
     display: flex; align-items: center; gap: 6px;
     color: var(--text-secondary);
 }
-.msg-agent-chip:hover { border-color: var(--border-light); background: var(--bg-elevated); }
+.msg-agent-chip:hover { border-color: var(--border-strong); background: var(--bg-elevated); }
 .msg-agent-chip.selected {
     border-color: var(--accent);
     background: var(--accent-subtle);
@@ -2649,7 +2663,7 @@ body {
 }
 .msg-panel-empty {
     text-align: center; padding: 40px 20px;
-    color: var(--text-dimmed); font-size: 13px;
+    color: var(--text-tertiary); font-size: 13px;
 }
 .msg-bubble {
     max-width: 85%;
@@ -2658,28 +2672,28 @@ body {
     font-size: 13px;
     line-height: 1.5;
     margin-bottom: 8px;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     color: var(--text-secondary);
 }
 .msg-bubble.sent {
     margin-left: auto;
     border-radius: 12px 12px 4px 12px;
     background: var(--accent-subtle);
-    border-color: rgba(37,99,235,0.2);
+    border-color: rgba(99,102,241,0.2);
     color: var(--text-primary);
 }
 .msg-bubble-meta {
-    font-size: 10px; color: var(--text-dimmed); margin-top: 4px;
+    font-size: 10px; color: var(--text-tertiary); margin-top: 4px;
 }
 .msg-panel-input-area {
-    padding: 12px 16px; border-top: 1px solid var(--border);
+    padding: 12px 16px; border-top: 1px solid var(--border-subtle);
     display: flex; gap: 8px;
 }
 .msg-panel-input {
     flex: 1;
     background: var(--bg-input);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     padding: 10px 12px;
     color: var(--text-primary);
@@ -2693,7 +2707,7 @@ body {
 }
 .msg-panel-input:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
 }
 .msg-panel-send {
     background: var(--accent);
@@ -2749,7 +2763,7 @@ body {
 }
 .empty-cube {
     width: 40px; height: 40px;
-    border: 2px solid var(--border-light);
+    border: 2px solid var(--border-strong);
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
     font-size: 20px;
@@ -2765,11 +2779,11 @@ body {
 /* ── Enhanced Form Focus ── */
 .form-input:focus, .form-textarea:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.12), 0 0 16px -4px rgba(37,99,235,0.2);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12), 0 0 16px -4px rgba(99,102,241,0.2);
 }
 .settings-input:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
     outline: none;
 }
 
@@ -2783,9 +2797,9 @@ body {
     font-size: 14px;
 }
 .settings-reset-btn {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    color: var(--text-dimmed);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-tertiary);
     padding: 6px 14px;
     border-radius: var(--radius-sm);
     font-size: 12px;
@@ -2817,9 +2831,9 @@ body {
     flex-shrink: 0;
 }
 .wf-duplicate-btn {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    color: var(--text-dimmed);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-tertiary);
     padding: 4px 10px;
     border-radius: 6px;
     cursor: pointer;
@@ -2834,7 +2848,7 @@ body {
 
 /* ── Enhanced Notification Dropdown ── */
 .notification-dropdown {
-    border: 1px solid rgba(37,99,235,0.15);
+    border: 1px solid rgba(99,102,241,0.15);
     box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03);
 }
 .notification-item {
@@ -2843,11 +2857,11 @@ body {
     transition: all var(--transition);
 }
 .notification-item:hover {
-    background: rgba(37,99,235,0.08);
+    background: rgba(99,102,241,0.08);
     transform: translateX(2px);
 }
 .notification-item.unread {
-    background: rgba(37,99,235,0.06);
+    background: rgba(99,102,241,0.06);
     border-left: 2px solid var(--accent);
 }
 
@@ -2858,25 +2872,23 @@ body {
 
 /* ── Surface Refinement ── */
 
-/* Glass depth — card inner highlight + deeper backdrop */
+/* Card surface — subtle top border */
 .agent-card {
     border-top: 1px solid rgba(255,255,255,0.04);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
 }
 
-/* Status badges — slightly larger, bolder presence */
+/* Status badges — compact, with dot */
 .status-badge {
-    padding: 3px 10px;
+    padding: 2px 8px;
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
 /* Input focus glow */
 .deep-input:focus, .settings-input:focus, .form-input:focus, .form-textarea:focus, .form-select:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.15), 0 0 12px -2px rgba(37,99,235,0.1);
+    box-shadow: 0 0 0 3px var(--accent-muted);
     outline: none;
 }
 
@@ -2887,7 +2899,7 @@ body {
 
 /* Empty state cubes — more dramatic float */
 .empty-cube {
-    box-shadow: 0 4px 20px -4px rgba(37,99,235,0.15);
+    box-shadow: 0 4px 20px -4px rgba(99,102,241,0.15);
 }
 @keyframes empty-float {
     0%, 100% { transform: translateY(0) rotate(0deg); }
@@ -2900,14 +2912,13 @@ body {
     animation-delay: 1.2s;
 }
 
-/* Top bar glow — intensified */
+/* Top bar — clean, no glow */
 .top-bar {
-    background: linear-gradient(180deg, rgba(13,21,32,0.9) 0%, rgba(13,21,32,0.85) 100%);
-    box-shadow: 0 1px 32px -4px rgba(37,99,235,0.18), 0 0 1px rgba(37,99,235,0.4);
+    background: var(--bg-page);
+    box-shadow: none;
 }
 .top-bar::after {
-    height: 2px;
-    background: linear-gradient(90deg, transparent 2%, rgba(37,99,235,0.3) 20%, rgba(37,99,235,0.7) 50%, rgba(37,99,235,0.3) 80%, transparent 98%);
+    display: none;
 }
 
 /* ── Health Score Indicator ── */
@@ -2931,7 +2942,7 @@ body {
 .confirm-dialog {
     background: rgba(13,21,32,0.97);
     backdrop-filter: blur(24px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl);
     padding: 32px;
     width: min(400px, 90vw);
@@ -2955,7 +2966,7 @@ body {
     border: none;
     transition: all var(--transition);
 }
-.btn-danger:hover { background: #DC2626; box-shadow: 0 0 20px rgba(239,68,68,0.3); }
+.btn-danger:hover { background: #DC2626; }
 .btn-danger:active { transform: scale(0.97); }
 .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
 .confirm-dialog.danger { border-color: rgba(239,68,68,0.3); }
@@ -3005,7 +3016,7 @@ body {
     right: 0;
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border-subtle);
     padding: 12px 24px;
     display: flex;
     align-items: center;
@@ -3024,7 +3035,7 @@ body {
     width: 18px;
     height: 18px;
     border-radius: 4px;
-    border: 2px solid var(--border-light);
+    border: 2px solid var(--border-strong);
     background: transparent;
     cursor: pointer;
     z-index: 5;
@@ -3039,7 +3050,7 @@ body {
 .edit-agent-dialog {
     background: rgba(13,21,32,0.95);
     backdrop-filter: blur(20px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-xl);
     padding: 24px;
     width: min(380px, 90vw);
@@ -3050,20 +3061,20 @@ body {
 .edit-agent-dialog .settings-input { width: 100%; margin-bottom: 12px; }
 
 /* ── Auth Login ── */
-.auth-login { position: fixed; inset: 0; z-index: 10000; background: var(--bg-primary); display: flex; align-items: center; justify-content: center; }
-.auth-card { background: var(--bg-card); padding: 32px; border-radius: 16px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.auth-login { position: fixed; inset: 0; z-index: 10000; background: var(--bg-page); display: flex; align-items: center; justify-content: center; }
+.auth-card { background: var(--bg-surface); padding: 32px; border-radius: 16px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 .auth-title { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 8px; }
 
 /* ── Grid Toolbar ── */
 .grid-toolbar { display: flex; align-items: center; gap: 8px; padding: 0 16px 8px; }
-.grid-search { flex: 1; max-width: 320px; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); padding: 6px 12px; border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.2s; }
+.grid-search { flex: 1; max-width: 320px; background: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-primary); padding: 6px 12px; border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.2s; }
 .grid-search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
 .grid-search-count { font-size: 12px; color: var(--text-secondary); min-width: 60px; }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 
 /* ── Activity Timeline ── */
-.timeline-panel { background: var(--bg-card); width: 560px; max-height: 80vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
-.timeline-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.timeline-panel { background: var(--bg-surface); width: 560px; max-height: 80vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.timeline-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); }
 .timeline-list { overflow-y: auto; flex: 1; padding: 8px 0; }
 .timeline-event { display: flex; gap: 10px; padding: 8px 20px; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: flex-start; cursor: pointer; transition: background 0.15s; }
 .timeline-event:hover { background: rgba(255,255,255,0.03); }
@@ -3080,12 +3091,12 @@ body {
 .timeline-event-msg { font-size: 13px; color: var(--text-primary); flex: 1; }
 
 /* ── Pipeline Graph ── */
-.pipeline-panel { background: var(--bg-card); width: 700px; max-height: 80vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
-.pipeline-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.pipeline-panel { background: var(--bg-surface); width: 700px; max-height: 80vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.pipeline-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); }
 .pipeline-status { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .pipeline-graph { overflow: auto; flex: 1; padding: 24px; }
 .pipeline-row { display: flex; justify-content: center; gap: 16px; margin-bottom: 24px; position: relative; }
-.pipeline-node { background: var(--bg-secondary); border: 2px solid var(--border); border-radius: 12px; padding: 12px 16px; min-width: 140px; text-align: center; cursor: pointer; transition: all 0.2s; }
+.pipeline-node { background: var(--bg-surface); border: 2px solid var(--border-subtle); border-radius: 12px; padding: 12px 16px; min-width: 140px; text-align: center; cursor: pointer; transition: all 0.2s; }
 .pipeline-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
 .pipeline-node.pending { border-color: var(--text-secondary); opacity: 0.5; }
 .pipeline-node.running { border-color: var(--accent); box-shadow: 0 0 12px rgba(99,102,241,0.3); }
@@ -3094,15 +3105,15 @@ body {
 .pipeline-node-icon { font-size: 20px; margin-bottom: 4px; }
 .pipeline-node-name { font-size: 13px; font-weight: 600; }
 .pipeline-node-status { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
-.pipeline-connector { width: 2px; height: 20px; background: var(--border); margin: 0 auto; }
+.pipeline-connector { width: 2px; height: 20px; background: var(--border-subtle); margin: 0 auto; }
 
 /* ── Keyboard Focus ── */
-.agent-card.keyboard-focused { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 24px var(--accent-glow), 0 8px 32px rgba(0,0,0,0.3); }
+.agent-card.keyboard-focused { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: 0 0 24px var(--accent-muted), 0 8px 32px rgba(0,0,0,0.3); }
 
 /* ── Deep Search: Regex Toggle + Log Filter ── */
-.deep-search-toggle { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); border-radius: 4px; padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; transition: all 0.15s; margin-right: 4px; }
+.deep-search-toggle { background: transparent; border: 1px solid var(--border-subtle); color: var(--text-secondary); border-radius: 4px; padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer; transition: all 0.15s; margin-right: 4px; }
 .deep-search-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.deep-log-filter { background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-primary); border-radius: 4px; padding: 2px 6px; font-size: 12px; margin-right: 4px; outline: none; }
+.deep-log-filter { background: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: 4px; padding: 2px 6px; font-size: 12px; margin-right: 4px; outline: none; }
 .deep-log-filter:focus { border-color: var(--accent); }
 
 /* ── Conflict Badge on Cards ── */
@@ -3113,7 +3124,7 @@ body {
 /* ── Files Touched Badge on Cards ── */
 .card-files-badge {
     font-size: 10px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     font-family: var(--font-mono);
     white-space: nowrap;
 }
@@ -3138,7 +3149,7 @@ body {
 /* ── Card Tools Badge ── */
 .card-tools-badge {
     font-size: 9px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     padding: 1px 4px;
     border-radius: 3px;
     letter-spacing: 0.2px;
@@ -3157,7 +3168,7 @@ body {
 .card-cost-badge {
     font-size: 9px;
     font-family: var(--font-mono);
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     background: rgba(255,255,255,0.04);
     padding: 1px 5px;
     border-radius: 3px;
@@ -3178,23 +3189,23 @@ body {
 /* ── Handoff Modal ── */
 .handoff-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1200; justify-content: center; align-items: center; backdrop-filter: blur(4px); }
 .handoff-overlay.active { display: flex; }
-.handoff-modal { background: var(--bg-secondary); border-radius: 16px; border: 1px solid var(--border); width: 460px; max-width: 95vw; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.handoff-modal { background: var(--bg-surface); border-radius: 16px; border: 1px solid var(--border-subtle); width: 460px; max-width: 95vw; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 .handoff-modal h3 { margin: 0 0 16px; font-size: 16px; }
 .handoff-modal label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; margin-top: 12px; }
-.handoff-modal select, .handoff-modal textarea, .handoff-modal input[type="text"] { width: 100%; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--text-primary); font-size: 13px; font-family: inherit; resize: vertical; box-sizing: border-box; }
+.handoff-modal select, .handoff-modal textarea, .handoff-modal input[type="text"] { width: 100%; background: var(--bg-page); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 8px 10px; color: var(--text-primary); font-size: 13px; font-family: inherit; resize: vertical; box-sizing: border-box; }
 .handoff-modal select:focus, .handoff-modal textarea:focus, .handoff-modal input:focus { border-color: var(--accent); outline: none; }
 .handoff-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 
 /* ── Table View (A2) ── */
-.view-toggle { display: flex; gap: 2px; background: var(--bg-card); border-radius: 8px; padding: 2px; border: 1px solid var(--border); }
+.view-toggle { display: flex; gap: 2px; background: var(--bg-surface); border-radius: 8px; padding: 2px; border: 1px solid var(--border-subtle); }
 .view-toggle-btn { background: transparent; border: none; color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
 .view-toggle-btn.active { background: var(--accent); color: #fff; }
 .agent-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; padding: 0 16px; display: none; }
-.agent-table th { position: sticky; top: 0; background: var(--bg-primary); text-align: left; font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px; cursor: pointer; user-select: none; white-space: nowrap; z-index: 1; }
+.agent-table th { position: sticky; top: 0; background: var(--bg-page); text-align: left; font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px; cursor: pointer; user-select: none; white-space: nowrap; z-index: 1; }
 .agent-table th:hover { color: var(--text-primary); }
 .agent-table th .sort-arrow { font-size: 10px; margin-left: 2px; opacity: 0.6; }
 .agent-table th .sort-arrow.active { opacity: 1; color: var(--accent); }
-.agent-table tr.table-row { background: var(--bg-card); cursor: pointer; transition: background 0.15s, transform 0.1s; border-radius: 8px; }
+.agent-table tr.table-row { background: var(--bg-surface); cursor: pointer; transition: background 0.15s, transform 0.1s; border-radius: 8px; }
 .agent-table tr.table-row:hover { background: var(--bg-elevated); }
 .agent-table tr.table-row.waiting { animation: waiting-pulse 2s ease-in-out infinite; }
 .agent-table td { padding: 8px 10px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
@@ -3205,9 +3216,9 @@ body {
 .table-status-dot.planning { background: var(--warning); }
 .table-status-dot.waiting { background: var(--orange); }
 .table-status-dot.error { background: var(--danger); }
-.table-status-dot.idle { background: var(--text-dimmed); }
+.table-status-dot.idle { background: var(--text-tertiary); }
 .table-status-dot.reading { background: #3B82F6; }
-.table-status-dot.paused { background: var(--text-dimmed); opacity: 0.5; }
+.table-status-dot.paused { background: var(--text-tertiary); opacity: 0.5; }
 .table-status-dot.spawning { background: var(--text-secondary); animation: spawning-pulse 1s infinite; }
 
 /* ── Sparkline on Cards (A3) ── */
@@ -3227,15 +3238,15 @@ body {
 .scratchpad-entry:hover { background: rgba(255,255,255,0.03); transform: translateX(2px); }
 .scratchpad-key { font-family: var(--font-mono); font-size: 12px; color: var(--accent); min-width: 120px; }
 .scratchpad-val { font-size: 12px; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.scratchpad-by { font-size: 10px; color: var(--text-dimmed); min-width: 60px; }
-.scratchpad-empty { text-align: center; color: var(--text-dimmed); padding: 24px; font-size: 13px; }
+.scratchpad-by { font-size: 10px; color: var(--text-tertiary); min-width: 60px; }
+.scratchpad-empty { text-align: center; color: var(--text-tertiary); padding: 24px; font-size: 13px; }
 
 /* ── Preset selector in spawn dialog ── */
 .preset-selector { display: flex; gap: 6px; margin-bottom: 12px; align-items: center; }
-.preset-selector select { flex: 1; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; color: var(--text-primary); font-size: 12px; font-family: inherit; }
+.preset-selector select { flex: 1; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 6px 10px; color: var(--text-primary); font-size: 12px; font-family: inherit; }
 
 /* ── Config Diff Preview (D1) ── */
-.config-diff { max-height: 300px; overflow-y: auto; padding: 8px; font-family: var(--font-mono); font-size: 12px; background: var(--bg-primary); border-radius: 8px; border: 1px solid var(--border); margin: 8px 0; }
+.config-diff { max-height: 300px; overflow-y: auto; padding: 8px; font-family: var(--font-mono); font-size: 12px; background: var(--bg-page); border-radius: 8px; border: 1px solid var(--border-subtle); margin: 8px 0; }
 .config-diff-line { padding: 2px 6px; }
 .config-diff-line.changed { background: rgba(234,179,8,0.1); color: var(--warning); }
 .config-diff-line.added { background: rgba(34,197,94,0.1); color: #22c55e; }
@@ -3243,13 +3254,7 @@ body {
 
 /* ── Ambient Background Gradient ── */
 #ambientGradient {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    opacity: 0.35;
-    transition: background 4s ease;
-    background: radial-gradient(ellipse at 50% 0%, rgba(37,99,235,0.2) 0%, transparent 70%);
+    display: none;
 }
 
 /* ── Status Filter Chips ── */
@@ -3268,21 +3273,21 @@ body {
     font-size: 11px;
     font-weight: 600;
     cursor: pointer;
-    border: 1px solid var(--border);
-    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
     color: var(--text-secondary);
     transition: all var(--transition);
     white-space: nowrap;
     user-select: none;
 }
-.status-chip:hover { background: var(--bg-elevated); border-color: var(--border-light); }
+.status-chip:hover { background: var(--bg-elevated); border-color: var(--border-strong); }
 .status-chip.active { border-color: currentColor; }
 .status-chip.active[data-status="all"] { color: var(--text-primary); background: rgba(255,255,255,0.1); }
 .status-chip.active[data-status="working"] { color: var(--accent); background: var(--accent-subtle); }
 .status-chip.active[data-status="waiting"] { color: var(--orange); background: var(--orange-subtle); }
 .status-chip.active[data-status="error"] { color: var(--danger); background: var(--danger-subtle); }
 .status-chip.active[data-status="planning"] { color: var(--warning); background: var(--warning-subtle); }
-.status-chip.active[data-status="idle"] { color: var(--text-dimmed); background: rgba(255,255,255,0.05); }
+.status-chip.active[data-status="idle"] { color: var(--text-tertiary); background: rgba(255,255,255,0.05); }
 .status-chip-count {
     font-size: 10px;
     font-weight: 700;
@@ -3300,50 +3305,15 @@ body {
 .agent-card { position: relative; overflow: hidden; }
 .agent-card .card-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
 .agent-card .card-info-row {
-    max-height: 0;
-    opacity: 0;
-    overflow: hidden;
-    transition: max-height 0.25s ease, opacity 0.2s ease;
-}
-.agent-card:hover .card-info-row,
-.agent-card:focus-within .card-info-row {
     max-height: 30px;
-    opacity: 1;
+    opacity: 0.7;
+    overflow: hidden;
 }
 .agent-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.04) 45%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.04) 55%, transparent 60%);
-    opacity: 0;
-    transform: translateX(-100%);
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-    border-radius: inherit;
-}
-.agent-card:hover::after {
-    opacity: 1;
-    transform: translateX(100%);
-    transition: opacity 0.3s ease, transform 0.6s ease;
-}
-@keyframes error-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
-    50% { box-shadow: 0 0 20px 4px rgba(239,68,68,0.25); }
+    display: none;
 }
 .agent-card[data-status="error"] {
-    animation: error-pulse 2s ease-in-out infinite;
-}
-.agent-card .card-sparkline {
-    transition: opacity 0.3s ease;
-}
-.agent-card[data-status="working"] .card-sparkline,
-.agent-card[data-status="reading"] .card-sparkline {
-    opacity: 1;
-    height: 24px;
-}
-.agent-card[data-status="idle"] .card-sparkline,
-.agent-card[data-status="paused"] .card-sparkline {
-    opacity: 0.3;
+    background: color-mix(in srgb, var(--status-error) 5%, var(--bg-surface));
 }
 
 /* ── Grid Layout Adaptation ── */
@@ -3356,7 +3326,7 @@ body {
 .new-agent-card:hover {
     border-color: var(--accent);
     color: var(--accent);
-    background: rgba(37,99,235,0.05);
+    background: rgba(99,102,241,0.05);
     transform: scale(1.01);
     border-style: dashed;
 }
@@ -3374,14 +3344,14 @@ body {
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    border: 1px solid var(--border);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
-    background: var(--bg-card);
+    background: var(--bg-surface);
     color: var(--text-secondary);
     transition: all var(--transition);
     font-family: var(--font-sans);
 }
-.bulk-select-btn:hover { background: var(--bg-elevated); border-color: var(--border-light); }
+.bulk-select-btn:hover { background: var(--bg-elevated); border-color: var(--border-strong); }
 .bulk-select-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-subtle); }
 
 /* ── Enhanced Command Bar ── */
@@ -3406,7 +3376,7 @@ body {
     cursor: default;
     flex-shrink: 0;
 }
-.command-target-pill.system { background: rgba(255,255,255,0.06); color: var(--text-dimmed); }
+.command-target-pill.system { background: rgba(255,255,255,0.06); color: var(--text-tertiary); }
 .command-target-pill.visible { display: inline-flex; }
 .command-target-pill .pill-close {
     cursor: pointer;
@@ -3424,7 +3394,7 @@ body {
     margin-bottom: 6px;
     background: rgba(13,21,32,0.96);
     backdrop-filter: blur(20px);
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     max-height: 240px;
     overflow-y: auto;
@@ -3449,7 +3419,7 @@ body {
 }
 .command-ac-item .ac-icon { flex-shrink: 0; }
 .command-ac-item .ac-name { font-weight: 500; }
-.command-ac-item .ac-hint { font-size: 11px; color: var(--text-dimmed); margin-left: auto; }
+.command-ac-item .ac-hint { font-size: 11px; color: var(--text-tertiary); margin-left: auto; }
 
 /* ── Deep View Activity Feed ── */
 .deep-activity-panel {
@@ -3485,7 +3455,7 @@ body {
 }
 .activity-time {
     font-size: 10px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     font-family: var(--font-mono);
     margin-top: 2px;
 }
@@ -3493,7 +3463,7 @@ body {
     display: none;
     margin-top: 6px;
     padding: 6px 8px;
-    background: var(--bg-primary);
+    background: var(--bg-page);
     border-radius: 6px;
     font-family: var(--font-mono);
     font-size: 11px;
@@ -3507,7 +3477,7 @@ body {
 .activity-empty {
     text-align: center;
     padding: 40px 20px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     font-size: 13px;
 }
 .activity-category-header {
@@ -3515,7 +3485,7 @@ body {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: var(--text-dimmed);
+    color: var(--text-tertiary);
     padding: 12px 10px 4px;
 }
 .activity-stats {
@@ -3523,14 +3493,14 @@ body {
     gap: 12px;
     padding: 8px 12px;
     margin-bottom: 8px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border-subtle);
 }
 .activity-stat {
     font-size: 11px;
     font-weight: 600;
     font-family: var(--font-mono);
 }
-.activity-stat .label { color: var(--text-dimmed); font-weight: 400; margin-right: 4px; }
+.activity-stat .label { color: var(--text-tertiary); font-weight: 400; margin-right: 4px; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -3540,8 +3510,8 @@ body {
     }
     .agent-card { will-change: auto; }
     .agent-card::after { display: none; }
-    .agent-card[data-status="error"] { animation: none; box-shadow: 0 0 12px 2px rgba(239,68,68,0.2); }
-    #ambientGradient { transition-duration: 0.01ms !important; }
+    .agent-card[data-status="error"] { animation: none; }
+    #ambientGradient { display: none; }
     .deep-view { transition: none; }
 }
 </style>
@@ -3549,7 +3519,7 @@ body {
 <body>
 
 <!-- ── Ambient Background Gradient ── -->
-<div id="ambientGradient"></div>
+<div id="ambientGradient" style="display:none"></div>
 
 <!-- ── Auth Login Screen ── -->
 <div class="auth-login" id="authLogin" style="display:none">
@@ -3591,11 +3561,15 @@ body {
             <span class="metric-label">Cost</span>
             <span class="metric-value" id="metricCost">$0.00</span>
         </div>
+        <div class="metric intelligence-status" id="intelligenceStatus" style="display:none">
+            <span class="intelligence-dot"></span>
+            <span class="metric-label">AI</span>
+        </div>
     </div>
     <div class="attention-badge" id="attentionBadge" onclick="focusFirstWaiting()" role="button" tabindex="0" aria-label="Agents needing attention" onkeydown="if(event.key==='Enter')focusFirstWaiting()">0</div>
     <div style="position:relative">
         <button class="notification-bell" id="notifBell" onclick="toggleNotifications(event)" aria-label="Notifications">
-            🔔<span class="unread-dot" id="unreadDot"></span>
+            <svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="unread-dot" id="unreadDot"></span>
         </button>
         <div class="notification-dropdown" id="notifDropdown">
             <div class="notification-dropdown-header">
@@ -3605,7 +3579,7 @@ body {
             <div id="notifList"></div>
         </div>
     </div>
-    <button class="btn-extensions" onclick="toggleExtensionsPanel()" title="Extensions (⌘E)" aria-label="Extensions">🧩</button>
+    <button class="btn-extensions" onclick="toggleExtensionsPanel()" title="Extensions (⌘E)" aria-label="Extensions"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.39 4.39a2.12 2.12 0 0 1 3 3l-1.64 1.64"/><path d="M13.5 7.5 6.75 14.25a2.12 2.12 0 0 0 3 3l6.75-6.75"/><path d="M10 15.5a5 5 0 0 1-7-7l2-2"/><path d="M14 8.5a5 5 0 0 1 7 7l-2 2"/></svg></button>
     <button class="btn-new-agent" onclick="openSpawnDialog()">
         <span>+</span> New Agent
     </button>
@@ -3628,12 +3602,12 @@ body {
             <button class="status-chip" data-status="planning" onclick="setStatusFilter('planning')">Planning <span class="status-chip-count" id="chipCountPlanning">0</span></button>
             <button class="status-chip" data-status="idle" onclick="setStatusFilter('idle')">Idle <span class="status-chip-count" id="chipCountIdle">0</span></button>
         </div>
-        <button class="bulk-select-btn" id="bulkSelectBtn" onclick="toggleBulkMode()" title="Select agents (⌘⇧S)">☑ Select</button>
+        <button class="bulk-select-btn" id="bulkSelectBtn" onclick="toggleBulkMode()" title="Select agents (⌘⇧S)"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Select</button>
         <div class="view-toggle">
-            <button class="view-toggle-btn active" id="viewGridBtn" onclick="setViewMode('grid')" title="Card grid">▦</button>
-            <button class="view-toggle-btn" id="viewTableBtn" onclick="setViewMode('table')" title="Table view">☰</button>
+            <button class="view-toggle-btn active" id="viewGridBtn" onclick="setViewMode('grid')" title="Card grid"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/></svg></button>
+            <button class="view-toggle-btn" id="viewTableBtn" onclick="setViewMode('table')" title="Table view"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg></button>
         </div>
-        <button class="btn btn-secondary btn-sm" onclick="openTimeline()" title="Activity Timeline (Cmd+T)">📋 Timeline</button>
+        <button class="btn btn-secondary btn-sm" onclick="openTimeline()" title="Activity Timeline (Cmd+T)"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/><path d="m16 12 5 3-5 3v-6Z"/></svg> Timeline</button>
     </div>
     <table class="agent-table" id="agentTable">
         <thead><tr>
@@ -3653,9 +3627,9 @@ body {
     <div class="agent-grid" id="agentGrid">
         <div class="empty-state" id="emptyState">
             <div class="empty-illustration">
-                <div class="empty-cube">🎨</div>
-                <div class="empty-cube">⚙</div>
-                <div class="empty-cube">🧪</div>
+                <div class="empty-cube"><svg class="lucide" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18.37 2.63a2.12 2.12 0 0 1 3 3L14 13l-4 1 1-4Z"/><path d="M20 14.5V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3.5"/></svg></div>
+                <div class="empty-cube"><svg class="lucide" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg></div>
+                <div class="empty-cube"><svg class="lucide" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5s-2.5-1.1-2.5-2.5V2"/><path d="M8.5 2h7"/><path d="M14.5 16h-5"/></svg></div>
             </div>
             <h2>Your AI agents, one command center</h2>
             <p>Spawn agents to work across your projects — each gets its own terminal, status tracking, and context window</p>
@@ -3768,12 +3742,12 @@ body {
             <div><span class="metric-label">Cost </span><span class="deep-stat-value" id="deepCost">-</span></div>
         </div>
         <div class="deep-actions">
-            <button class="deep-action-btn" id="deepPauseBtn" onclick="deepPauseResume()">⏸ Pause</button>
-            <button class="deep-action-btn" onclick="deepCopyOutput()">📋 Copy</button>
-            <button class="deep-action-btn" onclick="deepRegenSummary()" title="AI Summary">🤖 AI</button>
-            <button class="deep-action-btn" onclick="openDeepMessaging()" title="Send to another agent">💬 Msg</button>
-            <button class="deep-action-btn" onclick="deepRestart()" title="Restart agent">🔄 Restart</button>
-            <button class="deep-action-btn" onclick="openHandoff()" title="Handoff to another agent">🤝 Handoff</button>
+            <button class="deep-action-btn" id="deepPauseBtn" onclick="deepPauseResume()" id="deepPauseBtnInner"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg></span> Pause</button>
+            <button class="deep-action-btn" onclick="deepCopyOutput()"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span> Copy</button>
+            <button class="deep-action-btn" onclick="deepRegenSummary()" title="AI Summary"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg> AI</button>
+            <button class="deep-action-btn" onclick="openDeepMessaging()" title="Send to another agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span> Msg</button>
+            <button class="deep-action-btn" onclick="deepRestart()" title="Restart agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></span> Restart</button>
+            <button class="deep-action-btn" onclick="openHandoff()" title="Handoff to another agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></span> Handoff</button>
             <button class="deep-action-btn danger" onclick="deepKill()">Kill</button>
         </div>
     </div>
@@ -3831,9 +3805,9 @@ body {
 <!-- ── Attention Queue Panel ── -->
 <div class="attention-queue-overlay" id="attentionQueueOverlay">
     <div class="aq-header">
-        <span style="font-size:18px">⚡</span>
+        <span style="font-size:18px"><svg class="lucide" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></span>
         <h3>Attention Queue</h3>
-        <span id="aqCount" style="font-size:12px;color:var(--text-dimmed)"></span>
+        <span id="aqCount" style="font-size:12px;color:var(--text-tertiary)"></span>
         <button class="aq-close" onclick="closeAttentionQueue()">&times;</button>
     </div>
     <div class="aq-bulk-bar" id="aqBulkBar" style="display:none">
@@ -3880,7 +3854,7 @@ body {
 
 <!-- ── Command Bar ── -->
 <div class="command-bar">
-    <button class="voice-btn" id="voiceBtn" onmousedown="startVoice()" onmouseup="stopVoice()" aria-label="Push to talk">🎤</button>
+    <button class="voice-btn" id="voiceBtn" onmousedown="startVoice()" onmouseup="stopVoice()" aria-label="Push to talk"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg></button>
     <span class="voice-status" id="voiceStatus">PTT Ready</span>
     <div class="voice-transcript" id="voiceTranscript"></div>
     <select class="command-target" id="commandTarget" title="Target agent" style="display:none"><option value="">All</option></select>
@@ -3953,7 +3927,7 @@ body {
     <div class="settings-panel">
         <h3>Settings</h3>
         <div class="settings-section">
-            <div class="settings-section-title"><span class="settings-section-icon">🤖</span> Agents</div>
+            <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg></span> Agents</div>
             <div class="settings-row"><span class="settings-label">Max concurrent agents</span><input class="settings-input" id="setMaxAgents" type="number" min="1" max="100"></div>
             <div class="settings-row"><span class="settings-label">Default role</span><select class="settings-select" id="setDefaultRole"></select></div>
             <div class="settings-row"><span class="settings-label">Default working directory</span><input class="settings-input" id="setDefaultDir" type="text" style="width:240px"></div>
@@ -3962,11 +3936,11 @@ body {
             <div class="settings-row"><span class="settings-label">Memory limit per agent (MB)</span><input class="settings-input" id="setMemoryLimit" type="number" min="256" max="32768" step="256"></div>
         </div>
         <div class="settings-section">
-            <div class="settings-section-title"><span class="settings-section-icon">⚡</span> Backends</div>
+            <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></span> Backends</div>
             <div id="settingsBackendsList"></div>
         </div>
         <div class="settings-section">
-            <div class="settings-section-title"><span class="settings-section-icon">🧠</span> AI Summaries (Grok)</div>
+            <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span> AI Summaries (Grok)</div>
             <div class="settings-row"><span class="settings-label">Enable LLM summaries</span><div class="settings-toggle" id="setLlmEnabled" onclick="this.classList.toggle('active')"></div><span class="settings-badge" id="setLlmStatus"></span></div>
             <div class="settings-row"><span class="settings-label">Model</span><input class="settings-input" id="setLlmModel" type="text" style="width:240px"></div>
             <div class="settings-row"><span class="settings-label">Summary interval (sec)</span><input class="settings-input" id="setLlmInterval" type="number" min="3" max="120" step="1"></div>
@@ -3976,19 +3950,19 @@ body {
                 </div>
         </div>
         <div class="settings-section">
-            <div class="settings-section-title"><span class="settings-section-icon">⚠</span> Alert Thresholds</div>
+            <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span> Alert Thresholds</div>
             <div class="settings-row"><span class="settings-label">Health low threshold</span><input class="settings-input" id="setHealthLow" type="number" min="0.05" max="1.0" step="0.05"></div>
             <div class="settings-row"><span class="settings-label">Health critical threshold</span><input class="settings-input" id="setHealthCritical" type="number" min="0.01" max="1.0" step="0.01"></div>
             <div class="settings-row"><span class="settings-label">Stall timeout (minutes)</span><input class="settings-input" id="setStallTimeout" type="number" min="1" max="60" step="1"></div>
             <div class="settings-row"><span class="settings-label">Hung timeout (minutes)</span><input class="settings-input" id="setHungTimeout" type="number" min="1" max="120" step="1"></div>
         </div>
         <div class="settings-section">
-            <div class="settings-section-title"><span class="settings-section-icon">🎛</span> Display</div>
+            <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Display</div>
             <div class="settings-row"><span class="settings-label">Voice feedback sounds</span><div class="settings-toggle" id="setVoiceSounds" onclick="this.classList.toggle('active')"></div></div>
             <div class="settings-row"><span class="settings-label">Browser notifications</span><div class="settings-toggle" id="setBrowserNotifs" onclick="this.classList.toggle('active')"></div></div>
         </div>
         <div class="settings-section">
-            <div class="settings-section-title"><span class="settings-section-icon">📦</span> Import / Export</div>
+            <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></span> Import / Export</div>
             <div class="settings-row" style="gap:8px">
                 <button class="btn btn-secondary btn-sm" onclick="exportSettings()">Export Settings</button>
                 <button class="btn btn-secondary btn-sm" onclick="importSettings()">Import Settings</button>
@@ -4007,7 +3981,7 @@ body {
 <div class="extensions-overlay" id="extensionsOverlay" onclick="if(event.target===this)closeExtensionsPanel()">
     <div class="extensions-panel">
         <div class="ext-header">
-            <h3>🧩 Extensions</h3>
+            <h3><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.39 4.39a2.12 2.12 0 0 1 3 3l-1.64 1.64"/><path d="M13.5 7.5 6.75 14.25a2.12 2.12 0 0 0 3 3l6.75-6.75"/><path d="M10 15.5a5 5 0 0 1-7-7l2-2"/><path d="M14 8.5a5 5 0 0 1 7 7l-2 2"/></svg> Extensions</h3>
             <div class="ext-header-actions">
                 <button class="btn btn-secondary btn-sm" onclick="refreshExtensions()" title="Re-scan filesystem">↻ Refresh</button>
                 <button class="ext-close-btn" onclick="closeExtensionsPanel()" aria-label="Close">&times;</button>
@@ -4086,7 +4060,7 @@ body {
 <!-- ── Prompt Input Modal ── -->
 <div class="confirm-overlay" id="promptInputOverlay">
     <div class="confirm-dialog">
-        <div class="confirm-icon" id="promptInputIcon">📋</div>
+        <div class="confirm-icon" id="promptInputIcon"><svg class="lucide" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></div>
         <h3 class="confirm-title" id="promptInputTitle"></h3>
         <input type="text" id="promptInputField" class="deep-input" style="width:100%;margin:12px 0;box-sizing:border-box" placeholder="">
         <div class="confirm-actions">
@@ -4175,7 +4149,7 @@ body {
 <!-- ── Handoff Modal ── -->
 <div class="handoff-overlay" id="handoffOverlay" onclick="if(event.target===this)closeHandoff()">
     <div class="handoff-modal">
-        <h3>🤝 Agent Handoff</h3>
+        <h3><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg> Agent Handoff</h3>
         <label>Target Agent</label>
         <select id="handoffTarget"></select>
         <label>Key Findings</label>
@@ -4192,9 +4166,9 @@ body {
 <!-- ── Bulk Action Bar ── -->
 <div class="bulk-bar" id="bulkBar">
     <span class="bulk-bar-count" id="bulkCount">0 selected</span>
-    <button class="btn btn-secondary" onclick="bulkAction('pause')">⏸ Pause All</button>
-    <button class="btn btn-secondary" onclick="bulkAction('resume')">▶ Resume All</button>
-    <button class="btn btn-danger" onclick="bulkAction('kill')">✕ Kill All</button>
+    <button class="btn btn-secondary" onclick="bulkAction('pause')"><svg class="lucide" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg> Pause All</button>
+    <button class="btn btn-secondary" onclick="bulkAction('resume')"><svg class="lucide" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg> Resume All</button>
+    <button class="btn btn-danger" onclick="bulkAction('kill')"><svg class="lucide" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> Kill All</button>
     <div style="flex:1"></div>
     <button class="btn btn-secondary" onclick="clearBulkSelection()">Cancel</button>
 </div>
@@ -4203,6 +4177,90 @@ body {
 /* ─────────────────────────────────────────────
    Ashlar AO — Production Dashboard
    ───────────────────────────────────────────── */
+
+// ── Lucide Icon System ──
+
+const ICONS = {
+    // Roles
+    'paintbrush':    '<path d="M18.37 2.63a2.12 2.12 0 0 1 3 3L14 13l-4 1 1-4Z"/><path d="M20 14.5V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3.5"/>',
+    'server':        '<rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/>',
+    'rocket':        '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+    'test-tube':     '<path d="M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5s-2.5-1.1-2.5-2.5V2"/><path d="M8.5 2h7"/><path d="M14.5 16h-5"/>',
+    'scan-search':   '<path d="M2 9V2h7"/><path d="M2 15v7h7"/><path d="M15 2h7v7"/><path d="M15 22h7v-7"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.9-1.9"/>',
+    'shield-check':  '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+    'blocks':        '<rect width="7" height="7" x="14" y="3" rx="1"/><path d="M10 21V8a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5a1 1 0 0 0-1-1H3"/>',
+    'file-text':     '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+    'bot':           '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+    // Status
+    'circle-check':  '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+    'circle-alert':  '<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>',
+    'circle-pause':  '<circle cx="12" cy="12" r="10"/><line x1="10" x2="10" y1="15" y2="9"/><line x1="14" x2="14" y1="15" y2="9"/>',
+    'loader':        '<path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/>',
+    // Actions
+    'play':          '<polygon points="6 3 20 12 6 21 6 3"/>',
+    'x':             '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    'send':          '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+    'plus':          '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    'ellipsis':      '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+    'copy':          '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    'rotate-ccw':    '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+    // Navigation
+    'arrow-left':    '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+    'search':        '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    'chevron-down':  '<path d="m6 9 6 6 6-6"/>',
+    'settings':      '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+    'terminal':      '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
+    'eye':           '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+    'mic':           '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
+    'bell':          '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    // Extra
+    'pause':         '<rect width="4" height="16" x="6" y="4"/><rect width="4" height="16" x="14" y="4"/>',
+    'trash-2':       '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+    'zap':           '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+    'history':       '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+    'clipboard':     '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+    'check-square':  '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="m9 12 2 2 4-4"/>',
+    'alert-triangle':'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    'puzzle':        '<path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z"/>',
+    'save':          '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+    'edit':          '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
+    'pin':           '<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
+    'skull':         '<circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 20v2h8v-2"/><path d="m12.5 17-.5-1-.5 1h1z"/><path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20"/>',
+    'refresh-cw':    '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/>',
+    'chart-bar':     '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 16h8"/><path d="M7 11h12"/><path d="M7 6h3"/>',
+    'git-branch':    '<line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+    'wrench':        '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+    'brain':         '<path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/>',
+    'info':          '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    'check':         '<path d="M20 6 9 17l-5-5"/>',
+    'plug':          '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a6 6 0 0 1-6 6 6 6 0 0 1-6-6V8Z"/>',
+    'package':       '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+    'layout-grid':   '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+    'git-merge':     '<circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/>',
+    'table':         '<path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/>',
+    'bookmark':      '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
+    'file-code':     '<path d="M10 12.5 8 15l2 2.5"/><path d="m14 12.5 2 2.5-2 2.5"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>',
+    'slash':         '<path d="M22 2 2 22"/>',
+};
+
+function icon(name, size = 16, className = '') {
+    const paths = ICONS[name];
+    if (!paths) return `<span class="icon-fallback ${className}" style="width:${size}px;height:${size}px;display:inline-flex;align-items:center;justify-content:center">?</span>`;
+    return `<svg class="lucide ${className}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+}
+
+// Role icon mapping: role key → Lucide icon name
+const ROLE_ICONS = {
+    frontend: 'paintbrush',
+    backend: 'server',
+    devops: 'rocket',
+    tester: 'test-tube',
+    reviewer: 'scan-search',
+    security: 'shield-check',
+    architect: 'blocks',
+    docs: 'file-text',
+    general: 'bot',
+};
 
 // ── State ──
 
@@ -4241,16 +4299,24 @@ const state = {
 };
 
 const ROLE_INFO = {
-    frontend: { name: 'Frontend Engineer', icon: '🎨', color: '#8B5CF6', desc: 'React, Vue, CSS, UI/UX' },
-    backend: { name: 'Backend Engineer', icon: '⚙', color: '#3B82F6', desc: 'APIs, databases, auth' },
-    devops: { name: 'DevOps Engineer', icon: '🚀', color: '#F97316', desc: 'CI/CD, Docker, infra' },
-    tester: { name: 'QA Engineer', icon: '🧪', color: '#22C55E', desc: 'Tests, coverage, E2E' },
-    reviewer: { name: 'Code Reviewer', icon: '👁', color: '#EAB308', desc: 'Code review, best practices' },
-    security: { name: 'Security Auditor', icon: '🔒', color: '#EF4444', desc: 'Vuln scanning, hardening' },
-    architect: { name: 'Architect', icon: '🏗', color: '#06B6D4', desc: 'System design, planning' },
-    docs: { name: 'Documentation', icon: '📝', color: '#A855F7', desc: 'READMEs, API docs, guides' },
-    general: { name: 'General', icon: '🤖', color: '#64748B', desc: 'All-purpose agent' },
+    frontend: { name: 'Frontend Engineer', iconKey: 'paintbrush', color: '#8B5CF6', desc: 'React, Vue, CSS, UI/UX' },
+    backend: { name: 'Backend Engineer', iconKey: 'server', color: '#3B82F6', desc: 'APIs, databases, auth' },
+    devops: { name: 'DevOps Engineer', iconKey: 'rocket', color: '#F97316', desc: 'CI/CD, Docker, infra' },
+    tester: { name: 'QA Engineer', iconKey: 'test-tube', color: '#22C55E', desc: 'Tests, coverage, E2E' },
+    reviewer: { name: 'Code Reviewer', iconKey: 'scan-search', color: '#EAB308', desc: 'Code review, best practices' },
+    security: { name: 'Security Auditor', iconKey: 'shield-check', color: '#EF4444', desc: 'Vuln scanning, hardening' },
+    architect: { name: 'Architect', iconKey: 'blocks', color: '#06B6D4', desc: 'System design, planning' },
+    docs: { name: 'Documentation', iconKey: 'file-text', color: '#A855F7', desc: 'READMEs, API docs, guides' },
+    general: { name: 'General', iconKey: 'bot', color: '#64748B', desc: 'All-purpose agent' },
 };
+
+// Helper: get role icon HTML from role key or agent data
+function roleIcon(roleOrAgent, size = 16) {
+    const role = typeof roleOrAgent === 'string' ? roleOrAgent : roleOrAgent?.role;
+    const info = ROLE_INFO[role];
+    const iconKey = ROLE_ICONS[role] || 'bot';
+    return icon(iconKey, size);
+}
 
 const TASK_PLACEHOLDERS = {
     frontend: 'e.g., Build a responsive dashboard with React...',
@@ -4357,7 +4423,7 @@ function confirmAction(title, message, confirmText = 'Confirm', options = {}) {
         const okBtn = document.getElementById('confirmOk');
         const cancelBtn = document.getElementById('confirmCancel');
 
-        iconEl.textContent = options.icon || '⚠️';
+        iconEl.innerHTML = options.iconKey ? icon(options.iconKey, 20) : (options.icon || icon('alert-triangle', 20));
         titleEl.textContent = title;
         msgEl.textContent = message;
         okBtn.textContent = confirmText;
@@ -4396,7 +4462,7 @@ function promptInput(title, placeholder = '', options = {}) {
         const okBtn = document.getElementById('promptInputOk');
         const cancelBtn = document.getElementById('promptInputCancel');
 
-        iconEl.textContent = options.icon || '📋';
+        iconEl.innerHTML = options.iconKey ? icon(options.iconKey, 20) : (options.icon || icon('clipboard', 20));
         titleEl.textContent = title;
         field.placeholder = placeholder;
         field.value = options.defaultValue || '';
@@ -4628,6 +4694,26 @@ class AshlarSocket {
                 case 'event': handleEvent(data); break;
                 case 'agent_message': handleAgentMessage(data.message); break;
                 case 'error': showToast(data.message || 'Server error', 'error'); break;
+                case 'agent_activity': {
+                    const actAgent = state.agents.get(data.agent_id);
+                    if (actAgent) {
+                        actAgent._activity = data.activity;
+                        actAgent._activityCounts = data.new_counts;
+                    }
+                    break;
+                }
+                case 'intelligence_alert': {
+                    if (data.insight) {
+                        showToast(data.insight.message, data.insight.severity === 'critical' ? 'error' : data.insight.severity === 'warning' ? 'warning' : 'info');
+                    }
+                    break;
+                }
+                case 'command_parsed': {
+                    if (data.intent) {
+                        showToast(`Parsed: ${data.intent.action} (${Math.round(data.intent.confidence * 100)}% confidence)`, 'info');
+                    }
+                    break;
+                }
             }
         } catch (e) {
             console.error('WebSocket message handler error:', e, data);
@@ -4636,6 +4722,22 @@ class AshlarSocket {
 }
 
 const socket = new AshlarSocket();
+
+// ── Intelligence Status ──
+
+function updateIntelligenceStatus() {
+    const el = document.getElementById('intelligenceStatus');
+    if (!el) return;
+    const config = state.config || {};
+    const dot = el.querySelector('.intelligence-dot');
+    if (config.intelligence_enabled) {
+        el.style.display = '';
+        dot.className = 'intelligence-dot connected';
+    } else {
+        el.style.display = '';
+        dot.className = 'intelligence-dot disabled';
+    }
+}
 
 // ── Message Handlers ──
 
@@ -4670,6 +4772,7 @@ async function handleSync(data) {
     if (state.viewMode === 'table') renderAgentTable();
     updateTabTitle();
     updateAttentionBadge();
+    updateIntelligenceStatus();
     // Fetch active workflow runs
     try {
         const res = await apiFetch('/api/workflow-runs');
@@ -4924,7 +5027,7 @@ function renderAgentGrid() {
         if (!state.connected) {
             emptyState.innerHTML = '<div style="text-align:center;padding:80px 20px">' +
                 '<div style="font-size:32px;animation:skeleton-pulse 1.5s infinite">▣</div>' +
-                '<p style="color:var(--text-dimmed);margin-top:16px;font-size:14px">Connecting to Ashlar...</p></div>';
+                '<p style="color:var(--text-tertiary);margin-top:16px;font-size:14px">Connecting to Ashlar...</p></div>';
         } else if (!emptyState.querySelector('.empty-illustration')) {
             emptyState.innerHTML = EMPTY_STATE_HTML;
         }
@@ -5018,27 +5121,24 @@ function createAgentCard(agent) {
         <div class="progress-bar" role="progressbar" aria-label="Task progress"><div class="progress-bar-fill"></div></div>
         <canvas class="card-sparkline" width="160" height="20"></canvas>
         <div class="context-bar-row"><div class="context-bar" role="progressbar" aria-label="Context window usage"><div class="context-bar-fill"></div></div><span class="context-pct-label low">0%</span><span class="context-warn-icon" title="High context usage">&#9888;</span><span class="context-text"></span></div>
-        <span class="card-pin-indicator">📌</span>
+        <span class="card-pin-indicator">${icon('pin', 12)}</span>
         <div class="card-footer">
             <span class="status-badge"></span>
             <span class="card-cost-badge" style="display:none"></span>
             <span class="card-meta"></span>
         </div>
         <div class="card-menu" id="menu-${agent.id}">
-            <div class="card-menu-item" onclick="event.stopPropagation();openDeepView('${agent.id}')">🔍 View Terminal</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();openEditAgent('${agent.id}')">✏️ Edit</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();pauseResumeAgent('${agent.id}')">⏸ Pause/Resume</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();cloneAgent('${agent.id}')">📋 Clone</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();togglePin('${agent.id}')">📌 Pin/Unpin</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();restartAgent('${agent.id}')">🔄 Restart</div>
-            <div class="card-menu-item danger" onclick="event.stopPropagation();killAgent('${agent.id}')">✕ Kill</div>
+            <div class="card-menu-item" onclick="event.stopPropagation();openDeepView('${agent.id}')">${icon('terminal', 14)} View Terminal</div>
+            <div class="card-menu-item" onclick="event.stopPropagation();openEditAgent('${agent.id}')">${icon('edit', 14)} Edit</div>
+            <div class="card-menu-item" onclick="event.stopPropagation();pauseResumeAgent('${agent.id}')">${icon('pause', 14)} Pause/Resume</div>
+            <div class="card-menu-item" onclick="event.stopPropagation();cloneAgent('${agent.id}')">${icon('copy', 14)} Clone</div>
+            <div class="card-menu-item" onclick="event.stopPropagation();togglePin('${agent.id}')">${icon('pin', 14)} Pin/Unpin</div>
+            <div class="card-menu-item" onclick="event.stopPropagation();restartAgent('${agent.id}')">${icon('refresh-cw', 14)} Restart</div>
+            <div class="card-menu-item danger" onclick="event.stopPropagation();killAgent('${agent.id}')">${icon('x', 14)} Kill</div>
         </div>
     `;
-    // Hover glow — set up once, reads roleColor from dataset
-    card.addEventListener('mouseenter', () => {
-        const rc = card.dataset.roleColor || '#64748B';
-        card.style.boxShadow = `0 16px 40px -6px ${rc}44, 0 4px 16px -4px ${rc}33, inset 0 1px 0 rgba(255,255,255,0.06)`;
-    });
+    // Hover — subtle elevation, no colored glow
+    card.addEventListener('mouseenter', () => { card.style.boxShadow = 'var(--shadow-md)'; });
     card.addEventListener('mouseleave', () => { card.style.boxShadow = ''; });
     card.onclick = () => {
         if (document.getElementById('agentGrid').classList.contains('bulk-mode')) {
@@ -5058,7 +5158,7 @@ function updateAgentCard(card, agent) {
 
     card.dataset.roleColor = roleColor;
 
-    card.querySelector('.card-icon').textContent = agent.role_icon || ROLE_INFO[agent.role]?.icon || '🤖';
+    card.querySelector('.card-icon').innerHTML = roleIcon(agent.role, 16);
     const nameEl = card.querySelector('.card-name');
     nameEl.textContent = agent.name;
     nameEl.title = agent.name;
@@ -5197,7 +5297,7 @@ function updateAgentCard(card, agent) {
     if (conflictBadge) {
         const agentConflicts = state.conflicts.get(agent.id);
         if (agentConflicts && agentConflicts.size > 0) {
-            conflictBadge.textContent = `⚠ ${agentConflicts.size}`;
+            conflictBadge.innerHTML = `${icon('alert-triangle', 12)} ${agentConflicts.size}`;
             conflictBadge.title = `File conflicts: ${[...agentConflicts].join(', ')}`;
             conflictBadge.classList.add('active');
         } else {
@@ -5250,7 +5350,7 @@ function updateAgentCard(card, agent) {
             if (run && run.agent_ids) {
                 const pos = run.agent_ids.indexOf(agent.id) + 1;
                 const total = run.agent_ids.length;
-                pipelineBadge.textContent = `🔀 ${pos}/${total}`;
+                pipelineBadge.innerHTML = `${icon('git-merge', 12)} ${pos}/${total}`;
                 pipelineBadge.classList.add('active');
             } else {
                 pipelineBadge.classList.remove('active');
@@ -5276,7 +5376,7 @@ function updateAgentCard(card, agent) {
     const toolsBadge = card.querySelector('.card-tools-badge');
     if (toolsBadge) {
         if (agent.tools_allowed && agent.tools_allowed.length > 0) {
-            toolsBadge.textContent = `🔒 ${agent.tools_allowed.length}`;
+            toolsBadge.innerHTML = `${icon('shield-check', 12)} ${agent.tools_allowed.length}`;
             toolsBadge.title = `Allowed tools: ${agent.tools_allowed.join(', ')}`;
             toolsBadge.className = 'card-tools-badge restricted';
             toolsBadge.style.display = '';
@@ -5346,7 +5446,7 @@ async function killAgent(id) {
     if (activeMenu) { activeMenu.classList.remove('active'); activeMenu = null; }
     const agent = state.agents.get(id);
     const name = agent?.name || id;
-    const ok = await confirmAction('Kill Agent', `Terminate "${name}"? This cannot be undone.`, 'Kill', { icon: '💀' });
+    const ok = await confirmAction('Kill Agent', `Terminate "${name}"? This cannot be undone.`, 'Kill', { icon: icon('skull', 20) });
     if (ok) { socket.send({ type: 'kill', agent_id: id }); return true; }
     return false;
 }
@@ -5379,7 +5479,7 @@ function openSpawnDialog() {
             opt.setAttribute('role', 'button');
             opt.setAttribute('tabindex', '0');
             opt.onkeydown = (e) => { if (e.key === 'Enter') opt.click(); };
-            opt.innerHTML = `<div class="role-icon">${info.icon}</div><div class="role-name">${info.name.split(' ')[0]}</div><div class="role-desc">${info.desc}</div>`;
+            opt.innerHTML = `<div class="role-icon">${icon(info.iconKey || 'bot', 16)}</div><div class="role-name">${info.name.split(' ')[0]}</div><div class="role-desc">${info.desc}</div>`;
             opt.onclick = () => {
                 roleGrid.querySelectorAll('.role-option').forEach(o => o.classList.remove('selected'));
                 opt.classList.add('selected');
@@ -5560,7 +5660,7 @@ function openDeepView(agentId) {
         }
         terminal.appendChild(frag);
     } else {
-        terminal.innerHTML = '<span style="color:var(--text-dimmed)">Loading output...</span>';
+        terminal.innerHTML = '<span style="color:var(--text-tertiary)">Loading output...</span>';
         // Fetch output from API when buffer is empty (e.g. after page refresh)
         apiFetch(`/api/agents/${agentId}`).then(r => r.ok ? r.json() : null).then(data => {
             if (!data?.output_lines?.length || state.focusedAgentId !== agentId) return;
@@ -5619,19 +5719,19 @@ function openDeepView(agentId) {
 function updateDeepViewHeader(agent) {
     if (!agent) return;
     const info = ROLE_INFO[agent.role] || ROLE_INFO.general;
-    document.getElementById('deepIcon').textContent = agent.role_icon || info.icon;
+    document.getElementById('deepIcon').innerHTML = roleIcon(agent.role, 20);
     document.getElementById('deepName').textContent = agent.name;
     document.getElementById('deepRole').textContent = info.name;
 
     const statusEl = document.getElementById('deepStatus');
     statusEl.textContent = agent.status;
-    statusEl.style.color = { working: 'var(--accent)', planning: 'var(--warning)', waiting: 'var(--orange)', error: 'var(--danger)', paused: 'var(--text-dimmed)', reading: 'var(--accent)' }[agent.status] || 'var(--text-primary)';
+    statusEl.style.color = { working: 'var(--accent)', planning: 'var(--warning)', waiting: 'var(--orange)', error: 'var(--danger)', paused: 'var(--text-tertiary)', reading: 'var(--accent)' }[agent.status] || 'var(--text-primary)';
 
     // Phase
     const phaseEl = document.getElementById('deepPhase');
     phaseEl.textContent = agent.phase || '-';
     const phaseColors = { planning: 'var(--warning)', reading: '#3B82F6', implementing: 'var(--success)', testing: 'var(--cyan)', complete: '#10B981' };
-    phaseEl.style.color = phaseColors[agent.phase] || 'var(--text-dimmed)';
+    phaseEl.style.color = phaseColors[agent.phase] || 'var(--text-tertiary)';
 
     const ctxUsedPct = Math.round((agent.context_pct || 0) * 100);
     const ctxRemainPct = Math.max(0, 100 - ctxUsedPct);
@@ -5681,7 +5781,7 @@ function updateDeepViewHeader(agent) {
     costEl.textContent = cost > 0 ? `$${cost.toFixed(4)}` : '-';
 
     const pauseBtn = document.getElementById('deepPauseBtn');
-    pauseBtn.textContent = agent.status === 'paused' ? '▶ Resume' : '⏸ Pause';
+    pauseBtn.innerHTML = agent.status === 'paused' ? `${icon('play', 14)} Resume` : `${icon('circle-pause', 14)} Pause`;
 
     // Prompt bar for waiting agents
     const deepPromptBar = document.getElementById('deepPromptBar');
@@ -5792,7 +5892,7 @@ function handleDeepInputInput(e) {
             .filter(s => s.name.toLowerCase().includes(query))
             .sort((a, b) => a.name.localeCompare(b.name))
             .slice(0, 10)
-            .map(s => ({ icon: '🧩', name: '/' + s.name, hint: s.description || s.source, value: s.name, type: 'skill' }));
+            .map(s => ({ icon: icon('puzzle', 14), name: '/' + s.name, hint: s.description || s.source, value: s.name, type: 'skill' }));
         const combined = [...builtinMatches, ...skillMatches];
         if (combined.length) {
             showDeepAutocomplete(combined);
@@ -5878,7 +5978,7 @@ function sendDeepPromptResponse(msg) {
 
 async function restartAgent(id) {
     if (activeMenu) { activeMenu.classList.remove('active'); activeMenu = null; }
-    const ok = await confirmAction('Restart Agent', `Restart "${state.agents.get(id)?.name || id}"?`, 'Restart', { icon: '🔄', danger: false });
+    const ok = await confirmAction('Restart Agent', `Restart "${state.agents.get(id)?.name || id}"?`, 'Restart', { icon: icon('refresh-cw', 20), danger: false });
     if (!ok) return;
     try {
         const res = await apiFetch(`/api/agents/${id}/restart`, { method: 'POST' });
@@ -6010,7 +6110,7 @@ function deepSearch() {
             if (match.index > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
             const mark = document.createElement('mark');
             mark.className = 'search-hl';
-            mark.style.cssText = 'background:rgba(37,99,235,0.4);color:white;border-radius:2px';
+            mark.style.cssText = 'background:rgba(99,102,241,0.4);color:white;border-radius:2px';
             mark.textContent = match[0];
             frag.appendChild(mark);
             lastIdx = regex.lastIndex;
@@ -6061,7 +6161,7 @@ function _virtualSearchScrollTo(terminal, matchIdx) {
                 range.setEnd(textNode, Math.min(offset + m.length, textNode.textContent.length));
                 const mark = document.createElement('mark');
                 mark.className = 'search-hl';
-                mark.style.cssText = 'background:rgba(37,99,235,0.4);color:white;border-radius:2px';
+                mark.style.cssText = 'background:rgba(99,102,241,0.4);color:white;border-radius:2px';
                 try {
                     range.surroundContents(mark);
                     mark.scrollIntoView({ block: 'center' });
@@ -6127,7 +6227,7 @@ function openInteraction(agentId) {
     state.interactionAgentId = agentId;
 
     const info = ROLE_INFO[agent.role] || ROLE_INFO.general;
-    document.getElementById('interactionIcon').textContent = agent.role_icon || info.icon;
+    document.getElementById('interactionIcon').innerHTML = roleIcon(agent.role, 20);
     document.getElementById('interactionName').textContent = agent.name;
     document.getElementById('interactionInput').value = '';
 
@@ -6244,7 +6344,7 @@ function openHandoff() {
         if (id === agentId) return;
         const opt = document.createElement('option');
         opt.value = id;
-        opt.textContent = `${ROLE_INFO[a.role]?.icon || '🤖'} ${a.name} (${a.status})`;
+        opt.textContent = `${a.name} (${a.status})`;
         select.appendChild(opt);
     });
     if (select.options.length === 0) { showToast('No other agents to hand off to', 'info'); return; }
@@ -6286,18 +6386,18 @@ async function sendHandoff() {
 // ── Command Palette ──
 
 const PALETTE_ACTIONS = [
-    { icon: '🚀', label: 'Spawn new agent', shortcut: '⌘N', action: () => { closePalette(); openSpawnDialog(); } },
-    { icon: '⚡', label: 'Run workflow...', shortcut: '', action: () => { closePalette(); openWorkflowRunner(); } },
-    { icon: '✏', label: 'Edit workflows...', shortcut: '', action: () => { closePalette(); openWfEditor(); } },
-    { icon: '⚙', label: 'Settings...', shortcut: '⌘,', action: () => { closePalette(); openSettings(); } },
-    { icon: '📜', label: 'View history', shortcut: '', action: () => { closePalette(); openHistory(); } },
-    { icon: '✕', label: 'Kill agent...', shortcut: '', action: () => { closePalette(); promptKillPalette(); } },
-    { icon: '⏸', label: 'Pause all agents', shortcut: '', action: () => { closePalette(); pauseAll(); } },
-    { icon: '▶', label: 'Resume all agents', shortcut: '', action: () => { closePalette(); resumeAll(); } },
-    { icon: '🔄', label: 'Refresh state', shortcut: '', action: () => { closePalette(); socket.send({ type: 'sync_request' }); } },
-    { icon: '☑', label: 'Bulk select mode', shortcut: '', action: () => { closePalette(); toggleBulkMode(); } },
-    { icon: '⚠', label: 'Show conflicts', shortcut: '', action: () => { closePalette(); showConflictSummary(); } },
-    { icon: '🧩', label: 'Extensions...', shortcut: '⌘E', action: () => { closePalette(); openExtensionsPanel(); } },
+    { icon: 'rocket', label: 'Spawn new agent', shortcut: '⌘N', action: () => { closePalette(); openSpawnDialog(); } },
+    { icon: 'zap', label: 'Run workflow...', shortcut: '', action: () => { closePalette(); openWorkflowRunner(); } },
+    { icon: 'edit', label: 'Edit workflows...', shortcut: '', action: () => { closePalette(); openWfEditor(); } },
+    { icon: 'settings', label: 'Settings...', shortcut: '⌘,', action: () => { closePalette(); openSettings(); } },
+    { icon: 'history', label: 'View history', shortcut: '', action: () => { closePalette(); openHistory(); } },
+    { icon: 'x', label: 'Kill agent...', shortcut: '', action: () => { closePalette(); promptKillPalette(); } },
+    { icon: 'pause', label: 'Pause all agents', shortcut: '', action: () => { closePalette(); pauseAll(); } },
+    { icon: 'play', label: 'Resume all agents', shortcut: '', action: () => { closePalette(); resumeAll(); } },
+    { icon: 'refresh-cw', label: 'Refresh state', shortcut: '', action: () => { closePalette(); socket.send({ type: 'sync_request' }); } },
+    { icon: 'check-square', label: 'Bulk select mode', shortcut: '', action: () => { closePalette(); toggleBulkMode(); } },
+    { icon: 'alert-triangle', label: 'Show conflicts', shortcut: '', action: () => { closePalette(); showConflictSummary(); } },
+    { icon: 'puzzle', label: 'Extensions...', shortcut: '⌘E', action: () => { closePalette(); openExtensionsPanel(); } },
 ];
 
 function openPalette() {
@@ -6324,11 +6424,11 @@ function renderPaletteItems(query) {
     const allItems = [...PALETTE_ACTIONS];
     for (const [id, agent] of state.agents) {
         allItems.push(
-            { icon: agent.role_icon || '🤖', label: `View: ${agent.name}`, shortcut: '', action: () => { closePalette(); openDeepView(id); }, section: 'agents' },
-            { icon: '✕', label: `Kill: ${agent.name}`, shortcut: '', action: () => { closePalette(); killAgent(id); }, section: 'agents' },
+            { icon: roleIcon(agent.role, 14), label: `View: ${agent.name}`, shortcut: '', action: () => { closePalette(); openDeepView(id); }, section: 'agents' },
+            { icon: icon('x', 14), label: `Kill: ${agent.name}`, shortcut: '', action: () => { closePalette(); killAgent(id); }, section: 'agents' },
         );
         if (agent.status !== 'paused') {
-            allItems.push({ icon: '⏸', label: `Pause: ${agent.name}`, shortcut: '', action: () => { closePalette(); socket.send({ type: 'pause', agent_id: id }); }, section: 'agents' });
+            allItems.push({ icon: icon('pause', 14), label: `Pause: ${agent.name}`, shortcut: '', action: () => { closePalette(); socket.send({ type: 'pause', agent_id: id }); }, section: 'agents' });
         }
     }
 
@@ -6373,7 +6473,7 @@ function renderPaletteItems(query) {
         }
 
         el.innerHTML = `
-            <span class="palette-item-icon">${item.icon}</span>
+            <span class="palette-item-icon">${resolveItemIcon(item, 16)}</span>
             <span class="palette-item-label">${labelHtml}</span>
             ${item.shortcut ? `<span class="palette-item-shortcut">${item.shortcut}</span>` : ''}
         `;
@@ -6414,13 +6514,21 @@ function resumeAll() { for (const [id, a] of state.agents) { if (a.status === 'p
 
 // ── Command Bar ──
 
+// Resolve icon from an item that may have .icon (pre-rendered SVG or key) or .iconKey
+function resolveItemIcon(item, size = 14) {
+    if (item.iconKey) return icon(item.iconKey, size);
+    if (item.icon && typeof item.icon === 'string' && item.icon.includes('<')) return item.icon;
+    if (item.icon && ICONS[item.icon]) return icon(item.icon, size);
+    return item.icon || icon('bot', size);
+}
+
 const COMMAND_SLASH_COMMANDS = [
-    { cmd: 'spawn', desc: 'Spawn a new agent', icon: '+' },
-    { cmd: 'kill', desc: 'Kill an agent', icon: '✕' },
-    { cmd: 'pause', desc: 'Pause an agent', icon: '⏸' },
-    { cmd: 'resume', desc: 'Resume an agent', icon: '▶' },
-    { cmd: 'status', desc: 'Show fleet status', icon: '📊' },
-    { cmd: 'help', desc: 'Show keyboard shortcuts', icon: '?' },
+    { cmd: 'spawn', desc: 'Spawn a new agent', icon: 'plus' },
+    { cmd: 'kill', desc: 'Kill an agent', icon: 'x' },
+    { cmd: 'pause', desc: 'Pause an agent', icon: 'circle-pause' },
+    { cmd: 'resume', desc: 'Resume an agent', icon: 'play' },
+    { cmd: 'status', desc: 'Show fleet status', icon: 'chart-bar' },
+    { cmd: 'help', desc: 'Show keyboard shortcuts', icon: 'info' },
 ];
 
 function handleCommandKey(e) {
@@ -6456,7 +6564,7 @@ function handleCommandInput(e) {
         ).slice(0, 8);
         if (matches.length) {
             showAutocomplete(matches.map(a => ({
-                icon: ROLE_INFO[a.role]?.icon || '🤖',
+                icon: roleIcon(a.role, 14),
                 name: a.name,
                 hint: a.status,
                 value: a.id,
@@ -6482,7 +6590,7 @@ function handleCommandInput(e) {
             .sort((a, b) => a.name.localeCompare(b.name))
             .slice(0, 10)
             .map(s => ({
-                icon: '🧩',
+                iconKey: 'puzzle',
                 name: '/' + s.name,
                 hint: s.description || s.source,
                 value: s.name,
@@ -6503,7 +6611,7 @@ function showAutocomplete(items) {
     state.acIndex = 0;
     ac.innerHTML = items.map((item, i) =>
         `<div class="command-ac-item${i === 0 ? ' selected' : ''}" data-value="${escapeHtml(item.value)}" data-type="${item.type}" onclick="selectAcItem(this)">` +
-        `<span class="ac-icon">${item.icon}</span>` +
+        `<span class="ac-icon">${resolveItemIcon(item, 14)}</span>` +
         `<span class="ac-name">${escapeHtml(item.name)}</span>` +
         `<span class="ac-hint">${escapeHtml(item.hint)}</span></div>`
     ).join('');
@@ -6872,7 +6980,7 @@ function updateProjectDetailContent(projectId) {
             const color = STATUS_COLORS[a.status] || '#64748B';
             return `<div class="project-agent-item" onclick="closeProjectDetail(); openDeepView('${escapeHtml(a.id)}')">
                 <div class="project-agent-status" style="background:${color}"></div>
-                <span class="project-agent-name">${role.icon || ''} ${escapeHtml(a.name)}</span>
+                <span class="project-agent-name">${roleIcon(a.role, 12)} ${escapeHtml(a.name)}</span>
                 <span class="project-agent-role">${escapeHtml(a.status)}</span>
             </div>`;
         }).join('');
@@ -6949,7 +7057,7 @@ function showHistoryDetail(item) {
     document.getElementById('deepMemory').textContent = '-';
     document.getElementById('deepTime').textContent = formatDuration(item.duration_sec || 0);
     const terminal = document.getElementById('deepTerminal');
-    terminal.innerHTML = item.output_preview ? ansiToHtml(item.output_preview) : '<span style="color:var(--text-dimmed)">No output recorded</span>';
+    terminal.innerHTML = item.output_preview ? ansiToHtml(item.output_preview) : '<span style="color:var(--text-tertiary)">No output recorded</span>';
 }
 
 function formatDuration(s) {
@@ -6969,11 +7077,11 @@ function openWorkflowRunner() {
     workflows.forEach(wf => {
         const agents = wf.agents || [];
         // Get role icons for the agent composition
-        const roleIcons = agents.map(a => ROLE_INFO[a.role]?.icon || '🤖').join(' ');
+        const roleIcons = agents.map(a => roleIcon(a.role, 14));
         const card = document.createElement('div');
         card.className = 'wf-picker-card';
         card.innerHTML = `
-            <div class="wf-picker-card-icon">${roleIcons.split(' ')[0] || '⚡'}</div>
+            <div class="wf-picker-card-icon">${roleIcons[0] || icon('zap', 16)}</div>
             <div class="wf-picker-card-info">
                 <div class="wf-picker-card-name">${escapeHtml(wf.name)}${(() => {
                     let running = false;
@@ -6983,7 +7091,7 @@ function openWorkflowRunner() {
                 <div class="wf-picker-card-desc">${escapeHtml(wf.description || 'No description')}</div>
                 <div class="wf-picker-card-meta">
                     <span class="agent-count">${agents.length} agent${agents.length !== 1 ? 's' : ''}</span>
-                    <span>${roleIcons}</span>
+                    <span>${roleIcons.join('')}</span>
                 </div>
             </div>
             <button class="wf-picker-run-btn" onclick="event.stopPropagation();">Run</button>
@@ -7110,7 +7218,7 @@ class VoiceInput {
 
         // Kill
         if (lower.includes('kill all')) {
-            const ok = await confirmAction('Kill All Agents', `Terminate all ${state.agents.size} agents?`, 'Kill All', { icon: '💀' });
+            const ok = await confirmAction('Kill All Agents', `Terminate all ${state.agents.size} agents?`, 'Kill All', { iconKey: 'skull' });
             if (ok) { for (const id of state.agents.keys()) killAgent(id); }
             return;
         }
@@ -7231,7 +7339,7 @@ function exportTerminalTxt() {
 function clearTerminalDisplay() {
     virtualTermData = [];
     _virtualSearchMatches = [];
-    document.getElementById('deepTerminal').innerHTML = '<span style="color:var(--text-dimmed)">Display cleared (output continues collecting)</span>';
+    document.getElementById('deepTerminal').innerHTML = '<span style="color:var(--text-tertiary)">Display cleared (output continues collecting)</span>';
 }
 
 // ── Toasts with Progress Bar ──
@@ -7253,14 +7361,14 @@ function showToast(message, type = 'info') {
     }
     // Cap at 5 simultaneous toasts
     while (container.children.length >= 5) container.removeChild(container.firstChild);
-    const icons = { info: 'ℹ️', success: '✓', warning: '⚠', error: '✕' };
+    const icons = { info: icon('info', 14), success: icon('check', 14), warning: icon('alert-triangle', 14), error: icon('x', 14) };
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.style.cursor = 'pointer';
     toast._toastMessage = message;
     toast._toastType = type;
     if (type === 'error') toast.setAttribute('role', 'alert');
-    toast.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ️'}</span><span>${escapeHtml(message)}</span><div class="toast-progress"></div>`;
+    toast.innerHTML = `<span class="toast-icon">${icons[type] || icon('info', 14)}</span><span>${escapeHtml(message)}</span><div class="toast-progress"></div>`;
     // Set progress bar animation duration to match toast duration
     const progress = toast.querySelector('.toast-progress');
     if (progress) progress.style.animationDuration = duration + 'ms';
@@ -7289,11 +7397,11 @@ function addNotification(evtType, message, agentId) {
 function renderNotificationList() {
     const list = document.getElementById('notifList');
     list.innerHTML = '';
-    const icons = { agent_spawned: '🚀', agent_killed: '💀', agent_needs_input: '⚠', agent_error: '❌' };
+    const icons = { agent_spawned: icon('rocket', 14), agent_killed: icon('skull', 14), agent_needs_input: icon('alert-triangle', 14), agent_error: icon('x', 14) };
     state.notifications.slice(0, 30).forEach(n => {
         const el = document.createElement('div');
         el.className = 'notification-item' + (n.read ? '' : ' unread');
-        el.innerHTML = `<span class="ni-icon">${icons[n.type] || '📌'}</span><span class="ni-text">${escapeHtml(n.message)}</span><span class="ni-time">${timeAgo(new Date(n.time).toISOString())}</span>`;
+        el.innerHTML = `<span class="ni-icon">${icons[n.type] || icon('pin', 14)}</span><span class="ni-text">${escapeHtml(n.message)}</span><span class="ni-time">${timeAgo(new Date(n.time).toISOString())}</span>`;
         el.onclick = () => { n.read = true; el.classList.remove('unread'); closeNotifications(); if (n.agentId && state.agents.has(n.agentId)) openDeepView(n.agentId); };
         list.appendChild(el);
     });
@@ -7360,7 +7468,7 @@ function updateFavicon(agents, waiting, active) {
     const hasError = agents.some(a => a.status === 'error');
     if (hasError) color = '#EF4444';
     else if (waiting > 0) color = '#F97316';
-    else if (active > 0) color = '#2563EB';
+    else if (active > 0) color = '#6366F1';
     else if (agents.length > 0) color = '#64748B';
     else color = '#64748B'; // no agents — neutral gray
 
@@ -7377,7 +7485,7 @@ function updateFavicon(agents, waiting, active) {
     ctx.clearRect(0, 0, 32, 32);
     ctx.beginPath();
     ctx.roundRect(0, 0, 32, 32, 6);
-    ctx.fillStyle = '#0D1520';
+    ctx.fillStyle = '#0A0F1A';
     ctx.fill();
 
     // "A" letterform
@@ -7393,7 +7501,7 @@ function updateFavicon(agents, waiting, active) {
     ctx.closePath();
     ctx.fill();
     // Inner cutout
-    ctx.fillStyle = '#0D1520';
+    ctx.fillStyle = '#0A0F1A';
     ctx.beginPath();
     ctx.moveTo(16, 14);
     ctx.lineTo(13.5, 20);
@@ -7404,7 +7512,7 @@ function updateFavicon(agents, waiting, active) {
     // Status dot (bottom-right)
     ctx.beginPath();
     ctx.arc(26, 26, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#0D1520';
+    ctx.fillStyle = '#0A0F1A';
     ctx.fill();
     ctx.beginPath();
     ctx.arc(26, 26, 3.5, 0, Math.PI * 2);
@@ -7438,7 +7546,7 @@ function updateAmbientGradient() {
         gradient = 'radial-gradient(ellipse at 50% 0%, rgba(249,115,22,0.22) 0%, rgba(245,158,11,0.05) 40%, transparent 70%)';
     } else if (hasWorking || hasPlanning) {
         key = 'working';
-        gradient = 'radial-gradient(ellipse at 50% 0%, rgba(37,99,235,0.22) 0%, rgba(139,92,246,0.06) 40%, transparent 70%)';
+        gradient = 'radial-gradient(ellipse at 50% 0%, rgba(99,102,241,0.22) 0%, rgba(139,92,246,0.06) 40%, transparent 70%)';
     } else {
         key = 'idle';
         gradient = 'radial-gradient(ellipse at 50% 0%, rgba(100,116,139,0.1) 0%, transparent 60%)';
@@ -7712,11 +7820,11 @@ function updateMetricsDropdown() {
     let html = `<table>
         <tr><th>Agent</th><th>Status</th><th>Memory</th><th>Context</th></tr>`;
     if (agents.length === 0) {
-        html += '<tr><td colspan="4" style="text-align:center;color:var(--text-dimmed)">No agents</td></tr>';
+        html += '<tr><td colspan="4" style="text-align:center;color:var(--text-tertiary)">No agents</td></tr>';
     } else {
         agents.forEach(a => {
             html += `<tr>
-                <td>${a.role_icon || '🤖'} ${escapeHtml(a.name)}</td>
+                <td>${roleIcon(a.role, 14)} ${escapeHtml(a.name)}</td>
                 <td>${escapeHtml(a.status)}</td>
                 <td>${Math.round(a.memory_mb || 0)} MB</td>
                 <td>${Math.max(0, 100 - Math.round((a.context_pct || 0) * 100))}% left</td>
@@ -7724,7 +7832,7 @@ function updateMetricsDropdown() {
         });
     }
     html += '</table>';
-    if (m.memory) html += `<div style="margin-top:8px;font-size:11px;color:var(--text-dimmed)">System: ${m.cpu_pct}% CPU · ${m.memory.used_gb}/${m.memory.total_gb} GB RAM</div>`;
+    if (m.memory) html += `<div style="margin-top:8px;font-size:11px;color:var(--text-tertiary)">System: ${m.cpu_pct}% CPU · ${m.memory.used_gb}/${m.memory.total_gb} GB RAM</div>`;
     dd.innerHTML = html;
 }
 
@@ -7763,7 +7871,7 @@ function openSettings() {
     llmToggle.classList.toggle('active', !!cfg.llm_enabled);
     document.getElementById('setLlmStatus').textContent = cfg.llm_enabled ? 'Active' : 'Off';
     document.getElementById('setLlmStatus').style.background = cfg.llm_enabled ? 'var(--success-subtle)' : 'var(--bg-elevated)';
-    document.getElementById('setLlmStatus').style.color = cfg.llm_enabled ? 'var(--success)' : 'var(--text-dimmed)';
+    document.getElementById('setLlmStatus').style.color = cfg.llm_enabled ? 'var(--success)' : 'var(--text-tertiary)';
 
     // Display toggles
     document.getElementById('setVoiceSounds').classList.toggle('active', cfg.voice_feedback !== false);
@@ -7800,7 +7908,7 @@ function openSettings() {
         const avail = info.available !== false;
         const row = document.createElement('div');
         row.className = 'settings-row';
-        row.innerHTML = `<span class="settings-label"><span class="backend-dot ${avail ? 'available' : 'unavailable'}"></span>${key}</span><span style="font-size:11px;color:var(--text-dimmed)">${avail ? 'Installed' : 'Not found'}</span>`;
+        row.innerHTML = `<span class="settings-label"><span class="backend-dot ${avail ? 'available' : 'unavailable'}"></span>${key}</span><span style="font-size:11px;color:var(--text-tertiary)">${avail ? 'Installed' : 'Not found'}</span>`;
         backendsList.appendChild(row);
     }
 
@@ -7809,7 +7917,7 @@ function openSettings() {
 }
 
 async function resetSettings() {
-    const ok = await confirmAction('Reset Settings', 'Reset all settings to defaults?', 'Reset', { icon: '🔄', danger: false });
+    const ok = await confirmAction('Reset Settings', 'Reset all settings to defaults?', 'Reset', { iconKey: 'refresh-cw', danger: false });
     if (!ok) return;
     document.getElementById('setMaxAgents').value = 16;
     document.getElementById('setDefaultDir').value = '~/Projects';
@@ -7903,7 +8011,7 @@ function renderExtensionsContent() {
             html = '<div class="ext-empty">No MCP servers configured</div>';
         } else {
             items.forEach(m => {
-                const typeIcon = m.type === 'stdio' ? '⌨' : m.type === 'http' ? '🌐' : m.type === 'sse' ? '📡' : '❓';
+                const typeIcon = m.type === 'stdio' ? icon('terminal', 14) : m.type === 'http' ? icon('plug', 14) : m.type === 'sse' ? icon('zap', 14) : icon('info', 14);
                 const srcBadge = m.source === 'user'
                     ? '<span class="ext-item-badge user">global</span>'
                     : '<span class="ext-item-badge project">project</span>';
@@ -7930,7 +8038,7 @@ function renderExtensionsContent() {
                     ? '<span class="ext-item-badge enabled">enabled</span>'
                     : '<span class="ext-item-badge disabled">disabled</span>';
                 html += `<div class="ext-item">
-                    <div class="ext-item-icon">🔌</div>
+                    <div class="ext-item-icon">${icon('plug', 16)}</div>
                     <div class="ext-item-info">
                         <div class="ext-item-name">${escapeHtml(p.name)}</div>
                         <div class="ext-item-desc">${escapeHtml(p.provider)}</div>
@@ -8029,6 +8137,7 @@ async function saveSettings() {
         if (res.ok) {
             state.config = data;
             showToast('Settings saved', 'success');
+            updateIntelligenceStatus();
             closeSettings();
         } else {
             showToast(data.error || 'Failed to save', 'error');
@@ -8064,18 +8173,18 @@ function renderWfList() {
     state.workflows.forEach(wf => {
         const isBuiltin = wf.id.startsWith('builtin-');
         const agents = wf.agents || [];
-        const roleIcons = agents.map(a => ROLE_INFO[a.role]?.icon || '🤖').join(' ');
+        const roleIcons = agents.map(a => roleIcon(a.role, 14));
         html += `<div class="wf-list-item">
-            <span style="font-size:14px;flex-shrink:0">${roleIcons.split(' ')[0] || '⚡'}</span>
+            <span style="font-size:14px;flex-shrink:0">${roleIcons[0] || icon('zap', 16)}</span>
             <span class="wf-name">${wf.name}</span>
             <span class="wf-desc">${wf.description || ''}</span>
             <span class="wf-count">${agents.length} agents</span>
             ${isBuiltin ? '<span class="wf-builtin">built-in</span>' : ''}
             <span class="wf-actions">
-                ${!isBuiltin ? `<button onclick="event.stopPropagation();editWorkflow('${wf.id}')" title="Edit">✏</button>` : ''}
-                <button class="wf-duplicate-btn" onclick="event.stopPropagation();duplicateWorkflow('${wf.id}')" title="Duplicate">⎘</button>
-                <button onclick="event.stopPropagation();runWorkflowById('${wf.id}')" title="Run">▶</button>
-                ${!isBuiltin ? `<button onclick="event.stopPropagation();deleteWorkflow('${wf.id}')" title="Delete" style="color:var(--danger)">✕</button>` : ''}
+                ${!isBuiltin ? `<button onclick="event.stopPropagation();editWorkflow('${wf.id}')" title="Edit">${icon('edit', 12)}</button>` : ''}
+                <button class="wf-duplicate-btn" onclick="event.stopPropagation();duplicateWorkflow('${wf.id}')" title="Duplicate">${icon('copy', 12)}</button>
+                <button onclick="event.stopPropagation();runWorkflowById('${wf.id}')" title="Run">${icon('play', 12)}</button>
+                ${!isBuiltin ? `<button onclick="event.stopPropagation();deleteWorkflow('${wf.id}')" title="Delete" style="color:var(--danger)">${icon('trash-2', 12)}</button>` : ''}
             </span>
         </div>`;
     });
@@ -8134,7 +8243,7 @@ function buildWfAgentRow(idx, role, task, dependsOn) {
         depsHtml = `<div class="wf-deps-wrap"><span class="wf-deps-label">Depends on:</span><div class="wf-deps-checks">${checks.join('')}</div></div>`;
     }
     return `<div class="wf-agent-row" data-idx="${idx}" style="flex-wrap:wrap">
-        <span class="wf-agent-row-icon" id="wfRowIcon-${idx}">${roleInfo.icon}</span>
+        <span class="wf-agent-row-icon" id="wfRowIcon-${idx}">${icon(roleInfo.iconKey || 'bot', 14)}</span>
         <select onchange="this.parentElement.dataset.role=this.value;document.getElementById('wfRowIcon-${idx}').textContent=this.options[this.selectedIndex].text.split(' ')[0]">${roleOpts}</select>
         <input type="text" value="${(task || '').replace(/"/g, '&quot;')}" placeholder="Task description..." onchange="this.parentElement.dataset.task=this.value">
         <button class="wf-remove-btn" onclick="removeWfAgent(this)">✕</button>
@@ -8270,7 +8379,7 @@ async function saveWorkflow() {
 
 async function deleteWorkflow(wfId) {
     const wf = state.workflows.find(w => w.id === wfId);
-    const ok = await confirmAction('Delete Workflow', `Delete "${wf?.name || wfId}"? This cannot be undone.`, 'Delete', { icon: '🗑️' });
+    const ok = await confirmAction('Delete Workflow', `Delete "${wf?.name || wfId}"? This cannot be undone.`, 'Delete', { iconKey: 'trash-2' });
     if (!ok) return;
     try {
         const res = await apiFetch(`/api/workflows/${wfId}`, { method: 'DELETE' });
@@ -8303,19 +8412,19 @@ async function runWorkflowById(wfId) {
     if (!wf) { showToast('Workflow not found', 'error'); return; }
 
     const agents = wf.agents || [];
-    const roleIcons = agents.map(a => ROLE_INFO[a.role]?.icon || '🤖').join(' ');
+    const roleIcons = agents.map(a => roleIcon(a.role, 14));
     const card = document.createElement('div');
     card.className = 'wf-picker-card';
     card.style.borderColor = 'var(--accent)';
     card.style.background = 'var(--accent-subtle)';
     card.innerHTML = `
-        <div class="wf-picker-card-icon">${roleIcons.split(' ')[0] || '⚡'}</div>
+        <div class="wf-picker-card-icon">${roleIcons[0] || icon('zap', 16)}</div>
         <div class="wf-picker-card-info">
             <div class="wf-picker-card-name">${wf.name}</div>
             <div class="wf-picker-card-desc">${wf.description || 'No description'}</div>
             <div class="wf-picker-card-meta">
                 <span class="agent-count">${agents.length} agent${agents.length !== 1 ? 's' : ''}</span>
-                <span>${roleIcons}</span>
+                <span>${roleIcons.join('')}</span>
             </div>
         </div>
         <button class="wf-picker-run-btn" style="opacity:1;transform:none" onclick="event.stopPropagation();">Run</button>
@@ -8507,7 +8616,7 @@ async function bulkAction(action) {
     });
     if (ids.length === 0) return;
     const actionLabel = action === 'kill' ? 'Kill' : action === 'pause' ? 'Pause' : 'Resume';
-    const ok = await confirmAction(`${actionLabel} ${ids.length} Agents`, `${actionLabel} ${ids.length} selected agents?`, actionLabel, { icon: action === 'kill' ? '💀' : '⚡', danger: action === 'kill' });
+    const ok = await confirmAction(`${actionLabel} ${ids.length} Agents`, `${actionLabel} ${ids.length} selected agents?`, actionLabel, { iconKey: action === 'kill' ? 'skull' : 'zap', danger: action === 'kill' });
     if (!ok) return;
     try {
         const res = await apiFetch('/api/agents/bulk', {
@@ -8677,7 +8786,7 @@ function openTimeline() {
     for (const [id, agent] of state.agents) {
         const opt = document.createElement('option');
         opt.value = id;
-        opt.textContent = `${agent.role_icon || '🤖'} ${agent.name}`;
+        opt.textContent = `${agent.name}`;
         agentFilter.appendChild(opt);
     }
     agentFilter.value = currentVal;
@@ -8706,7 +8815,7 @@ async function refreshTimeline() {
         const events = result.data || result;
 
         if (!events.length) {
-            list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-dimmed)">No events yet</div>';
+            list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">No events yet</div>';
             return;
         }
 
@@ -8727,7 +8836,7 @@ async function refreshTimeline() {
                 <span class="timeline-event-badge ${badgeClass}">${escapeHtml(evt.event_type.replace('agent_', '').replace('workflow_', 'wf:'))}</span>
                 ${agentName ? `<span style="font-weight:600;flex-shrink:0">${escapeHtml(agentName)}</span>` : ''}
                 <span style="flex:1;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(evt.message || '')}</span>
-                <span style="color:var(--text-dimmed);font-size:11px;flex-shrink:0">${relTime}</span>
+                <span style="color:var(--text-tertiary);font-size:11px;flex-shrink:0">${relTime}</span>
             `;
             if (evt.agent_id && state.agents.has(evt.agent_id)) {
                 el.style.cursor = 'pointer';
@@ -8736,7 +8845,7 @@ async function refreshTimeline() {
             list.appendChild(el);
         });
     } catch (e) {
-        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-dimmed)">Failed to load events</div>';
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">Failed to load events</div>';
     }
 }
 
@@ -8771,13 +8880,13 @@ async function loadWorkflowRuns() {
         const res = await apiFetch('/api/workflow-runs');
         const runs = await res.json();
         if (!runs.length) {
-            graph.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dimmed)">No active pipeline runs</div>';
+            graph.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-tertiary)">No active pipeline runs</div>';
             return;
         }
         graph.innerHTML = '';
         runs.forEach(run => {
             const card = document.createElement('div');
-            card.style.cssText = 'padding:12px;background:var(--bg-card);border-radius:12px;margin-bottom:8px;cursor:pointer;border:1px solid var(--border)';
+            card.style.cssText = 'padding:12px;background:var(--bg-surface);border-radius:12px;margin-bottom:8px;cursor:pointer;border:1px solid var(--border-subtle)';
             const statusColor = run.status === 'completed' ? 'var(--success)' : run.status === 'failed' ? 'var(--danger)' : 'var(--accent)';
             card.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:center">
@@ -8795,7 +8904,7 @@ async function loadWorkflowRuns() {
             graph.appendChild(card);
         });
     } catch (e) {
-        graph.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dimmed)">Failed to load pipeline runs</div>';
+        graph.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-tertiary)">Failed to load pipeline runs</div>';
     }
 }
 
@@ -8803,7 +8912,7 @@ async function refreshPipelineGraph(runId) {
     const graph = document.getElementById('pipelineGraph');
     try {
         const res = await apiFetch(`/api/workflow-runs/${runId}`);
-        if (!res.ok) { graph.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dimmed)">Run not found</div>'; return; }
+        if (!res.ok) { graph.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-tertiary)">Run not found</div>'; return; }
         const run = await res.json();
 
         document.getElementById('pipelineName').textContent = run.workflow_name || 'Pipeline';
@@ -8818,7 +8927,7 @@ async function refreshPipelineGraph(runId) {
             if (pipelineRefreshTimer) { clearInterval(pipelineRefreshTimer); pipelineRefreshTimer = null; }
         }
     } catch (e) {
-        graph.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-dimmed)">Failed to load pipeline</div>';
+        graph.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-tertiary)">Failed to load pipeline</div>';
     }
 }
 
@@ -8948,8 +9057,8 @@ function renderAgentTable() {
         tr.onclick = () => openDeepView(agent.id);
         tr.innerHTML = `
             <td><span class="table-status-dot ${agent.status}"></span>${agent.status}</td>
-            <td>${role.icon}</td>
-            <td>${state.pinnedAgents.has(agent.id) ? '📌 ' : ''}${escapeHtml(agent.name)}</td>
+            <td>${roleIcon(agent.role, 14)}</td>
+            <td>${state.pinnedAgents.has(agent.id) ? icon('pin', 12) + ' ' : ''}${escapeHtml(agent.name)}</td>
             <td title="${escapeHtml((agent.task || ''))}">${escapeHtml((agent.task || '').substring(0, 60))}</td>
             <td>${agent.phase || '-'}</td>
             <td>${remainPctTbl}% left</td>
@@ -9120,7 +9229,7 @@ function populatePresetSelector() {
     state.presets.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.id;
-        opt.textContent = `${ROLE_INFO[p.role]?.icon || '🤖'} ${p.name}`;
+        opt.textContent = `${p.name}`;
         sel.appendChild(opt);
     });
 }
@@ -9147,7 +9256,7 @@ function loadPreset(presetId) {
 }
 
 async function saveAsPreset() {
-    const name = await promptInput('Save as Preset', 'Enter preset name...', { icon: '💾', confirmText: 'Save' });
+    const name = await promptInput('Save as Preset', 'Enter preset name...', { iconKey: 'save', confirmText: 'Save' });
     if (!name) return;
     const payload = {
         name,
@@ -9418,29 +9527,29 @@ async function refreshScratchpad() {
 
 const ACTIVITY_PATTERNS = [
     // Claude Code tool-call syntax
-    { pattern: /Read\(\s*["']?([^"'\s,)]+)/, icon: '📖', label: line => { const m = line.match(/Read\(\s*["']?([^"'\s,)]+)/); return `Read ${m?.[1] || 'file'}`; }, cat: 'files' },
-    { pattern: /(?:Edit|Write)\(\s*["']?([^"'\s,)]+)/, icon: '✏️', label: line => { const m = line.match(/(?:Edit|Write)\(\s*["']?([^"'\s,)]+)/); return `Edited ${m?.[1] || 'file'}`; }, cat: 'files' },
-    { pattern: /(?:Glob|Grep|LS)\(/, icon: '🔍', label: () => 'Searching codebase', cat: 'search' },
-    { pattern: /Bash\(\s*["']?(.{1,60})/, icon: '💻', label: line => { const m = line.match(/Bash\(\s*["']?(.{1,60})/); return `$ ${m?.[1]?.replace(/["'].*/, '') || 'command'}`; }, cat: 'commands' },
+    { pattern: /Read\(\s*["']?([^"'\s,)]+)/, iconKey: 'file-code', label: line => { const m = line.match(/Read\(\s*["']?([^"'\s,)]+)/); return `Read ${m?.[1] || 'file'}`; }, cat: 'files' },
+    { pattern: /(?:Edit|Write)\(\s*["']?([^"'\s,)]+)/, iconKey: 'edit', label: line => { const m = line.match(/(?:Edit|Write)\(\s*["']?([^"'\s,)]+)/); return `Edited ${m?.[1] || 'file'}`; }, cat: 'files' },
+    { pattern: /(?:Glob|Grep|LS)\(/, iconKey: 'search', label: () => 'Searching codebase', cat: 'search' },
+    { pattern: /Bash\(\s*["']?(.{1,60})/, iconKey: 'terminal', label: line => { const m = line.match(/Bash\(\s*["']?(.{1,60})/); return `$ ${m?.[1]?.replace(/["'].*/, '') || 'command'}`; }, cat: 'commands' },
     // Natural language output patterns
-    { pattern: /Reading\s+(\S+)/i, icon: '📖', label: line => { const m = line.match(/Reading\s+(\S+)/i); return `Read ${m?.[1] || 'file'}`; }, cat: 'files' },
-    { pattern: /(?:Editing|Writing|Wrote)\s+(\S+)/i, icon: '✏️', label: line => { const m = line.match(/(?:Editing|Writing|Wrote)\s+(\S+)/i); return `Edited ${m?.[1] || 'file'}`; }, cat: 'files' },
-    { pattern: /(?:Checking|Auditing|Reviewing)\s+(.+)/i, icon: '🔍', label: line => { const m = line.match(/(?:Checking|Auditing|Reviewing)\s+(.+)/i); return `Checking ${m?.[1]?.replace(/\.\.\.$/, '').slice(0, 50) || ''}`; }, cat: 'search' },
-    { pattern: /Scanning\s+(.{1,50})/i, icon: '🔍', label: line => { const m = line.match(/Scanning\s+(.{1,50})/i); return `Scanning ${m?.[1]?.replace(/\.\.\..*/, '') || ''}`; }, cat: 'search' },
-    { pattern: /Running\s+(prettier|linter|eslint|lint|tests?|build)\b/i, icon: '💻', label: line => { const m = line.match(/Running\s+(\S+(?:\s+\S+)?)/i); return `$ ${m?.[1] || 'command'}`; }, cat: 'commands' },
-    { pattern: /Found\s+(\d+)\s+(?:potential\s+)?(.{1,40})/i, icon: '⚠️', label: line => { const m = line.match(/Found\s+(\d+)\s+(?:potential\s+)?(.{1,40})/i); return `Found ${m?.[1]} ${m?.[2]?.replace(/\s+in\s+.*/, '') || 'issues'}`; }, cat: 'errors' },
+    { pattern: /Reading\s+(\S+)/i, iconKey: 'file-code', label: line => { const m = line.match(/Reading\s+(\S+)/i); return `Read ${m?.[1] || 'file'}`; }, cat: 'files' },
+    { pattern: /(?:Editing|Writing|Wrote)\s+(\S+)/i, iconKey: 'edit', label: line => { const m = line.match(/(?:Editing|Writing|Wrote)\s+(\S+)/i); return `Edited ${m?.[1] || 'file'}`; }, cat: 'files' },
+    { pattern: /(?:Checking|Auditing|Reviewing)\s+(.+)/i, iconKey: 'scan-search', label: line => { const m = line.match(/(?:Checking|Auditing|Reviewing)\s+(.+)/i); return `Checking ${m?.[1]?.replace(/\.\.\.$/, '').slice(0, 50) || ''}`; }, cat: 'search' },
+    { pattern: /Scanning\s+(.{1,50})/i, iconKey: 'search', label: line => { const m = line.match(/Scanning\s+(.{1,50})/i); return `Scanning ${m?.[1]?.replace(/\.\.\..*/, '') || ''}`; }, cat: 'search' },
+    { pattern: /Running\s+(prettier|linter|eslint|lint|tests?|build)\b/i, iconKey: 'terminal', label: line => { const m = line.match(/Running\s+(\S+(?:\s+\S+)?)/i); return `$ ${m?.[1] || 'command'}`; }, cat: 'commands' },
+    { pattern: /Found\s+(\d+)\s+(?:potential\s+)?(.{1,40})/i, iconKey: 'alert-triangle', label: line => { const m = line.match(/Found\s+(\d+)\s+(?:potential\s+)?(.{1,40})/i); return `Found ${m?.[1]} ${m?.[2]?.replace(/\s+in\s+.*/, '') || 'issues'}`; }, cat: 'errors' },
     // Test results
-    { pattern: /(\d+)\s+(?:tests?\s+)?pass(?:ed|ing)?/i, icon: '✅', label: line => { const m = line.match(/(\d+)\s+(?:tests?\s+)?pass/i); return `${m?.[1] || ''} tests passed`; }, cat: 'tests' },
-    { pattern: /(\d+)\s+(?:tests?\s+)?fail(?:ed|ing)?/i, icon: '❌', label: line => { const m = line.match(/(\d+)\s+(?:tests?\s+)?fail/i); return `${m?.[1] || ''} tests failed`; }, cat: 'tests' },
+    { pattern: /(\d+)\s+(?:tests?\s+)?pass(?:ed|ing)?/i, iconKey: 'circle-check', label: line => { const m = line.match(/(\d+)\s+(?:tests?\s+)?pass/i); return `${m?.[1] || ''} tests passed`; }, cat: 'tests' },
+    { pattern: /(\d+)\s+(?:tests?\s+)?fail(?:ed|ing)?/i, iconKey: 'circle-alert', label: line => { const m = line.match(/(\d+)\s+(?:tests?\s+)?fail/i); return `${m?.[1] || ''} tests failed`; }, cat: 'tests' },
     // Status patterns
-    { pattern: /<thinking>|Let me (?:think|analyze|plan)|Planning approach/i, icon: '💭', label: () => 'Thinking...', cat: 'thinking' },
-    { pattern: /(?:error|exception|traceback)/i, icon: '🚨', label: line => { const m = line.match(/(?:Error|Exception|Traceback)[:\s]*(.{0,50})/i); return m?.[1]?.trim() || 'Error detected'; }, cat: 'errors' },
-    { pattern: /(?:installing|npm install|pip install|yarn add)/i, icon: '📦', label: line => { const m = line.match(/(?:installing|npm install|pip install|yarn add)\s+(.{0,40})/i); return `Installing ${m?.[1] || 'dependencies'}`; }, cat: 'commands' },
-    { pattern: /(?:changes committed|git commit)/i, icon: '📝', label: () => 'Committed changes', cat: 'git' },
-    { pattern: /Tool Result:/, icon: '🔧', label: () => 'Tool executed', cat: 'tools' },
-    // Check results (✓/✗ style)
-    { pattern: /[✓✔]\s+No\s+(.{1,40})/i, icon: '✅', label: line => { const m = line.match(/[✓✔]\s+(.{1,50})/); return m?.[1] || 'Check passed'; }, cat: 'tests' },
-    { pattern: /[△⚠]\s+(\d+)\s+(.{1,40})/i, icon: '⚠️', label: line => { const m = line.match(/[△⚠]\s+(.{1,50})/); return m?.[1] || 'Warning'; }, cat: 'errors' },
+    { pattern: /<thinking>|Let me (?:think|analyze|plan)|Planning approach/i, iconKey: 'brain', label: () => 'Thinking...', cat: 'thinking' },
+    { pattern: /(?:error|exception|traceback)/i, iconKey: 'circle-alert', label: line => { const m = line.match(/(?:Error|Exception|Traceback)[:\s]*(.{0,50})/i); return m?.[1]?.trim() || 'Error detected'; }, cat: 'errors' },
+    { pattern: /(?:installing|npm install|pip install|yarn add)/i, iconKey: 'package', label: line => { const m = line.match(/(?:installing|npm install|pip install|yarn add)\s+(.{0,40})/i); return `Installing ${m?.[1] || 'dependencies'}`; }, cat: 'commands' },
+    { pattern: /(?:changes committed|git commit)/i, iconKey: 'git-branch', label: () => 'Committed changes', cat: 'git' },
+    { pattern: /Tool Result:/, iconKey: 'wrench', label: () => 'Tool executed', cat: 'tools' },
+    // Check results
+    { pattern: /[✓✔]\s+No\s+(.{1,40})/i, iconKey: 'circle-check', label: line => { const m = line.match(/[✓✔]\s+(.{1,50})/); return m?.[1] || 'Check passed'; }, cat: 'tests' },
+    { pattern: /[△⚠]\s+(\d+)\s+(.{1,40})/i, iconKey: 'alert-triangle', label: line => { const m = line.match(/[△⚠]\s+(.{1,50})/); return m?.[1] || 'Warning'; }, cat: 'errors' },
 ];
 
 const _activityCache = new Map(); // agentId → { lastIdx, events[] }
@@ -9464,7 +9573,7 @@ function parseActivityFromOutput(agentId) {
         for (const pat of ACTIVITY_PATTERNS) {
             if (pat.pattern.test(stripped)) {
                 cache.events.push({
-                    icon: pat.icon,
+                    icon: pat.iconKey,
                     desc: pat.label(stripped),
                     raw: stripped.trim().slice(0, 200),
                     cat: pat.cat,
@@ -9495,7 +9604,7 @@ function renderActivityFeed(agentId) {
     // Stats summary
     const cats = {};
     for (const ev of events) { cats[ev.cat] = (cats[ev.cat] || 0) + 1; }
-    const statLabels = { files: '📄 Files', commands: '💻 Commands', tests: '🧪 Tests', errors: '🚨 Errors', search: '🔍 Searches', thinking: '💭 Thinking', git: '📝 Git', tools: '🔧 Tools' };
+    const statLabels = { files: `${icon('file-text',12)} Files`, commands: `${icon('terminal',12)} Cmds`, tests: `${icon('test-tube',12)} Tests`, errors: `${icon('circle-alert',12)} Errors`, search: `${icon('search',12)} Search`, thinking: `${icon('brain',12)} Think`, git: `${icon('git-branch',12)} Git`, tools: `${icon('wrench',12)} Tools` };
     statsEl.innerHTML = Object.entries(cats).map(([cat, count]) =>
         `<span class="activity-stat"><span class="label">${statLabels[cat] || cat}</span>${count}</span>`
     ).join('');
@@ -9504,7 +9613,7 @@ function renderActivityFeed(agentId) {
     const recent = events.slice(-200).reverse();
     container.innerHTML = recent.map((ev, i) =>
         `<div class="activity-event" onclick="this.classList.toggle('expanded')">` +
-        `<span class="activity-icon">${ev.icon}</span>` +
+        `<span class="activity-icon">${icon(ev.icon, 14)}</span>` +
         `<div class="activity-body">` +
         `<div class="activity-desc">${escapeHtml(ev.desc)}</div>` +
         `<div class="activity-time">${formatActivityTime(ev.time)}</div>` +
@@ -9533,7 +9642,7 @@ async function addScratchpadEntry() {
         <input type="text" placeholder="Key" id="spNewKey">
         <input type="text" placeholder="Value" id="spNewVal" style="flex:2">
         <button style="background:var(--accent);color:white" onclick="saveScratchpadEntry()">Save</button>
-        <button style="background:var(--bg-surface);color:var(--text-dimmed)" onclick="this.parentElement.remove()">Cancel</button>
+        <button style="background:var(--bg-surface);color:var(--text-tertiary)" onclick="this.parentElement.remove()">Cancel</button>
     `;
     container.prepend(form);
     form.querySelector('#spNewKey').focus();
@@ -9562,7 +9671,7 @@ async function saveScratchpadEntry() {
 }
 
 async function editScratchpadEntry(key, currentValue) {
-    const newValue = await promptInput(`Edit "${key}"`, 'Enter new value...', { defaultValue: currentValue, icon: '✏️', confirmText: 'Update' });
+    const newValue = await promptInput(`Edit "${key}"`, 'Enter new value...', { defaultValue: currentValue, iconKey: 'edit', confirmText: 'Update' });
     if (newValue === null) return;
     try {
         const res = await apiFetch('/api/scratchpad', {
@@ -9607,11 +9716,11 @@ if (state.viewMode === 'table') {
 
 // Add timeline + pipeline + new features to command palette
 PALETTE_ACTIONS.push(
-    { icon: '📋', label: 'Activity Timeline', shortcut: '⌘T', action: () => { closePalette(); openTimeline(); } },
-    { icon: '🔀', label: 'Pipeline Graph', shortcut: '', action: () => { closePalette(); openPipeline(); } },
-    { icon: '📊', label: 'Toggle Table View', shortcut: '', action: () => { closePalette(); setViewMode(state.viewMode === 'table' ? 'grid' : 'table'); }, section: 'view' },
-    { icon: '💾', label: 'Manage Presets', shortcut: '', action: () => { closePalette(); openSettings(); }, section: 'config' },
-    { icon: '📝', label: 'View Scratchpad', shortcut: '', action: () => { closePalette(); if (state.focusedAgentId) { switchDeepTab('scratchpad'); } else { showToast('Open an agent first to view its scratchpad', 'info'); } }, section: 'view' },
+    { icon: 'clipboard', label: 'Activity Timeline', shortcut: '⌘T', action: () => { closePalette(); openTimeline(); } },
+    { icon: 'git-merge', label: 'Pipeline Graph', shortcut: '', action: () => { closePalette(); openPipeline(); } },
+    { icon: 'table', label: 'Toggle Table View', shortcut: '', action: () => { closePalette(); setViewMode(state.viewMode === 'table' ? 'grid' : 'table'); }, section: 'view' },
+    { icon: 'save', label: 'Manage Presets', shortcut: '', action: () => { closePalette(); openSettings(); }, section: 'config' },
+    { icon: 'file-text', label: 'View Scratchpad', shortcut: '', action: () => { closePalette(); if (state.focusedAgentId) { switchDeepTab('scratchpad'); } else { showToast('Open an agent first to view its scratchpad', 'info'); } }, section: 'view' },
 );
 
 // Override palette rendering for improved fuzzy scoring (E1)
@@ -9624,8 +9733,8 @@ renderPaletteItems = function(query) {
     const allItems = [...PALETTE_ACTIONS];
     for (const [id, agent] of state.agents) {
         allItems.push(
-            { icon: agent.role_icon || '🤖', label: `View: ${agent.name}`, shortcut: '', action: () => { closePalette(); openDeepView(id); }, section: 'agents' },
-            { icon: '✕', label: `Kill: ${agent.name}`, shortcut: '', action: () => { closePalette(); killAgent(id); }, section: 'agents' },
+            { icon: roleIcon(agent.role || agent, 14), label: `View: ${agent.name}`, shortcut: '', action: () => { closePalette(); openDeepView(id); }, section: 'agents' },
+            { icon: 'x', label: `Kill: ${agent.name}`, shortcut: '', action: () => { closePalette(); killAgent(id); }, section: 'agents' },
         );
     }
 
@@ -9653,7 +9762,7 @@ renderPaletteItems = function(query) {
             else labelHtml += s.item.label[ci];
         }
         el.innerHTML = `
-            <span class="palette-item-icon">${s.item.icon}</span>
+            <span class="palette-item-icon">${resolveItemIcon(s.item, 16)}</span>
             <span class="palette-item-label">${labelHtml}</span>
             ${s.item.shortcut ? `<span class="palette-item-shortcut">${s.item.shortcut}</span>` : ''}
         `;
@@ -9748,7 +9857,7 @@ saveSettings = async function() {
                 body: JSON.stringify(payload),
             });
             const data = await res.json();
-            if (res.ok) { state.config = data; showToast('Settings saved', 'success'); closeSettings(); }
+            if (res.ok) { state.config = data; updateIntelligenceStatus(); showToast('Settings saved', 'success'); closeSettings(); }
             else showToast(data.error || 'Failed to save', 'error');
         } catch (e) { showToast('Failed to save settings', 'error'); }
     }, 'Saving...');

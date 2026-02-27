@@ -178,6 +178,13 @@ DEFAULT_CONFIG = {
         "summary_interval_sec": 10.0,
         "max_output_lines": 30,
     },
+    "intelligence": {
+        "enabled": True,
+        "api_key_env": "ANTHROPIC_API_KEY",
+        "model": "claude-sonnet-4-20250514",
+        "summary_interval_sec": 15,
+        "meta_interval_sec": 30,
+    },
 }
 
 
@@ -230,6 +237,12 @@ class Config:
     health_critical_threshold: float = 0.1
     stall_timeout_minutes: int = 5
     hung_timeout_minutes: int = 10
+    # Anthropic Intelligence config
+    intelligence_enabled: bool = True
+    intelligence_api_key: str = ""
+    intelligence_model: str = "claude-sonnet-4-20250514"
+    intelligence_summary_interval: float = 15.0
+    intelligence_meta_interval: float = 30.0
 
     def to_dict(self) -> dict:
         return {
@@ -253,6 +266,8 @@ class Config:
             "health_critical_threshold": self.health_critical_threshold,
             "stall_timeout_minutes": self.stall_timeout_minutes,
             "hung_timeout_minutes": self.hung_timeout_minutes,
+            "intelligence_enabled": self.intelligence_enabled,
+            "intelligence_model": self.intelligence_model,
         }
 
 
@@ -333,6 +348,11 @@ def load_config(has_claude: bool = True) -> Config:
     api_key_env = llm.get("api_key_env", "XAI_API_KEY")
     llm_api_key = os.environ.get(api_key_env, "")
 
+    # Resolve Anthropic intelligence API key
+    intel = raw.get("intelligence", {})
+    intel_api_key_env = intel.get("api_key_env", "ANTHROPIC_API_KEY")
+    intel_api_key = os.environ.get(intel_api_key_env, "")
+
     # Auth config
     require_auth = server.get("require_auth", False)
     auth_token = server.get("auth_token", "")
@@ -400,6 +420,11 @@ def load_config(has_claude: bool = True) -> Config:
         health_critical_threshold=health_crit_val,
         stall_timeout_minutes=stall_val,
         hung_timeout_minutes=hung_val,
+        intelligence_enabled=intel.get("enabled", True) and bool(intel_api_key),
+        intelligence_api_key=intel_api_key,
+        intelligence_model=intel.get("model", "claude-sonnet-4-20250514"),
+        intelligence_summary_interval=intel.get("summary_interval_sec", 15.0),
+        intelligence_meta_interval=intel.get("meta_interval_sec", 30.0),
     )
 
 
@@ -773,47 +798,47 @@ class Role:
 
 BUILTIN_ROLES: dict[str, Role] = {
     "frontend": Role(
-        key="frontend", name="Frontend Engineer", icon="🎨", color="#8B5CF6",
+        key="frontend", name="Frontend Engineer", icon="paintbrush", color="#8B5CF6",
         description="React, Vue, CSS, UI/UX, accessibility",
         system_prompt="You are a frontend specialist. Focus on component architecture, responsive design, accessibility (WCAG), and performance. Prefer TypeScript, functional components, and Tailwind. Write tests for all components.",
     ),
     "backend": Role(
-        key="backend", name="Backend Engineer", icon="⚙", color="#3B82F6",
+        key="backend", name="Backend Engineer", icon="server", color="#3B82F6",
         description="APIs, databases, Python, Node.js, auth",
         system_prompt="You are a backend specialist. Focus on API design, database schemas, auth, and error handling. Write clean, well-tested code with proper validation and logging. Prefer async patterns.",
     ),
     "devops": Role(
-        key="devops", name="DevOps Engineer", icon="🚀", color="#F97316",
+        key="devops", name="DevOps Engineer", icon="rocket", color="#F97316",
         description="Infrastructure, CI/CD, Docker, deployment",
         system_prompt="You are a DevOps specialist. Focus on infrastructure as code, CI/CD pipelines, containerization, monitoring, and deployment automation. Prioritize reliability and observability.",
     ),
     "tester": Role(
-        key="tester", name="QA Engineer", icon="🧪", color="#22C55E",
+        key="tester", name="QA Engineer", icon="test-tube", color="#22C55E",
         description="Unit tests, integration tests, E2E, coverage",
         system_prompt="You are a QA specialist. Write comprehensive tests: unit, integration, and E2E. Aim for high coverage on critical paths. Test edge cases, error conditions, and race conditions.",
     ),
     "reviewer": Role(
-        key="reviewer", name="Code Reviewer", icon="👁", color="#EAB308",
+        key="reviewer", name="Code Reviewer", icon="scan-search", color="#EAB308",
         description="Code review, best practices, architecture",
         system_prompt="You are a code reviewer. Audit code for bugs, security issues, performance problems, and maintainability. Be thorough but constructive. Suggest specific improvements with code examples.",
     ),
     "security": Role(
-        key="security", name="Security Auditor", icon="🔒", color="#EF4444",
+        key="security", name="Security Auditor", icon="shield-check", color="#EF4444",
         description="Vulnerability audit, dependency scanning, hardening",
         system_prompt="You are a security specialist. Audit for vulnerabilities: injection, XSS, CSRF, auth bypass, secrets exposure, dependency CVEs. Provide severity ratings and specific fix recommendations.",
     ),
     "architect": Role(
-        key="architect", name="Architect", icon="🏗", color="#06B6D4",
+        key="architect", name="Architect", icon="blocks", color="#06B6D4",
         description="System design, planning, technical decisions",
         system_prompt="You are a systems architect. Focus on high-level design, component boundaries, data flow, scalability, and technical tradeoffs. Create clear plans before implementation. Document decisions.",
     ),
     "docs": Role(
-        key="docs", name="Documentation", icon="📝", color="#A855F7",
+        key="docs", name="Documentation", icon="file-text", color="#A855F7",
         description="READMEs, API docs, inline comments, guides",
         system_prompt="You are a documentation specialist. Write clear, concise docs: READMEs, API references, inline comments, architecture guides. Focus on the 'why' not just the 'what'. Include examples.",
     ),
     "general": Role(
-        key="general", name="General", icon="🤖", color="#64748B",
+        key="general", name="General", icon="bot", color="#64748B",
         description="All-purpose agent, no specialization",
         system_prompt="You are a skilled software engineer. Approach tasks methodically: understand the requirement, explore the codebase, plan your approach, implement, and verify. Ask clarifying questions when needed.",
     ),
@@ -890,6 +915,13 @@ class Agent:
     _workflow_stall_warned: bool = field(default=False, repr=False)
     _workflow_hung_warned: bool = field(default=False, repr=False)
     _status_updated_at: float = field(default=0.0, repr=False)  # monotonic time of last status change
+    # Intelligence fields — structured output parsing
+    _tool_invocations: list = field(default_factory=list, repr=False)  # list[ToolInvocation], capped at 500
+    _file_operations: list = field(default_factory=list, repr=False)  # list[FileOperation], capped at 500
+    _git_operations: list = field(default_factory=list, repr=False)  # list[GitOperation], capped at 200
+    _test_results: list = field(default_factory=list, repr=False)  # list[TestResult], capped at 50
+    _last_parse_index: int = field(default=0, repr=False)  # Incremental parsing watermark
+    _overflow_to_archive: bool = field(default=False, repr=False)
 
     def set_status(self, new_status: str) -> bool:
         """Update status with monotonic timestamp guard. Returns True if updated."""
@@ -906,7 +938,7 @@ class Agent:
             "id": self.id,
             "name": self.name,
             "role": self.role,
-            "role_icon": role_obj.icon if role_obj else "🤖",
+            "role_icon": role_obj.icon if role_obj else "bot",
             "role_color": role_obj.color if role_obj else "#64748B",
             "status": self.status,
             "working_dir": self.working_dir,
@@ -944,6 +976,9 @@ class Agent:
             "plan_mode": self.plan_mode,
             "cost_is_estimated": True,
             "context_window": KNOWN_BACKENDS[self.backend].context_window if self.backend in KNOWN_BACKENDS else 200_000,
+            "tool_invocations_count": len(self._tool_invocations),
+            "file_operations_count": len(self._file_operations),
+            "last_test_result": self._test_results[-1].to_dict() if self._test_results else None,
         }
 
     def to_dict_full(self) -> dict:
@@ -985,6 +1020,144 @@ class SystemMetrics:
             "load_avg": self.load_avg,
             "agents_active": self.agents_active,
             "agents_total": self.agents_total,
+        }
+
+
+# ─────────────────────────────────────────────
+# Section 3b: Intelligence Data Models
+# ─────────────────────────────────────────────
+
+
+@dataclass
+class ToolInvocation:
+    """A parsed tool call from agent output."""
+    agent_id: str
+    tool: str  # Read, Edit, Write, Bash, Glob, Grep, etc.
+    args: str  # Primary argument (file path, command, pattern)
+    timestamp: float  # monotonic time
+    line_index: int  # Output line index where this was detected
+    result_status: str = "unknown"  # success, error, unknown
+    result_snippet: str = ""  # First ~100 chars of result
+
+    def to_dict(self) -> dict:
+        return {
+            "agent_id": self.agent_id,
+            "tool": self.tool,
+            "args": self.args,
+            "timestamp": self.timestamp,
+            "result_status": self.result_status,
+            "result_snippet": self.result_snippet,
+        }
+
+
+@dataclass
+class FileOperation:
+    """A file read/write/create detected from agent output."""
+    agent_id: str
+    file_path: str
+    operation: str  # read, write, create, edit, delete
+    timestamp: float
+    tool: str = ""  # Which tool performed it
+
+    def to_dict(self) -> dict:
+        return {
+            "agent_id": self.agent_id,
+            "file_path": self.file_path,
+            "operation": self.operation,
+            "timestamp": self.timestamp,
+            "tool": self.tool,
+        }
+
+
+@dataclass
+class GitOperation:
+    """A git operation detected from agent output."""
+    agent_id: str
+    operation: str  # commit, checkout, branch, merge, push, pull
+    detail: str  # commit message, branch name, etc.
+    timestamp: float
+    files_affected: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "agent_id": self.agent_id,
+            "operation": self.operation,
+            "detail": self.detail,
+            "timestamp": self.timestamp,
+            "files_affected": self.files_affected,
+        }
+
+
+@dataclass
+class TestResult:
+    """Parsed test run results from agent output."""
+    agent_id: str
+    passed: int = 0
+    failed: int = 0
+    skipped: int = 0
+    total: int = 0
+    coverage_pct: float | None = None
+    framework: str = ""  # pytest, jest, mocha, etc.
+    timestamp: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "agent_id": self.agent_id,
+            "passed": self.passed,
+            "failed": self.failed,
+            "skipped": self.skipped,
+            "total": self.total,
+            "coverage_pct": self.coverage_pct,
+            "framework": self.framework,
+            "timestamp": self.timestamp,
+        }
+
+
+@dataclass
+class AgentInsight:
+    """A cross-agent insight or alert from the meta-agent."""
+    id: str
+    insight_type: str  # conflict, stuck, handoff, anomaly, suggestion
+    severity: str  # info, warning, critical
+    message: str
+    agent_ids: list[str] = field(default_factory=list)
+    evidence: str = ""
+    suggested_action: str = ""
+    acknowledged: bool = False
+    created_at: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "insight_type": self.insight_type,
+            "severity": self.severity,
+            "message": self.message,
+            "agent_ids": self.agent_ids,
+            "evidence": self.evidence,
+            "suggested_action": self.suggested_action,
+            "acknowledged": self.acknowledged,
+            "created_at": self.created_at,
+        }
+
+
+@dataclass
+class ParsedIntent:
+    """Result of NLU command parsing."""
+    action: str  # spawn, kill, pause, resume, send, status, query
+    targets: list[str] = field(default_factory=list)  # Agent IDs or names
+    filter: str = ""  # Role, status, or project filter
+    message: str = ""  # Message to send
+    parameters: dict = field(default_factory=dict)  # Extra params
+    confidence: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "action": self.action,
+            "targets": self.targets,
+            "filter": self.filter,
+            "message": self.message,
+            "parameters": self.parameters,
+            "confidence": self.confidence,
         }
 
 
@@ -1543,7 +1716,7 @@ class AgentManager:
         script_lines = [
             '#!/bin/bash',
             f'echo "╭──────────────────────────────────────────╮"',
-            f'echo "│ {role_obj.icon} Ashlar Agent (Demo Mode)            │"',
+            f'echo "│ [{role_obj.icon}] Ashlar Agent (Demo Mode)          │"',
             f'echo "│ Role: {role_obj.name:<34}│"',
             f'echo "╰──────────────────────────────────────────╯"',
             f'echo ""',
@@ -2773,6 +2946,213 @@ def extract_summary(lines: list[str], task: str, status: str = "") -> str:
     return _strip_ansi(task[:MAX_LEN]) if task else "Working..."
 
 
+# ── Structured Output Intelligence Parser ──
+
+class OutputIntelligenceParser:
+    """Pure regex parser for structured output from Claude Code and other agent backends.
+    Runs in the capture loop — ~0.1ms per agent, non-blocking.
+    """
+
+    # Tool invocation patterns (Claude Code format)
+    _TOOL_PATTERNS = [
+        (re.compile(r'Read\("([^"]+)"\)'), "Read"),
+        (re.compile(r'Edit\("([^"]+)"\)'), "Edit"),
+        (re.compile(r'Write\("([^"]+)"\)'), "Write"),
+        (re.compile(r'Bash\("([^"]{0,200})'), "Bash"),
+        (re.compile(r'Glob\("([^"]+)"\)'), "Glob"),
+        (re.compile(r'Grep\("([^"]+)"\)'), "Grep"),
+        (re.compile(r'LS\("([^"]+)"\)'), "LS"),
+        (re.compile(r'Task\("([^"]{0,100})'), "Task"),
+        (re.compile(r'WebFetch\("([^"]+)"\)'), "WebFetch"),
+        (re.compile(r'WebSearch\("([^"]+)"\)'), "WebSearch"),
+        (re.compile(r'NotebookEdit\("([^"]+)"\)'), "NotebookEdit"),
+    ]
+
+    # Tool result patterns
+    _RESULT_SUCCESS = re.compile(r'(?:Tool Result|Result|✓|✔|Success|Updated|Created|Written)')
+    _RESULT_ERROR = re.compile(r'(?:Error|Failed|✕|✗|Exception|FAILED)')
+
+    # Git operation patterns
+    _GIT_COMMIT = re.compile(r'git commit.*-m\s+["\'](.{0,120})')
+    _GIT_CHECKOUT = re.compile(r'git checkout\s+(\S+)')
+    _GIT_BRANCH = re.compile(r'git (?:branch|switch)\s+(\S+)')
+    _GIT_PUSH = re.compile(r'git push\s+(\S+)')
+    _GIT_MERGE = re.compile(r'git merge\s+(\S+)')
+    _COMMIT_SHA = re.compile(r'\b([0-9a-f]{7,40})\b.*(?:commit|created|pushed)')
+
+    # Test result patterns
+    _PYTEST = re.compile(r'(\d+)\s+passed(?:.*?(\d+)\s+failed)?(?:.*?(\d+)\s+skipped)?')
+    _JEST = re.compile(r'Tests:\s+(?:(\d+)\s+passed)?(?:.*?(\d+)\s+failed)?(?:.*?(\d+)\s+total)?')
+    _MOCHA = re.compile(r'(\d+)\s+passing.*?(?:(\d+)\s+failing)?')
+    _COVERAGE = re.compile(r'(?:coverage|Coverage|TOTAL).*?(\d{1,3}(?:\.\d+)?)%')
+
+    # File operation patterns (from natural language output)
+    _FILE_READ = re.compile(r'(?:Reading|Scanning|Analyzing)\s+[`"]?([^\s`"]+\.\w{1,8})[`"]?')
+    _FILE_WRITE = re.compile(r'(?:Writing|Creating|Updating|Editing)\s+[`"]?([^\s`"]+\.\w{1,8})[`"]?')
+
+    def parse_incremental(self, agent: "Agent") -> dict:
+        """Parse new output lines since last call. Returns counts of new items parsed."""
+        lines = list(agent.output_lines)
+        start_idx = agent._last_parse_index
+        if start_idx >= len(lines):
+            return {"tools": 0, "files": 0, "git": 0, "tests": 0}
+
+        new_lines = lines[start_idx:]
+        agent._last_parse_index = len(lines)
+        now = time.monotonic()
+
+        counts = {"tools": 0, "files": 0, "git": 0, "tests": 0}
+
+        for i, line in enumerate(new_lines):
+            line_idx = start_idx + i
+            stripped = _strip_ansi(line) if callable(_strip_ansi) else line
+
+            # Tool invocations
+            for pattern, tool_name in self._TOOL_PATTERNS:
+                m = pattern.search(stripped)
+                if m:
+                    inv = ToolInvocation(
+                        agent_id=agent.id,
+                        tool=tool_name,
+                        args=m.group(1),
+                        timestamp=now,
+                        line_index=line_idx,
+                    )
+                    agent._tool_invocations.append(inv)
+                    if len(agent._tool_invocations) > 500:
+                        agent._tool_invocations = agent._tool_invocations[-500:]
+                    counts["tools"] += 1
+
+                    # Also record file operations for Read/Edit/Write
+                    if tool_name in ("Read", "Edit", "Write", "Glob", "LS"):
+                        op_type = "read" if tool_name in ("Read", "Glob", "LS") else "edit" if tool_name == "Edit" else "write"
+                        fop = FileOperation(
+                            agent_id=agent.id,
+                            file_path=m.group(1),
+                            operation=op_type,
+                            timestamp=now,
+                            tool=tool_name,
+                        )
+                        agent._file_operations.append(fop)
+                        if len(agent._file_operations) > 500:
+                            agent._file_operations = agent._file_operations[-500:]
+                        counts["files"] += 1
+                    break  # One tool per line
+
+            # Tool results — update last invocation's result_status
+            if agent._tool_invocations:
+                if self._RESULT_SUCCESS.search(stripped):
+                    agent._tool_invocations[-1].result_status = "success"
+                    agent._tool_invocations[-1].result_snippet = stripped[:100]
+                elif self._RESULT_ERROR.search(stripped):
+                    agent._tool_invocations[-1].result_status = "error"
+                    agent._tool_invocations[-1].result_snippet = stripped[:100]
+
+            # Git operations
+            for git_re, git_op in [
+                (self._GIT_COMMIT, "commit"),
+                (self._GIT_CHECKOUT, "checkout"),
+                (self._GIT_BRANCH, "branch"),
+                (self._GIT_PUSH, "push"),
+                (self._GIT_MERGE, "merge"),
+            ]:
+                m = git_re.search(stripped)
+                if m:
+                    gop = GitOperation(
+                        agent_id=agent.id,
+                        operation=git_op,
+                        detail=m.group(1),
+                        timestamp=now,
+                    )
+                    agent._git_operations.append(gop)
+                    if len(agent._git_operations) > 200:
+                        agent._git_operations = agent._git_operations[-200:]
+                    counts["git"] += 1
+                    break
+
+            # Test results
+            for test_re, framework in [
+                (self._PYTEST, "pytest"),
+                (self._JEST, "jest"),
+                (self._MOCHA, "mocha"),
+            ]:
+                m = test_re.search(stripped)
+                if m:
+                    groups = m.groups()
+                    passed = int(groups[0] or 0)
+                    failed = int(groups[1] or 0) if len(groups) > 1 else 0
+                    skipped = int(groups[2] or 0) if len(groups) > 2 else 0
+                    tr = TestResult(
+                        agent_id=agent.id,
+                        passed=passed,
+                        failed=failed,
+                        skipped=skipped,
+                        total=passed + failed + skipped,
+                        framework=framework,
+                        timestamp=now,
+                    )
+                    # Check for coverage on same or nearby lines
+                    cov_m = self._COVERAGE.search(stripped)
+                    if cov_m:
+                        tr.coverage_pct = float(cov_m.group(1))
+                    agent._test_results.append(tr)
+                    if len(agent._test_results) > 50:
+                        agent._test_results = agent._test_results[-50:]
+                    counts["tests"] += 1
+                    break
+
+            # Natural language file operations
+            for fre, fop_type in [
+                (self._FILE_READ, "read"),
+                (self._FILE_WRITE, "write"),
+            ]:
+                m = fre.search(stripped)
+                if m:
+                    fop = FileOperation(
+                        agent_id=agent.id,
+                        file_path=m.group(1),
+                        operation=fop_type,
+                        timestamp=now,
+                    )
+                    agent._file_operations.append(fop)
+                    if len(agent._file_operations) > 500:
+                        agent._file_operations = agent._file_operations[-500:]
+                    counts["files"] += 1
+                    break
+
+        return counts
+
+    def get_activity_summary(self, agent: "Agent") -> dict:
+        """Get structured activity summary for an agent."""
+        return {
+            "tool_invocations": [t.to_dict() for t in agent._tool_invocations[-50:]],
+            "file_operations": [f.to_dict() for f in agent._file_operations[-50:]],
+            "git_operations": [g.to_dict() for g in agent._git_operations[-20:]],
+            "test_results": [t.to_dict() for t in agent._test_results[-10:]],
+            "summary": {
+                "total_tools": len(agent._tool_invocations),
+                "total_files": len(agent._file_operations),
+                "total_git_ops": len(agent._git_operations),
+                "total_test_runs": len(agent._test_results),
+                "unique_files": len(set(f.file_path for f in agent._file_operations)),
+                "tools_by_type": self._count_by_field(agent._tool_invocations, "tool"),
+                "files_by_operation": self._count_by_field(agent._file_operations, "operation"),
+            },
+        }
+
+    @staticmethod
+    def _count_by_field(items: list, field_name: str) -> dict:
+        counts: dict[str, int] = {}
+        for item in items:
+            key = getattr(item, field_name, "unknown")
+            counts[key] = counts.get(key, 0) + 1
+        return counts
+
+
+# Singleton parser instance
+_intelligence_parser = OutputIntelligenceParser()
+
+
 # ── LLM-Powered Summary Generation ──
 
 class LLMSummarizer:
@@ -2873,6 +3253,214 @@ class LLMSummarizer:
             log.warning("LLM circuit breaker tripped, cooling down for 60s")
 
         return None
+
+
+# ── Anthropic Intelligence Client ──
+
+class AnthropicIntelligenceClient:
+    """Claude API client for intelligent summaries, command parsing, and fleet analysis.
+    Raw HTTP via aiohttp (no SDK dependency, same pattern as xAI integration).
+    """
+
+    BASE_URL = "https://api.anthropic.com/v1"
+
+    def __init__(self, api_key: str, model: str = "claude-sonnet-4-20250514"):
+        self.api_key = api_key
+        self.model = model
+        self.haiku_model = "claude-haiku-4-5-20251001"  # For fast summaries
+        self._session: aiohttp.ClientSession | None = None
+        self._failures: int = 0
+        self._max_failures: int = 5
+        self._circuit_reset_time: float = 0.0
+        self.available: bool = True
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=15),
+            )
+        return self._session
+
+    async def close(self) -> None:
+        if self._session and not self._session.closed:
+            await self._session.close()
+
+    def _check_circuit(self) -> bool:
+        """Returns True if we can make a request."""
+        if not self.available:
+            return False
+        if self._failures >= self._max_failures:
+            if time.monotonic() < self._circuit_reset_time:
+                return False
+            self._failures = 0
+        return True
+
+    def _handle_error(self, status: int, retry_after: str | None = None) -> None:
+        """Handle HTTP error responses."""
+        if status in (401, 403):
+            log.error(f"Anthropic API disabled: auth failed (HTTP {status})")
+            self.available = False
+        elif status == 429:
+            cooldown = float(retry_after) if retry_after and retry_after.replace('.', '').isdigit() else 60.0
+            log.warning(f"Anthropic rate limited, cooling down for {cooldown}s")
+            self._circuit_reset_time = time.monotonic() + cooldown
+        else:
+            self._failures += 1
+            if self._failures >= self._max_failures:
+                self._circuit_reset_time = time.monotonic() + 60.0
+                log.warning("Anthropic circuit breaker tripped, cooling down for 60s")
+
+    async def _call(self, messages: list[dict], model: str | None = None,
+                    max_tokens: int = 200, system: str = "") -> str | None:
+        """Make a raw API call to Claude. Returns response text or None."""
+        if not self._check_circuit():
+            return None
+
+        try:
+            session = await self._get_session()
+            body: dict[str, Any] = {
+                "model": model or self.model,
+                "max_tokens": max_tokens,
+                "messages": messages,
+            }
+            if system:
+                body["system"] = system
+
+            async with session.post(
+                f"{self.BASE_URL}/messages",
+                headers={
+                    "x-api-key": self.api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json=body,
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    content = data.get("content", [])
+                    text = "".join(c.get("text", "") for c in content if c.get("type") == "text")
+                    self._failures = 0
+                    return text.strip() if text else None
+                else:
+                    self._handle_error(resp.status, resp.headers.get("Retry-After"))
+                    return None
+        except asyncio.TimeoutError:
+            log.debug("Anthropic API request timed out")
+            self._failures += 1
+            return None
+        except Exception as e:
+            log.debug(f"Anthropic API error: {e}")
+            self._failures += 1
+            return None
+
+    async def summarize(self, output_lines: list[str], task: str, role: str, status: str) -> str | None:
+        """Generate a 1-line summary. Uses Haiku for speed."""
+        recent = output_lines[-40:]
+        if not recent:
+            return None
+        output_text = _strip_ansi("\n".join(recent))[:4000]
+
+        return await self._call(
+            messages=[{"role": "user", "content": (
+                f"Agent role: {role}\nStatus: {status}\nTask: {task}\n\n"
+                f"Recent output:\n```\n{output_text}\n```\n\n"
+                f"Write a concise 1-sentence summary (max 80 chars) of what the agent is doing now. "
+                f"Focus on the specific action and file/component. No quotes."
+            )}],
+            model=self.haiku_model,
+            max_tokens=60,
+        )
+
+    async def parse_command(self, transcript: str, agents: list, context: dict) -> ParsedIntent:
+        """Parse a natural language command into a structured intent."""
+        agent_list = "\n".join(
+            f"- {a.name} (id={a.id}, role={a.role}, status={a.status})"
+            for a in agents
+        ) or "(no agents running)"
+
+        response = await self._call(
+            messages=[{"role": "user", "content": transcript}],
+            system=(
+                "You are a command parser for an AI agent orchestration platform called Ashlar.\n"
+                "Parse the user's natural language command into a JSON intent.\n\n"
+                f"Current agents:\n{agent_list}\n\n"
+                "Respond with ONLY a JSON object:\n"
+                '{"action":"spawn|kill|pause|resume|send|status|query",'
+                '"targets":["agent_id1"],'
+                '"filter":"optional role/status filter",'
+                '"message":"message to send if action=send",'
+                '"parameters":{"role":"general","task":"optional task description"},'
+                '"confidence":0.0-1.0}'
+            ),
+            max_tokens=300,
+        )
+
+        if response:
+            try:
+                data = json.loads(response)
+                return ParsedIntent(
+                    action=data.get("action", "unknown"),
+                    targets=data.get("targets", []),
+                    filter=data.get("filter", ""),
+                    message=data.get("message", ""),
+                    parameters=data.get("parameters", {}),
+                    confidence=float(data.get("confidence", 0.5)),
+                )
+            except (json.JSONDecodeError, KeyError, ValueError) as e:
+                log.debug(f"Failed to parse Claude command response: {e}")
+
+        return ParsedIntent(action="unknown", message=transcript, confidence=0.0)
+
+    async def analyze_fleet(self, agents: list, insights_history: list) -> list[AgentInsight]:
+        """Meta-agent analysis: detect conflicts, stuck agents, handoff opportunities."""
+        if not agents or len(agents) < 2:
+            return []
+
+        agent_summaries = []
+        for a in agents:
+            files = list(set(f.file_path for f in a._file_operations[-20:]))
+            tools = list(set(t.tool for t in a._tool_invocations[-20:]))
+            agent_summaries.append(
+                f"- {a.name} ({a.role}, {a.status}): {a.summary or a.task}\n"
+                f"  Files: {', '.join(files[:10]) or 'none'}\n"
+                f"  Recent tools: {', '.join(tools) or 'none'}\n"
+                f"  Health: {a.health_score:.0%}, context: {a.context_pct:.0%}"
+            )
+
+        response = await self._call(
+            messages=[{"role": "user", "content": (
+                "Analyze these agents and identify issues:\n\n"
+                + "\n".join(agent_summaries)
+                + "\n\nRespond with a JSON array of insights:\n"
+                '[{"type":"conflict|stuck|handoff|anomaly|suggestion",'
+                '"severity":"info|warning|critical",'
+                '"message":"description",'
+                '"agent_ids":["id1"],'
+                '"suggested_action":"what to do"}]\n'
+                "Only include genuine issues. Return [] if everything looks fine."
+            )}],
+            max_tokens=500,
+        )
+
+        insights = []
+        if response:
+            try:
+                data = json.loads(response)
+                if isinstance(data, list):
+                    for item in data[:10]:
+                        insights.append(AgentInsight(
+                            id=uuid.uuid4().hex[:8],
+                            insight_type=item.get("type", "suggestion"),
+                            severity=item.get("severity", "info"),
+                            message=item.get("message", ""),
+                            agent_ids=item.get("agent_ids", []),
+                            suggested_action=item.get("suggested_action", ""),
+                            created_at=time.monotonic(),
+                        ))
+            except (json.JSONDecodeError, KeyError) as e:
+                log.debug(f"Failed to parse fleet analysis response: {e}")
+
+        return insights
 
 
 # ── Phase detection for progress estimation ──
@@ -4923,6 +5511,167 @@ async def handoff_agent(request: web.Request) -> web.Response:
     return web.json_response({"status": "handed_off", "message_id": msg["id"]})
 
 
+# ── Intelligence Endpoints ──
+
+async def get_agent_activity(request: web.Request) -> web.Response:
+    """GET /api/agents/{id}/activity — structured tool/file/git/test data."""
+    manager: AgentManager = request.app["agent_manager"]
+    agent_id = request.match_info["id"]
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+    activity = _intelligence_parser.get_activity_summary(agent)
+    return web.json_response(activity)
+
+
+async def get_agent_tool_invocations(request: web.Request) -> web.Response:
+    """GET /api/agents/{id}/tool-invocations — tool invocation history."""
+    manager: AgentManager = request.app["agent_manager"]
+    agent_id = request.match_info["id"]
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+    limit = int(request.query.get("limit", "100"))
+    return web.json_response({
+        "agent_id": agent_id,
+        "invocations": [t.to_dict() for t in agent._tool_invocations[-limit:]],
+        "total": len(agent._tool_invocations),
+    })
+
+
+async def get_agent_file_operations(request: web.Request) -> web.Response:
+    """GET /api/agents/{id}/file-operations — file operation history."""
+    manager: AgentManager = request.app["agent_manager"]
+    agent_id = request.match_info["id"]
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+    limit = int(request.query.get("limit", "100"))
+    return web.json_response({
+        "agent_id": agent_id,
+        "operations": [f.to_dict() for f in agent._file_operations[-limit:]],
+        "total": len(agent._file_operations),
+    })
+
+
+async def get_intelligence_insights(request: web.Request) -> web.Response:
+    """GET /api/intelligence/insights — current cross-agent insights."""
+    insights: list[AgentInsight] = request.app.get("intelligence_insights", [])
+    return web.json_response({
+        "insights": [i.to_dict() for i in insights if not i.acknowledged],
+        "total": len(insights),
+    })
+
+
+async def acknowledge_insight(request: web.Request) -> web.Response:
+    """POST /api/intelligence/insights/{id}/ack — acknowledge an insight."""
+    insights: list[AgentInsight] = request.app.get("intelligence_insights", [])
+    insight_id = request.match_info["id"]
+    for insight in insights:
+        if insight.id == insight_id:
+            insight.acknowledged = True
+            return web.json_response({"status": "acknowledged"})
+    return web.json_response({"error": "Insight not found"}, status=404)
+
+
+async def intelligence_command(request: web.Request) -> web.Response:
+    """POST /api/intelligence/command — parse natural language command via Claude API."""
+    client = request.app.get("anthropic_client")
+    manager: AgentManager = request.app["agent_manager"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    transcript = data.get("transcript", "").strip()
+    if not transcript:
+        return web.json_response({"error": "Empty transcript"}, status=400)
+
+    # If Claude API client is available, use it for NLU
+    if client and client.available:
+        try:
+            intent = await client.parse_command(
+                transcript,
+                list(manager.agents.values()),
+                {"total_agents": len(manager.agents)},
+            )
+            return web.json_response({
+                "intent": intent.to_dict(),
+                "source": "anthropic",
+            })
+        except Exception as e:
+            log.warning(f"Intelligence command parse failed: {e}")
+
+    # Fallback to keyword matching
+    intent = _keyword_parse_command(transcript, list(manager.agents.values()))
+    return web.json_response({
+        "intent": intent.to_dict(),
+        "source": "keyword",
+    })
+
+
+def _keyword_parse_command(transcript: str, agents: list) -> ParsedIntent:
+    """Fallback keyword-based command parsing."""
+    t = transcript.lower().strip()
+
+    # Spawn patterns
+    if any(w in t for w in ("spawn", "start", "create", "launch", "new agent")):
+        role = "general"
+        for r in BUILTIN_ROLES:
+            if r in t:
+                role = r
+                break
+        return ParsedIntent(action="spawn", parameters={"role": role}, confidence=0.6)
+
+    # Kill patterns
+    if any(w in t for w in ("kill", "stop", "terminate", "remove")):
+        targets = _resolve_agent_refs(t, agents)
+        if "all" in t:
+            targets = [a.id for a in agents]
+        return ParsedIntent(action="kill", targets=targets, confidence=0.6)
+
+    # Pause/resume patterns
+    if any(w in t for w in ("pause", "freeze", "hold")):
+        targets = _resolve_agent_refs(t, agents)
+        return ParsedIntent(action="pause", targets=targets, confidence=0.6)
+    if any(w in t for w in ("resume", "unpause", "continue")):
+        targets = _resolve_agent_refs(t, agents)
+        return ParsedIntent(action="resume", targets=targets, confidence=0.6)
+
+    # Status query
+    if any(w in t for w in ("status", "what", "how", "doing")):
+        targets = _resolve_agent_refs(t, agents)
+        return ParsedIntent(action="status", targets=targets, confidence=0.5)
+
+    # Send message
+    if any(w in t for w in ("tell", "send", "approve", "reject", "yes", "no")):
+        targets = _resolve_agent_refs(t, agents)
+        message = transcript  # Use full transcript as the message
+        if "approve" in t:
+            message = "yes, proceed"
+        elif "reject" in t:
+            message = "no, stop"
+        return ParsedIntent(action="send", targets=targets, message=message, confidence=0.5)
+
+    return ParsedIntent(action="unknown", message=transcript, confidence=0.2)
+
+
+def _resolve_agent_refs(text: str, agents: list) -> list[str]:
+    """Resolve agent references in natural language text."""
+    resolved = []
+    for agent in agents:
+        if agent.name.lower() in text or agent.id.lower() in text:
+            resolved.append(agent.id)
+    # Try numeric references ("agent 1", "agent 2")
+    import re as _re
+    for m in _re.finditer(r'agent\s*(\d+)', text):
+        idx = int(m.group(1)) - 1
+        if 0 <= idx < len(agents):
+            resolved.append(agents[idx].id)
+    return resolved
+
+
 # ── LLM Summary endpoint ──
 
 async def generate_summary(request: web.Request) -> web.Response:
@@ -5697,6 +6446,20 @@ async def output_capture_loop(app: web.Application) -> None:
                     agent.summary = extract_summary(list(agent.output_lines), agent.task, agent.status)
                     agent.progress_pct = estimate_progress(agent)
 
+                    # Structured intelligence parsing (pure regex, ~0.1ms)
+                    try:
+                        parse_counts = _intelligence_parser.parse_incremental(agent)
+                        if any(parse_counts.values()):
+                            activity = _intelligence_parser.get_activity_summary(agent)
+                            await self.broadcast({
+                                "type": "agent_activity",
+                                "agent_id": agent_id,
+                                "activity": activity,
+                                "new_counts": parse_counts,
+                            })
+                    except Exception as e:
+                        log.debug(f"Intelligence parser error for {agent_id}: {e}")
+
                     # LLM summary with throttling
                     summarizer: LLMSummarizer | None = app.get("llm_summarizer")
                     if summarizer and app["config"].llm_enabled:
@@ -6029,6 +6792,57 @@ async def memory_watchdog_loop(app: web.Application) -> None:
         await asyncio.sleep(10.0)
 
 
+# ── Meta-Agent Intelligence Loop ──
+
+async def meta_agent_loop(app: web.Application) -> None:
+    """5th supervised background task: cross-agent analysis via Claude API.
+    Runs on configurable interval (default 30s). Detects file conflicts, stuck
+    agents, handoff opportunities, and anomalies.
+    """
+    config: Config = app["config"]
+    interval = config.intelligence_meta_interval
+
+    while True:
+        await asyncio.sleep(interval)
+
+        client: AnthropicIntelligenceClient | None = app.get("anthropic_client")
+        if not client or not client.available:
+            continue
+
+        manager: AgentManager = app["agent_manager"]
+        agents = list(manager.agents.values())
+        if len(agents) < 2:
+            continue
+
+        # Hash state to skip re-analysis when nothing changed
+        state_parts = [f"{a.id}:{a.status}:{a.summary[:30]}" for a in agents]
+        state_hash = str(hash(tuple(state_parts)))
+        if state_hash == app.get("_meta_state_hash", ""):
+            continue
+        app["_meta_state_hash"] = state_hash
+
+        try:
+            insights = await client.analyze_fleet(
+                agents, app.get("intelligence_insights", [])
+            )
+            if insights:
+                existing: list[AgentInsight] = app.get("intelligence_insights", [])
+                existing.extend(insights)
+                # Cap at 100 insights
+                if len(existing) > 100:
+                    app["intelligence_insights"] = existing[-100:]
+
+                hub: WebSocketHub = app["ws_hub"]
+                for insight in insights:
+                    await hub.broadcast({
+                        "type": "intelligence_alert",
+                        "insight": insight.to_dict(),
+                    })
+                log.info(f"Meta-agent generated {len(insights)} insight(s)")
+        except Exception as e:
+            log.debug(f"Meta-agent analysis error: {e}")
+
+
 # ─────────────────────────────────────────────
 # Section 10: Application Setup & Main
 # ─────────────────────────────────────────────
@@ -6083,12 +6897,16 @@ async def start_background_tasks(app: web.Application) -> None:
 
     app["db_ready"] = True
     app["bg_task_health"] = {}
-    app["bg_tasks"] = [
+    bg_tasks = [
         asyncio.create_task(_supervised_task("output_capture", output_capture_loop, app)),
         asyncio.create_task(_supervised_task("metrics", metrics_loop, app)),
         asyncio.create_task(_supervised_task("health_check", health_check_loop, app)),
         asyncio.create_task(_supervised_task("memory_watchdog", memory_watchdog_loop, app)),
     ]
+    # Meta-agent intelligence task (only if Anthropic API is available)
+    if app.get("anthropic_client"):
+        bg_tasks.append(asyncio.create_task(_supervised_task("meta_agent", meta_agent_loop, app)))
+    app["bg_tasks"] = bg_tasks
     log.info("Background tasks started")
 
 
@@ -6114,6 +6932,11 @@ async def cleanup_background_tasks(app: web.Application) -> None:
     summarizer: LLMSummarizer | None = app.get("llm_summarizer")
     if summarizer:
         await summarizer.close()
+
+    # Close Anthropic client
+    anthropic_client: AnthropicIntelligenceClient | None = app.get("anthropic_client")
+    if anthropic_client:
+        await anthropic_client.close()
 
     # Close database
     await db.close()
@@ -6153,6 +6976,20 @@ def create_app(config: Config) -> web.Application:
     else:
         log.info("LLM summaries disabled (set XAI_API_KEY and llm.enabled in config)")
 
+    # Anthropic Intelligence Client
+    anthropic_client = None
+    if config.intelligence_enabled and config.intelligence_api_key:
+        anthropic_client = AnthropicIntelligenceClient(
+            api_key=config.intelligence_api_key,
+            model=config.intelligence_model,
+        )
+        log.info(f"Intelligence enabled: Anthropic/{config.intelligence_model}")
+    else:
+        log.info("Intelligence disabled (set ANTHROPIC_API_KEY env var)")
+    app["anthropic_client"] = anthropic_client
+    app["intelligence_insights"] = []  # list[AgentInsight]
+    app["_meta_state_hash"] = ""  # For skipping unchanged fleet analysis
+
     # Extension Scanner — initial scan at startup
     scanner = ExtensionScanner()
     scanner.scan()  # Initial scan with no project dirs (DB not ready yet)
@@ -6181,6 +7018,14 @@ def create_app(config: Config) -> web.Application:
     app.router.add_post("/api/agents/{id}/message", send_agent_message)
     app.router.add_get("/api/agents/{id}/messages", get_agent_messages)
     app.router.add_post("/api/agents/{id}/handoff", handoff_agent)
+    app.router.add_get("/api/agents/{id}/activity", get_agent_activity)
+    app.router.add_get("/api/agents/{id}/tool-invocations", get_agent_tool_invocations)
+    app.router.add_get("/api/agents/{id}/file-operations", get_agent_file_operations)
+
+    # REST API — Intelligence
+    app.router.add_get("/api/intelligence/insights", get_intelligence_insights)
+    app.router.add_post("/api/intelligence/insights/{id}/ack", acknowledge_insight)
+    app.router.add_post("/api/intelligence/command", intelligence_command)
 
     # REST API — System
     app.router.add_get("/api/health", health_check)
