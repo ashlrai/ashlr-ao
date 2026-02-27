@@ -419,6 +419,7 @@ class BackendConfig:
     supports_tool_restriction: bool = False
     supports_session_resume: bool = False
     supports_model_select: bool = False
+    supports_prompt_arg: bool = False  # If True, task is passed as CLI positional arg (not via send-keys)
     # Automation
     auto_approve_flag: str = ""
     plan_mode_flag: str = ""  # CLI flag to enable plan/review mode (e.g. "--permission-mode plan")
@@ -442,6 +443,7 @@ class BackendConfig:
             "supports_tool_restriction": self.supports_tool_restriction,
             "supports_session_resume": self.supports_session_resume,
             "supports_model_select": self.supports_model_select,
+            "supports_prompt_arg": self.supports_prompt_arg,
             "auto_approve_flag": self.auto_approve_flag,
             "plan_mode_flag": self.plan_mode_flag,
             "inject_role_prompt": self.inject_role_prompt,
@@ -461,13 +463,16 @@ KNOWN_BACKENDS: dict[str, BackendConfig] = {
         supports_tool_restriction=True,
         supports_session_resume=True,
         supports_model_select=True,
+        supports_prompt_arg=True,
         auto_approve_flag="--dangerously-skip-permissions",
         plan_mode_flag="--permission-mode plan",
         status_patterns={
-            "working": [r"⎿", r"╭─", r"╰─", r"Tool Use:", r"Bash:", r"\$ "],
+            "working": [r"⎿", r"╭─", r"╰─", r"Tool Use:", r"Bash:", r"\$ ",
+                        r"esc to interrupt"],
             "waiting": [r"Do you want to proceed", r"Allow once", r"Allow always",
                         r"Press Enter to retry", r"Type your response"],
-            "planning": [r"Thinking\.\.\."],
+            "planning": [r"Thinking\.\.\.", r"Schlepping"],
+            "complete": [r"❯"],
         },
         cost_input_per_1k=0.003,
         cost_output_per_1k=0.015,
@@ -809,9 +814,15 @@ class AgentManager:
                 supports_tool_restriction=bc.supports_tool_restriction,
                 supports_session_resume=bc.supports_session_resume,
                 supports_model_select=bc.supports_model_select,
+                supports_prompt_arg=bc.supports_prompt_arg,
                 auto_approve_flag=bc.auto_approve_flag,
+                plan_mode_flag=bc.plan_mode_flag,
+                status_patterns=bc.status_patterns,
+                inject_role_prompt=bc.inject_role_prompt,
                 cost_input_per_1k=bc.cost_input_per_1k,
                 cost_output_per_1k=bc.cost_output_per_1k,
+                context_window=bc.context_window,
+                char_to_token_ratio=bc.char_to_token_ratio,
             )
         # Override with user config
         for name, cfg in self.config.backends.items():
@@ -860,6 +871,35 @@ class AgentManager:
         except Exception as e:
             log.error(f"tmux send-keys failed for {session}: {e}")
             return False
+
+    async def _wait_for_tui_ready(self, session: str, timeout: float = 15.0) -> bool:
+        """Poll tmux output until we detect a CLI TUI is ready for input.
+
+        Looks for the CLI status bar (bypass permissions) as the primary indicator
+        that the TUI is fully loaded and ready to accept Enter. Returns True if
+        ready, False on timeout.
+        """
+        # Only look for strong indicators that the TUI is fully initialized.
+        # "bypass permissions" appears in Claude Code's status bar after full load.
+        # Avoid ❯ or > as they can appear during partial renders.
+        ready_patterns = ["bypass permissions", "Enter a prompt", "shift+tab to cycle"]
+        start = asyncio.get_event_loop().time()
+        poll_count = 0
+        while (asyncio.get_event_loop().time() - start) < timeout:
+            await asyncio.sleep(1.5)
+            poll_count += 1
+            lines = await self._tmux_capture(session, lines=50)
+            if lines is None:
+                continue  # session not ready yet
+            # Search ALL captured lines — TUI status bar can be anywhere in the pane
+            full_text = "\n".join(lines) if lines else ""
+            for pattern in ready_patterns:
+                if pattern in full_text:
+                    elapsed = asyncio.get_event_loop().time() - start
+                    log.info(f"TUI ready for {session}: found '{pattern}' after {elapsed:.1f}s ({poll_count} polls)")
+                    return True
+        log.warning(f"TUI ready timeout ({timeout}s) for {session} after {poll_count} polls")
+        return False
 
     async def _tmux_send_raw(self, session: str, key: str) -> bool:
         """Send a raw key (like C-c) without Enter."""
@@ -1112,13 +1152,6 @@ class AgentManager:
                 cmd_parts.extend(["--resume", resume_session])
                 agent.session_id = resume_session
 
-            # Build command string
-            cmd = " ".join(shlex.quote(p) for p in cmd_parts)
-            await self._tmux_send_keys(session_name, cmd)
-
-            # Wait for CLI to start up
-            await asyncio.sleep(3)
-
             # Prepare task text — plan-mode prefix for backends without native plan flag
             if plan_mode and not bc.plan_mode_flag:
                 task_to_send = (
@@ -1129,21 +1162,41 @@ class AgentManager:
             else:
                 task_to_send = task
 
-            # Send task as first message
-            if bc.supports_system_prompt:
-                # System prompt already injected via CLI flag — just send task
-                if task_to_send:
-                    await self._tmux_send_keys(session_name, task_to_send)
-            else:
-                # Fallback: send role context + task as first message
-                if role_obj and role_obj.system_prompt and task_to_send:
-                    full_message = f"{role_obj.system_prompt}\n\nYour task: {task_to_send}"
-                    for line in full_message.split("\n"):
-                        if line.strip():
-                            await self._tmux_send_keys(session_name, line)
-                            await asyncio.sleep(0.1)
-                elif task_to_send:
-                    await self._tmux_send_keys(session_name, task_to_send)
+            # Include task as CLI positional arg if supported (e.g. claude-code)
+            # Must be the last argument (positional, not a flag)
+            if bc.supports_prompt_arg and task_to_send:
+                cmd_parts.append(task_to_send)
+
+            # Build command string and launch
+            cmd = " ".join(shlex.quote(p) for p in cmd_parts)
+            await self._tmux_send_keys(session_name, cmd)
+
+            if bc.supports_prompt_arg:
+                # CLI pre-fills the prompt — poll until TUI is ready, then send Enter
+                ready = await self._wait_for_tui_ready(session_name)
+                if not ready:
+                    log.warning(f"Agent {agent_id}: TUI not ready after timeout, sending Enter anyway")
+                # Settle delay — TUI needs a moment after rendering before accepting input
+                await asyncio.sleep(2.0)
+                await self._tmux_send_raw(session_name, "Enter")
+
+            # If task was NOT included as CLI arg, send it after startup
+            if not bc.supports_prompt_arg:
+                await asyncio.sleep(3)  # Wait for CLI to start up
+                if bc.supports_system_prompt:
+                    # System prompt already injected via CLI flag — just send task
+                    if task_to_send:
+                        await self._tmux_send_keys(session_name, task_to_send)
+                else:
+                    # Fallback: send role context + task as first message
+                    if role_obj and role_obj.system_prompt and task_to_send:
+                        full_message = f"{role_obj.system_prompt}\n\nYour task: {task_to_send}"
+                        for line in full_message.split("\n"):
+                            if line.strip():
+                                await self._tmux_send_keys(session_name, line)
+                                await asyncio.sleep(0.1)
+                    elif task_to_send:
+                        await self._tmux_send_keys(session_name, task_to_send)
 
         agent.status = "planning" if plan_mode else "working"
         agent.updated_at = datetime.now(timezone.utc).isoformat()
@@ -1585,10 +1638,6 @@ class AgentManager:
                 if bc.supports_system_prompt and saved_system_prompt:
                     cmd_parts.extend(["--append-system-prompt", saved_system_prompt])
 
-                cmd = " ".join(shlex.quote(p) for p in cmd_parts)
-                await self._tmux_send_keys(session_name, cmd)
-                await asyncio.sleep(3)
-
                 # Prepare task text — plan-mode prefix for backends without native plan flag
                 if saved_plan_mode and not bc.plan_mode_flag:
                     task_to_send = (
@@ -1599,19 +1648,36 @@ class AgentManager:
                 else:
                     task_to_send = saved_task
 
-                # Send task
-                if bc.supports_system_prompt:
-                    if task_to_send:
-                        await self._tmux_send_keys(session_name, task_to_send)
-                else:
-                    if role_obj and role_obj.system_prompt and task_to_send:
-                        full_message = f"{role_obj.system_prompt}\n\nYour task: {task_to_send}"
-                        for line in full_message.split("\n"):
-                            if line.strip():
-                                await self._tmux_send_keys(session_name, line)
-                                await asyncio.sleep(0.1)
-                    elif task_to_send:
-                        await self._tmux_send_keys(session_name, task_to_send)
+                # Include task as CLI positional arg if supported
+                if bc.supports_prompt_arg and task_to_send:
+                    cmd_parts.append(task_to_send)
+
+                cmd = " ".join(shlex.quote(p) for p in cmd_parts)
+                await self._tmux_send_keys(session_name, cmd)
+
+                if bc.supports_prompt_arg:
+                    # Poll until TUI is ready, then send Enter
+                    ready = await self._wait_for_tui_ready(session_name)
+                    if not ready:
+                        log.warning(f"Agent {agent_id}: TUI not ready after timeout on restart, sending Enter anyway")
+                    await asyncio.sleep(2.0)
+                    await self._tmux_send_raw(session_name, "Enter")
+
+                # If task was NOT included as CLI arg, send it after startup
+                if not bc.supports_prompt_arg:
+                    await asyncio.sleep(3)
+                    if bc.supports_system_prompt:
+                        if task_to_send:
+                            await self._tmux_send_keys(session_name, task_to_send)
+                    else:
+                        if role_obj and role_obj.system_prompt and task_to_send:
+                            full_message = f"{role_obj.system_prompt}\n\nYour task: {task_to_send}"
+                            for line in full_message.split("\n"):
+                                if line.strip():
+                                    await self._tmux_send_keys(session_name, line)
+                                    await asyncio.sleep(0.1)
+                        elif task_to_send:
+                            await self._tmux_send_keys(session_name, task_to_send)
 
             agent.plan_mode = saved_plan_mode
             agent.status = "planning" if saved_plan_mode else "working"
@@ -2181,8 +2247,8 @@ STATUS_PATTERNS = {
         re.compile(r"(?i)Tool (Result|Output):"),
         # Package management / network
         re.compile(r"(?i)(installing|downloading|fetching|uploading)"),
-        # Linting / formatting
-        re.compile(r"(?i)(lint|format|prettier|eslint|mypy|ruff)"),
+        # Linting / formatting (active operations, not result messages)
+        re.compile(r"(?i)(linting|formatting|running (lint|prettier|eslint|mypy|ruff))"),
     ],
     "waiting": [
         re.compile(r"(?i)(do you want|shall I|should I|would you like)"),
@@ -2295,17 +2361,18 @@ def parse_agent_status(recent_lines: list[str], agent: Agent, backend_patterns: 
             agent.needs_input = False
             return "planning"
 
-    # Check for complete
+    # Check for working (use tail_text to avoid matching stale output)
+    # Must come before "complete" so active-work indicators win over prompt presence
+    for pattern in effective_patterns["working"]:
+        if pattern.search(tail_text):
+            agent.needs_input = False
+            return "working"
+
+    # Check for complete / idle (e.g. CLI prompt visible, no active work)
     for pattern in effective_patterns["complete"]:
         if pattern.search(tail_text):
             agent.needs_input = False
             return "idle"
-
-    # Check for working
-    for pattern in effective_patterns["working"]:
-        if pattern.search(text_block):
-            agent.needs_input = False
-            return "working"
 
     # No clear signal — keep current status
     agent.needs_input = False
@@ -2402,11 +2469,22 @@ def extract_summary(lines: list[str], task: str, status: str = "") -> str:
             if stripped and re.search(r"(?i)(error|traceback|fatal|panic)", stripped):
                 return stripped[:MAX_LEN]
 
-    # Fallback: last non-empty line
+    # Fallback: last non-empty line (skip TUI chrome from Claude Code etc.)
+    _TUI_CHROME = {
+        "bypass permissions", "shift+tab to cycle", "Welcome back",
+        "Recent activity", "/resume for more", "What's new",
+        "/release-notes", "Enter a prompt", "Claude Code v",
+    }
     for line in reversed(lines[-10:]):
         stripped = _strip_ansi(line.strip())
-        if stripped and len(stripped) > 5:
-            return stripped[:MAX_LEN]
+        if not stripped or len(stripped) <= 5:
+            continue
+        # Skip box-drawing lines and TUI chrome
+        if stripped[0] in "╭╰│╔╗╚╝║─━┌┐└┘├┤┬┴┼▐▝❯":
+            continue
+        if any(chrome in stripped for chrome in _TUI_CHROME):
+            continue
+        return stripped[:MAX_LEN]
 
     return _strip_ansi(task[:MAX_LEN]) if task else "Working..."
 
