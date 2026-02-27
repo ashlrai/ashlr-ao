@@ -2208,10 +2208,12 @@ STATUS_PATTERNS = {
 }
 
 WAITING_LINE_PATTERNS = [
-    re.compile(r"\?\s*$"),
     re.compile(r"(?i)(do you want|shall I|should I|would you like)"),
     re.compile(r"(?i)(yes/no|y/n|\[Y/n\]|\[y/N\])"),
     re.compile(r"(?i)proceed\?"),
+    # Only match trailing ? if the line looks like a direct question to the user
+    # (contains "you", "I", or starts with a question word)
+    re.compile(r"(?i)^(do|can|will|should|shall|would|may|is|are|does|did|have|has)\b.+\?\s*$"),
 ]
 
 
@@ -2242,9 +2244,9 @@ def parse_agent_status(recent_lines: list[str], agent: Agent, backend_patterns: 
         if pattern.search(tail_text):
             agent.error_count = min(agent.error_count + 1, 100)
 
-    # Check for waiting (highest priority)
+    # Check for waiting (highest priority, only in recent lines to avoid stale matches)
     for pattern in effective_patterns["waiting"]:
-        if pattern.search(text_block):
+        if pattern.search(tail_text):
             # Extract the question
             agent.needs_input = True
             agent.input_prompt = _extract_question(recent_lines)
@@ -2281,9 +2283,9 @@ def parse_agent_status(recent_lines: list[str], agent: Agent, backend_patterns: 
             agent.needs_input = False
             return "reading"
 
-    # Check for planning
+    # Check for planning (only in recent lines to avoid matching task descriptions)
     for pattern in effective_patterns["planning"]:
-        if pattern.search(text_block):
+        if pattern.search(tail_text):
             agent.needs_input = False
             return "planning"
 
