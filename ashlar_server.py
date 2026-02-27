@@ -5119,10 +5119,16 @@ async def bulk_respond(request: web.Request) -> web.Response:
     failed_items = []
 
     for item in responses:
+        if not isinstance(item, dict):
+            failed_items.append({"id": "", "error": "Each response must be an object"})
+            continue
         aid = item.get("agent_id", "")
         message = item.get("message", "")
-        if not aid or not message:
-            failed_items.append({"id": aid, "error": "Missing agent_id or message"})
+        if not isinstance(message, str) or not message:
+            failed_items.append({"id": aid, "error": "Missing or invalid message (must be a string)"})
+            continue
+        if not aid:
+            failed_items.append({"id": aid, "error": "Missing agent_id"})
             continue
 
         agent = manager.agents.get(aid)

@@ -6328,7 +6328,7 @@ document.addEventListener('keydown', (e) => {
     if (isInput) return;
 
     // ? — cheatsheet
-    if (e.key === '?' && !e.metaKey) { openCheatsheet(); return; }
+    if (e.key === '?' && !e.metaKey) { e.preventDefault(); openCheatsheet(); return; }
 
     // Arrow keys + hjkl — keyboard grid navigation
     if (state.view === 'grid') {
@@ -6362,6 +6362,7 @@ document.addEventListener('keydown', (e) => {
 
     // 1-9 — focus agent (respects active filters)
     if (e.key >= '1' && e.key <= '9') {
+        e.preventDefault();
         const grid = document.getElementById('agentGrid');
         const visibleCards = [...grid.children].filter(c =>
             c.style.display !== 'none' && c.dataset.agentId
