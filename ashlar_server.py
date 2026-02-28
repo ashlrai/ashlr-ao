@@ -5508,6 +5508,98 @@ async def fleet_analytics(request: web.Request) -> web.Response:
     })
 
 
+async def collaboration_graph(request: web.Request) -> web.Response:
+    """GET /api/collaboration — graph of agent relationships for visualization."""
+    manager: AgentManager = request.app["agent_manager"]
+    db: Database = request.app["db"]
+    agents = list(manager.agents.values())
+
+    nodes = []
+    for a in agents:
+        nodes.append({
+            "id": a.id,
+            "name": a.name,
+            "role": a.role,
+            "status": a.status,
+            "health_score": a.health_score,
+            "project_id": a.project_id,
+            "file_count": len(a._file_operations),
+            "tool_count": len(a._tool_invocations),
+        })
+
+    edges: list[dict] = []
+    edge_set: set[tuple[str, str, str]] = set()
+
+    # 1. Message-based edges
+    if db and db._db:
+        try:
+            async with db._db.execute(
+                "SELECT from_agent_id, to_agent_id, COUNT(*) as cnt FROM agent_messages GROUP BY from_agent_id, to_agent_id"
+            ) as cur:
+                async for row in cur:
+                    from_id, to_id, cnt = row[0], row[1], row[2]
+                    if from_id in {a.id for a in agents} and to_id in {a.id for a in agents}:
+                        key = (from_id, to_id, "message")
+                        if key not in edge_set:
+                            edge_set.add(key)
+                            edges.append({"from": from_id, "to": to_id, "type": "message", "weight": cnt})
+        except Exception:
+            pass
+
+    # 2. Shared file edges (agents writing/reading the same files)
+    file_agents: dict[str, set[str]] = {}
+    for a in agents:
+        for fop in a._file_operations[-200:]:
+            path = fop.file_path
+            if path not in file_agents:
+                file_agents[path] = set()
+            file_agents[path].add(a.id)
+
+    for path, agent_ids in file_agents.items():
+        ids = list(agent_ids)
+        for i in range(len(ids)):
+            for j in range(i + 1, len(ids)):
+                key = (min(ids[i], ids[j]), max(ids[i], ids[j]), "shared_file")
+                if key not in edge_set:
+                    edge_set.add(key)
+                    edges.append({"from": ids[i], "to": ids[j], "type": "shared_file", "weight": 1, "file": path.split("/")[-1]})
+                else:
+                    # Increment weight for existing edge
+                    for e in edges:
+                        if e["from"] == key[0] and e["to"] == key[1] and e["type"] == "shared_file":
+                            e["weight"] += 1
+                            break
+
+    # 3. Same-project edges
+    project_agents: dict[str, list[str]] = {}
+    for a in agents:
+        if a.project_id:
+            if a.project_id not in project_agents:
+                project_agents[a.project_id] = []
+            project_agents[a.project_id].append(a.id)
+
+    for proj, agent_ids in project_agents.items():
+        for i in range(len(agent_ids)):
+            for j in range(i + 1, len(agent_ids)):
+                key = (min(agent_ids[i], agent_ids[j]), max(agent_ids[i], agent_ids[j]), "project")
+                if key not in edge_set:
+                    edge_set.add(key)
+                    edges.append({"from": agent_ids[i], "to": agent_ids[j], "type": "project", "weight": 1})
+
+    # 4. Conflict edges
+    for (path, conflict_agents) in manager.file_conflicts.items():
+        ids = list(set(conflict_agents))
+        for i in range(len(ids)):
+            for j in range(i + 1, len(ids)):
+                if ids[i] in {a.id for a in agents} and ids[j] in {a.id for a in agents}:
+                    key = (min(ids[i], ids[j]), max(ids[i], ids[j]), "conflict")
+                    if key not in edge_set:
+                        edge_set.add(key)
+                        edges.append({"from": ids[i], "to": ids[j], "type": "conflict", "weight": 1, "file": path.split("/")[-1]})
+
+    return web.json_response({"nodes": nodes, "edges": edges})
+
+
 async def health_check(request: web.Request) -> web.Response:
     """Lightweight health check — no auth required."""
     config: Config = request.app["config"]
@@ -8389,6 +8481,7 @@ def create_app(config: Config) -> web.Application:
 
     # REST API — Analytics
     app.router.add_get("/api/analytics", fleet_analytics)
+    app.router.add_get("/api/collaboration", collaboration_graph)
 
     # REST API — System
     app.router.add_get("/api/health", health_check)

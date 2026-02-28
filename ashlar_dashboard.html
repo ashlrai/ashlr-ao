@@ -1409,6 +1409,20 @@ body {
     margin-right: 6px; vertical-align: middle;
 }
 
+.quick-commands {
+    display: flex; gap: 4px; padding: 4px 16px 0;
+    flex-shrink: 0; flex-wrap: wrap;
+}
+.qc-btn {
+    font-size: 10px; font-family: var(--font-mono); padding: 3px 10px;
+    border-radius: 4px; border: 1px solid var(--border-subtle);
+    background: var(--bg-surface); color: var(--text-secondary);
+    cursor: pointer; transition: all var(--transition); white-space: nowrap;
+}
+.qc-btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--accent); }
+.qc-btn:active { transform: scale(0.96); }
+.quick-commands.waiting .qc-btn { border-color: var(--status-waiting); color: var(--text-primary); }
+.quick-commands.waiting .qc-btn:hover { background: color-mix(in srgb, var(--status-waiting) 15%, transparent); }
 .deep-input-bar {
     height: 54px;
     background: rgba(13,21,32,0.8);
@@ -2624,6 +2638,28 @@ body {
 .terminal-line.mark-boundary { border-top: 1px dashed rgba(99,102,241,0.3); position: relative; }
 .terminal-line.mark-boundary::before { content: '⚑ marked'; position: absolute; top: -10px; right: 8px; font-size: 9px; color: var(--accent); font-family: var(--font-mono); opacity: 0.6; }
 
+/* ── Code Block Syntax Highlighting ── */
+.terminal-line.code-fence { color: var(--text-tertiary); }
+.terminal-line.code-block { background: rgba(10,15,26,0.6); border-left: 2px solid rgba(99,102,241,0.25); padding-left: 12px; margin-left: -2px; }
+.sh-kw { color: #C084FC; }       /* keywords: if, else, for, return, function, class, import, def, const, let, var */
+.sh-str { color: #4ADE80; }      /* strings */
+.sh-num { color: #F59E0B; }      /* numbers */
+.sh-cmt { color: #6B7280; font-style: italic; }  /* comments */
+.sh-fn { color: #60A5FA; }       /* function names, calls */
+.sh-op { color: #F472B6; }       /* operators */
+.sh-type { color: #22D3EE; }     /* type names, built-ins */
+.sh-dec { color: #C084FC; }      /* decorators, annotations */
+.sh-tag { color: #F87171; }      /* HTML/JSX tags */
+.sh-attr { color: #FBBF24; }     /* HTML attributes */
+.sh-punct { color: var(--text-tertiary); }  /* brackets, parens, braces */
+
+/* ── Collapsible Output Sections ── */
+.output-fold { position: relative; }
+.output-fold-toggle { display: inline-block; cursor: pointer; color: var(--accent); font-size: 10px; font-family: var(--font-mono); padding: 2px 8px; background: rgba(99,102,241,0.08); border-radius: 3px; margin: 2px 0; user-select: none; }
+.output-fold-toggle:hover { background: rgba(99,102,241,0.16); }
+.output-fold-hidden { display: none; }
+.output-fold-hidden.expanded { display: block; }
+
 .deep-scratchpad-panel {
     flex: 1;
     overflow-y: auto;
@@ -3384,6 +3420,22 @@ body {
 .compare-pane + .compare-pane { border-left: 1px solid var(--border-subtle); }
 .compare-pane-header { padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; background: var(--bg-elevated); }
 .compare-pane-terminal { flex: 1; overflow-y: auto; padding: 8px 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; background: var(--bg-page); }
+.compare-stats { display: flex; gap: 16px; padding: 8px 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; font-size: 11px; color: var(--text-secondary); overflow-x: auto; }
+.compare-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 60px; }
+.compare-stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); }
+.compare-stat-val { font-family: var(--font-mono); font-weight: 600; font-size: 12px; }
+.compare-stat-val.left { color: #60A5FA; }
+.compare-stat-val.right { color: #F472B6; }
+.compare-stat-val.better { color: var(--success); }
+.compare-stat-val.worse { color: var(--danger); }
+/* ── Collaboration Graph ── */
+.collab-panel { background: var(--bg-surface); width: 90vw; max-width: 1000px; height: 75vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); overflow: hidden; }
+.collab-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
+.collab-body { flex: 1; overflow: hidden; position: relative; background: var(--bg-page); }
+.collab-body canvas { width: 100%; height: 100%; }
+.collab-legend { display: flex; gap: 12px; font-size: 10px; color: var(--text-secondary); }
+.collab-legend-item { display: flex; align-items: center; gap: 4px; }
+.collab-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 /* ── Fleet Analytics Panel ── */
 .analytics-panel { background: var(--bg-surface); width: 90vw; max-width: 900px; max-height: 85vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); overflow: hidden; }
 .analytics-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
@@ -3697,6 +3749,7 @@ body {
 
 /* ── Sparkline on Cards (A3) ── */
 .card-sparkline { width: 100%; height: 20px; margin: 2px 0; display: block; }
+.card-health-sparkline { width: 100%; height: 14px; display: block; opacity: 0.7; }
 
 /* ── Pin Indicator (E4) ── */
 .card-pin-indicator { position: absolute; top: 6px; right: 6px; font-size: 10px; opacity: 0.6; display: none; }
@@ -4122,6 +4175,7 @@ body {
         </div>
         <button class="btn btn-secondary btn-sm" onclick="openTimeline()" title="Activity Timeline (Cmd+T)"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/><path d="m16 12 5 3-5 3v-6Z"/></svg> Timeline</button>
         <button class="btn btn-secondary btn-sm" onclick="openAnalytics()" title="Fleet Analytics"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> Analytics</button>
+        <button class="btn btn-secondary btn-sm" onclick="openCollabGraph()" title="Collaboration Graph"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Graph</button>
         <button class="btn btn-secondary btn-sm" onclick="openConflicts()" title="File Conflicts"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Conflicts</button>
         <button class="btn btn-secondary btn-sm" onclick="openEventLog()" title="Event Log"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Events</button>
         <button class="btn btn-secondary btn-sm" onclick="openGlobalSearch()" title="Search All Outputs (Cmd+Shift+F)"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg> Search All</button>
@@ -4420,6 +4474,15 @@ body {
             <button class="deep-search-btn" onclick="closeDeepSearch()">✕</button>
         </div>
         <button class="jump-to-bottom" id="jumpToBottom" onclick="scrollDeepToBottom()">↓ Jump to bottom</button>
+    </div>
+    <div class="quick-commands" id="quickCommands">
+        <button class="qc-btn" onclick="quickSend('yes')">yes</button>
+        <button class="qc-btn" onclick="quickSend('no')">no</button>
+        <button class="qc-btn" onclick="quickSend('continue')">continue</button>
+        <button class="qc-btn" onclick="quickSend('explain')">explain</button>
+        <button class="qc-btn" onclick="quickSend('show me the diff')">diff</button>
+        <button class="qc-btn" onclick="quickSend('run the tests')">test</button>
+        <button class="qc-btn" onclick="quickSend('looks good, proceed')">approve</button>
     </div>
     <div class="deep-input-bar" style="position:relative">
         <input class="deep-input" id="deepInput" placeholder="Type a message to this agent..."
@@ -4821,9 +4884,11 @@ body {
                 <select class="form-input" id="compareLeftSelect" style="width:140px;padding:4px 8px;font-size:12px" onchange="refreshCompare()"></select>
                 <span style="color:var(--text-tertiary)">vs</span>
                 <select class="form-input" id="compareRightSelect" style="width:140px;padding:4px 8px;font-size:12px" onchange="refreshCompare()"></select>
+                <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer"><input type="checkbox" id="compareSyncScroll" checked onchange="toggleCompareSync()"> Sync scroll</label>
                 <button class="btn btn-secondary btn-sm" onclick="closeCompare()">Close</button>
             </div>
         </div>
+        <div class="compare-stats" id="compareStats"></div>
         <div class="compare-body">
             <div class="compare-pane">
                 <div class="compare-pane-header" id="compareLeftHeader"></div>
@@ -4849,6 +4914,28 @@ body {
         </div>
         <div class="analytics-body" id="analyticsBody">
             <div style="text-align:center;color:var(--text-tertiary);padding:40px">Loading analytics...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Collaboration Graph ── -->
+<div class="modal-overlay" id="collabOverlay" onclick="if(event.target===this)closeCollabGraph()">
+    <div class="collab-panel">
+        <div class="collab-header">
+            <h3 style="margin:0;font-weight:700;letter-spacing:-0.02em">Agent Collaboration</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+                <div class="collab-legend">
+                    <span class="collab-legend-item"><span class="collab-legend-dot" style="background:#60A5FA"></span>Message</span>
+                    <span class="collab-legend-item"><span class="collab-legend-dot" style="background:#4ADE80"></span>Shared File</span>
+                    <span class="collab-legend-item"><span class="collab-legend-dot" style="background:#F59E0B"></span>Project</span>
+                    <span class="collab-legend-item"><span class="collab-legend-dot" style="background:#EF4444"></span>Conflict</span>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="loadCollabGraph()">Refresh</button>
+                <button class="btn btn-secondary btn-sm" onclick="closeCollabGraph()">Close</button>
+            </div>
+        </div>
+        <div class="collab-body">
+            <canvas id="collabCanvas" width="900" height="500"></canvas>
         </div>
     </div>
 </div>
@@ -5431,6 +5518,235 @@ function ansiToHtml(text) {
         .replace(/\x1b[()][A-Z0-9]/g, '');    // Character set selection
 }
 
+// ── Syntax Highlighting for Code Blocks ──
+
+// Track code block state per agent for incremental rendering
+const _codeBlockState = new Map(); // agentId -> { inBlock: bool, language: string }
+
+function resetCodeBlockState(agentId) {
+    _codeBlockState.set(agentId, { inBlock: false, language: '' });
+}
+
+function getCodeBlockState(agentId) {
+    if (!_codeBlockState.has(agentId)) resetCodeBlockState(agentId);
+    return _codeBlockState.get(agentId);
+}
+
+// Detect if a line is a code fence (``` or ~~~)
+const CODE_FENCE_RE = /^(\s*)(```|~~~)(\w*)\s*$/;
+
+// Classify a line and return { html, className }
+function classifyTerminalLine(line, agentId) {
+    const st = getCodeBlockState(agentId);
+    const stripped = line.replace(/\x1b\[[0-9;]*m/g, '').replace(/\x1b\[[^m]*[a-zA-Z]/g, '');
+    const fenceMatch = stripped.match(CODE_FENCE_RE);
+
+    if (fenceMatch) {
+        if (!st.inBlock) {
+            st.inBlock = true;
+            st.language = fenceMatch[3] || '';
+            return { html: ansiToHtml(line), className: 'terminal-line code-fence' };
+        } else {
+            st.inBlock = false;
+            st.language = '';
+            return { html: ansiToHtml(line), className: 'terminal-line code-fence' };
+        }
+    }
+
+    if (st.inBlock) {
+        // Inside code block — apply syntax highlighting
+        const highlighted = highlightSyntax(ansiToHtml(line), st.language);
+        return { html: highlighted, className: 'terminal-line code-block' };
+    }
+
+    return { html: ansiToHtml(line), className: 'terminal-line' };
+}
+
+// Lightweight regex-based syntax highlighter
+// Works on already-HTML-escaped text (from ansiToHtml)
+function highlightSyntax(html, lang) {
+    // Skip if line already has ANSI color spans (let ANSI colors take precedence)
+    if (html.includes('<span style="color:')) return html;
+
+    const l = (lang || '').toLowerCase();
+    const isPy = l === 'python' || l === 'py';
+    const isJS = l === 'javascript' || l === 'js' || l === 'typescript' || l === 'ts' || l === 'jsx' || l === 'tsx';
+    const isRust = l === 'rust' || l === 'rs';
+    const isGo = l === 'go' || l === 'golang';
+    const isHTML = l === 'html' || l === 'xml' || l === 'jsx' || l === 'tsx' || l === 'svg';
+    const isCSS = l === 'css' || l === 'scss' || l === 'less';
+    const isShell = l === 'bash' || l === 'sh' || l === 'zsh' || l === 'shell';
+    const isSQL = l === 'sql';
+    const isYaml = l === 'yaml' || l === 'yml';
+    const isJSON = l === 'json';
+
+    // Comments (must run first to avoid highlighting inside comments)
+    // Single-line comments
+    html = html.replace(/(^|\s)(\/\/[^\n]*)$/gm, '$1<span class="sh-cmt">$2</span>');
+    html = html.replace(/(^|\s)(#[^\n]*)$/gm, (m, pre, comment) => {
+        // Don't highlight # inside strings or if it's a hex color
+        if (pre.includes('"') || pre.includes("'") || /^#[0-9a-fA-F]{3,8}$/.test(comment)) return m;
+        return `${pre}<span class="sh-cmt">${comment}</span>`;
+    });
+
+    // Strings (double-quoted, single-quoted, backtick)
+    html = html.replace(/(&quot;|&apos;|`)((?:(?!\1).)*?)\1/g, '<span class="sh-str">$1$2$1</span>');
+    html = html.replace(/(["'])((?:(?!\1).)*?)\1/g, '<span class="sh-str">$1$2$1</span>');
+
+    // Numbers
+    html = html.replace(/\b(\d+\.?\d*(?:e[+-]?\d+)?)\b/g, '<span class="sh-num">$1</span>');
+
+    // Decorators (Python)
+    if (isPy) {
+        html = html.replace(/(@\w+)/g, '<span class="sh-dec">$1</span>');
+    }
+
+    // Keywords by language
+    let kwPattern;
+    if (isPy) {
+        kwPattern = /\b(def|class|return|if|elif|else|for|while|import|from|as|with|try|except|finally|raise|yield|async|await|pass|break|continue|in|not|and|or|is|None|True|False|self|lambda|global|nonlocal)\b/g;
+    } else if (isJS) {
+        kwPattern = /\b(function|const|let|var|return|if|else|for|while|do|switch|case|break|continue|class|extends|import|export|from|default|new|this|super|typeof|instanceof|async|await|yield|throw|try|catch|finally|true|false|null|undefined|void|of|in)\b/g;
+    } else if (isRust) {
+        kwPattern = /\b(fn|let|mut|const|struct|enum|impl|trait|pub|use|mod|self|super|crate|match|if|else|for|while|loop|break|continue|return|async|await|move|ref|where|type|true|false|Some|None|Ok|Err|unsafe|dyn|static|extern)\b/g;
+    } else if (isGo) {
+        kwPattern = /\b(func|var|const|type|struct|interface|map|chan|go|select|case|default|if|else|for|range|switch|return|break|continue|defer|package|import|true|false|nil|make|len|append|error)\b/g;
+    } else if (isSQL) {
+        kwPattern = /\b(SELECT|FROM|WHERE|INSERT|INTO|UPDATE|SET|DELETE|CREATE|TABLE|ALTER|DROP|INDEX|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AND|OR|NOT|NULL|PRIMARY|KEY|FOREIGN|REFERENCES|ORDER|BY|GROUP|HAVING|LIMIT|OFFSET|AS|DISTINCT|UNION|EXISTS|IN|BETWEEN|LIKE|IS|COUNT|SUM|AVG|MAX|MIN|IF|THEN|ELSE|END|CASE|WHEN|INTEGER|TEXT|REAL|BLOB|DEFAULT|AUTOINCREMENT|UNIQUE|VALUES)\b/gi;
+    } else if (isShell) {
+        kwPattern = /\b(if|then|else|elif|fi|for|while|do|done|case|esac|in|function|return|exit|echo|export|source|local|readonly|set|unset|shift|cd|pwd|ls|grep|sed|awk|find|cat|mkdir|rm|cp|mv|chmod|chown|sudo|apt|brew|pip|npm|git|curl|wget|tar|kill|ps|true|false)\b/g;
+    } else if (isYaml) {
+        kwPattern = /\b(true|false|null|yes|no|on|off)\b/gi;
+    } else if (isJSON) {
+        kwPattern = /\b(true|false|null)\b/g;
+    } else {
+        // Generic: catch common keywords across languages
+        kwPattern = /\b(function|class|return|if|else|for|while|import|from|export|const|let|var|def|self|true|false|null|None|try|catch|except|finally|async|await|new|this|throw|yield)\b/g;
+    }
+
+    if (kwPattern) {
+        html = html.replace(kwPattern, '<span class="sh-kw">$1</span>');
+    }
+
+    // Type names (capitalized identifiers not at start of sentence for PascalCase types)
+    html = html.replace(/\b([A-Z][a-zA-Z0-9_]*)\b/g, (m, name) => {
+        // Skip if already inside a span
+        if (['None', 'True', 'False', 'Some', 'Ok', 'Err', 'SELECT', 'FROM', 'WHERE'].includes(name)) return m;
+        return `<span class="sh-type">${name}</span>`;
+    });
+
+    // Function calls: word followed by (
+    html = html.replace(/\b([a-z_]\w*)\s*\(/g, '<span class="sh-fn">$1</span>(');
+
+    // HTML/JSX tags
+    if (isHTML) {
+        html = html.replace(/&lt;(\/?)([\w-]+)/g, '&lt;$1<span class="sh-tag">$2</span>');
+        html = html.replace(/\s([\w-]+)=/g, ' <span class="sh-attr">$1</span>=');
+    }
+
+    // CSS property names
+    if (isCSS) {
+        html = html.replace(/^\s*([\w-]+)\s*:/gm, '  <span class="sh-attr">$1</span>:');
+    }
+
+    return html;
+}
+
+// ── Output Fold/Collapse ──
+
+const FOLD_MIN_LINES = 8;  // Minimum lines in a block to offer folding
+const FOLD_SHOW_LINES = 3;  // Lines to show when collapsed
+
+// Patterns that start a foldable block (tool results, file contents, long output)
+const FOLD_START_PATTERNS = [
+    /^\s*⎿\s/,                              // Claude Code tool result start
+    /^\s*│\s/,                               // Claude Code tool result continuation
+    /^\s*\d+\s*│/,                           // Line-numbered content (file read)
+    /^\s*\+{3}\s/,                           // Diff header
+    /^\s*-{3}\s/,                            // Diff header
+    /^@@\s/,                                 // Diff hunk header
+];
+
+const FOLD_CONT_PATTERNS = [
+    /^\s*│\s/,                               // Tool result lines
+    /^\s*⎿\s/,                               // Tool result end
+    /^\s*\d+\s*│/,                           // Line-numbered content
+    /^[+-]\s/,                               // Diff lines
+    /^\s{4,}/,                               // Indented block (4+ spaces)
+];
+
+function applyOutputFolding(container) {
+    const lines = container.querySelectorAll('.terminal-line');
+    if (lines.length < FOLD_MIN_LINES) return;
+
+    let blockStart = -1;
+    let blockLines = [];
+    let foldId = 0;
+
+    function closeBlock() {
+        if (blockLines.length < FOLD_MIN_LINES) {
+            blockStart = -1;
+            blockLines = [];
+            return;
+        }
+
+        const id = `fold-${Date.now()}-${foldId++}`;
+        const hiddenCount = blockLines.length - FOLD_SHOW_LINES;
+
+        // Show first FOLD_SHOW_LINES, collapse the rest
+        const toggleDiv = document.createElement('div');
+        toggleDiv.className = 'output-fold-toggle';
+        toggleDiv.textContent = `▶ Show ${hiddenCount} more lines`;
+        toggleDiv.dataset.foldId = id;
+        toggleDiv.onclick = function() {
+            const hidden = container.querySelector(`[data-fold-target="${id}"]`);
+            if (!hidden) return;
+            const expanded = hidden.classList.toggle('expanded');
+            this.textContent = expanded ? `▼ Hide ${hiddenCount} lines` : `▶ Show ${hiddenCount} more lines`;
+        };
+
+        // Wrap hidden lines
+        const hiddenWrapper = document.createElement('div');
+        hiddenWrapper.className = 'output-fold-hidden';
+        hiddenWrapper.dataset.foldTarget = id;
+
+        // Insert toggle after the visible lines
+        const insertAfter = blockLines[FOLD_SHOW_LINES - 1];
+        insertAfter.after(toggleDiv);
+        toggleDiv.after(hiddenWrapper);
+
+        // Move hidden lines into wrapper
+        for (let i = FOLD_SHOW_LINES; i < blockLines.length; i++) {
+            hiddenWrapper.appendChild(blockLines[i]);
+        }
+
+        blockStart = -1;
+        blockLines = [];
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const text = line.textContent || '';
+        const stripped = text.replace(/\x1b\[[0-9;]*m/g, '');
+
+        const isStart = FOLD_START_PATTERNS.some(p => p.test(stripped));
+        const isCont = FOLD_CONT_PATTERNS.some(p => p.test(stripped));
+
+        if (blockStart >= 0) {
+            if (isCont || isStart) {
+                blockLines.push(line);
+            } else {
+                closeBlock();
+            }
+        } else if (isStart) {
+            blockStart = i;
+            blockLines = [line];
+        }
+    }
+    // Close any remaining block
+    if (blockStart >= 0) closeBlock();
+}
+
 // ── WebSocket ──
 
 class AshlarSocket {
@@ -5702,8 +6018,16 @@ function handleAgentUpdate(agent) {
     const prev = state.agents.get(agent.id);
     state.agents.set(agent.id, agent);
 
-    // Preserve output buffer from previous state
+    // Preserve output buffer and histories from previous state
     if (prev?._outputBuffer) agent._outputBuffer = prev._outputBuffer;
+    if (prev?._outputHistory) agent._outputHistory = prev._outputHistory;
+    if (prev?._healthHistory) agent._healthHistory = prev._healthHistory;
+    // Track health score history (max 30 data points)
+    if (agent.health_score != null) {
+        if (!agent._healthHistory) agent._healthHistory = [];
+        agent._healthHistory.push(agent.health_score);
+        if (agent._healthHistory.length > 30) agent._healthHistory.shift();
+    }
 
     // Announce critical status changes to screen readers (throttle: max 1 per 3s)
     if (prev && prev.status !== agent.status && (agent.status === 'waiting' || agent.status === 'error')) {
@@ -6143,6 +6467,7 @@ function createAgentCard(agent) {
         </div>
         <div class="progress-bar" role="progressbar" aria-label="Task progress"><div class="progress-bar-fill"></div></div>
         <canvas class="card-sparkline" width="160" height="20"></canvas>
+        <canvas class="card-health-sparkline" width="80" height="14"></canvas>
         <div class="context-bar-row"><div class="context-bar" role="progressbar" aria-label="Context window usage"><div class="context-bar-fill"></div></div><span class="context-pct-label low">0%</span><span class="context-warn-icon" title="High context usage">&#9888;</span><span class="context-text"></span></div>
         <span class="card-pin-indicator">${icon('pin', 12)}</span>
         <div class="card-tags-row" style="display:none"></div>
@@ -6383,6 +6708,35 @@ function updateAgentCard(card, agent) {
         ctx.closePath();
         ctx.fillStyle = roleColor + '33';
         ctx.fill();
+    }
+
+    // Health trend sparkline
+    const healthSparkCanvas = card.querySelector('.card-health-sparkline');
+    if (healthSparkCanvas && agent._healthHistory?.length > 2) {
+        const ctx2 = healthSparkCanvas.getContext('2d');
+        const w2 = healthSparkCanvas.width, h2 = healthSparkCanvas.height;
+        ctx2.clearRect(0, 0, w2, h2);
+        const hData = agent._healthHistory;
+        const step2 = w2 / Math.max(1, hData.length - 1);
+        // Draw threshold line at 0.6
+        ctx2.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx2.lineWidth = 0.5;
+        ctx2.beginPath();
+        ctx2.moveTo(0, h2 * 0.4);
+        ctx2.lineTo(w2, h2 * 0.4);
+        ctx2.stroke();
+        // Draw health line with gradient
+        ctx2.beginPath();
+        ctx2.moveTo(0, h2 - hData[0] * h2);
+        for (let i = 1; i < hData.length; i++) {
+            ctx2.lineTo(i * step2, h2 - hData[i] * h2);
+        }
+        const lastVal = hData[hData.length - 1];
+        ctx2.strokeStyle = lastVal >= 0.7 ? '#22C55E' : lastVal >= 0.4 ? '#EAB308' : '#EF4444';
+        ctx2.lineWidth = 1.5;
+        ctx2.stroke();
+    } else if (healthSparkCanvas) {
+        healthSparkCanvas.getContext('2d').clearRect(0, 0, healthSparkCanvas.width, healthSparkCanvas.height);
     }
 
     // Pin indicator (E4)
@@ -6984,11 +7338,13 @@ function openDeepView(agentId) {
     const lines = agent._outputBuffer || [];
     if (lines.length) {
         _addLoadMoreIndicator(terminal);
+        resetCodeBlockState(agentId);
         const frag = document.createDocumentFragment();
         for (const line of lines) {
+            const cl = classifyTerminalLine(line, agentId);
             const div = document.createElement('div');
-            div.className = 'terminal-line';
-            div.innerHTML = ansiToHtml(line);
+            div.className = cl.className;
+            div.innerHTML = cl.html;
             frag.appendChild(div);
         }
         terminal.appendChild(frag);
@@ -7008,6 +7364,7 @@ function openDeepView(agentId) {
             }
         }
         _updateLoadMoreIndicator(agentId);
+        applyOutputFolding(terminal);
     } else {
         terminal.innerHTML = '<span style="color:var(--text-tertiary)">Loading output...</span>';
         // Progressive load from full-output API (includes archive)
@@ -7017,15 +7374,18 @@ function openDeepView(agentId) {
             if (!buf.length) return;
             terminal.innerHTML = '';
             _addLoadMoreIndicator(terminal);
+            resetCodeBlockState(agentId);
             const frag = document.createDocumentFragment();
             for (const line of buf) {
+                const cl = classifyTerminalLine(line, agentId);
                 const div = document.createElement('div');
-                div.className = 'terminal-line';
-                div.innerHTML = ansiToHtml(line);
+                div.className = cl.className;
+                div.innerHTML = cl.html;
                 frag.appendChild(div);
             }
             terminal.appendChild(frag);
             _updateLoadMoreIndicator(agentId);
+            applyOutputFolding(terminal);
             scrollDeepToBottom();
         }).catch(e => console.warn('Deep view progressive load failed:', e.message));
     }
@@ -7347,6 +7707,12 @@ function updateDeepViewHeader(agent) {
         }
     }
 
+    // Quick commands — highlight when agent waiting
+    const qcEl = document.getElementById('quickCommands');
+    if (qcEl) {
+        qcEl.classList.toggle('waiting', !!agent.needs_input);
+    }
+
     // Activity heatmap
     updateActivityHeatmap(agent);
 
@@ -7402,10 +7768,12 @@ function appendDeepOutput(lines) {
     // Clear placeholder if present
     if (terminal.querySelector('span[style*="text-dimmed"]') && terminal.children.length <= 1) terminal.innerHTML = '';
     const frag = document.createDocumentFragment();
+    const aid = state.focusedAgentId || '';
     for (const line of lines) {
+        const cl = classifyTerminalLine(line, aid);
         const div = document.createElement('div');
-        div.className = 'terminal-line' + (deepAutoScroll ? '' : ' new-highlight');
-        div.innerHTML = ansiToHtml(line);
+        div.className = cl.className + (deepAutoScroll ? '' : ' new-highlight');
+        div.innerHTML = cl.html;
         frag.appendChild(div);
     }
     terminal.appendChild(frag);
@@ -7600,6 +7968,13 @@ function sendDeepMessage() {
     div.innerHTML = `<span style="color:var(--accent);font-weight:bold">▶ ${ansiToHtml(msg)}</span>`;
     terminal.appendChild(div);
     scrollDeepToBottom();
+}
+
+function quickSend(msg) {
+    if (!msg || !state.focusedAgentId) return;
+    const input = document.getElementById('deepInput');
+    input.value = msg;
+    sendDeepMessage();
 }
 
 function deepPauseResume() {
@@ -8057,10 +8432,13 @@ function renderFilteredVirtual() {
     document.getElementById('vtSpacerBottom').style.height = ((data.length - 1 - lastVisible) * lineH) + 'px';
     const content = document.getElementById('vtContent');
     const frag = document.createDocumentFragment();
+    const fAid = state.focusedAgentId || '';
+    resetCodeBlockState(fAid);
     for (let i = firstVisible; i <= lastVisible; i++) {
+        const cl = classifyTerminalLine(data[i], fAid);
         const div = document.createElement('div');
-        div.className = 'terminal-line';
-        div.innerHTML = ansiToHtml(data[i]);
+        div.className = cl.className;
+        div.innerHTML = cl.html;
         frag.appendChild(div);
     }
     content.innerHTML = '';
@@ -8528,6 +8906,7 @@ const PALETTE_ACTIONS = [
     { icon: 'shield', label: 'Spawn Review Team', shortcut: '', action: () => { closePalette(); spawnFleet('review-team'); } },
     { icon: 'layers', label: 'Spawn Build & Test', shortcut: '', action: () => { closePalette(); spawnFleet('build-and-test'); } },
     { icon: 'columns', label: 'Compare two agents', shortcut: '', action: () => { closePalette(); openCompare(); } },
+    { icon: 'share-2', label: 'Collaboration graph', shortcut: '', action: () => { closePalette(); openCollabGraph(); } },
 ];
 
 function openPalette() {
@@ -11409,6 +11788,8 @@ async function refreshTimeline() {
 // ── Compare View ──
 
 let compareRefreshTimer = null;
+let _compareSyncScroll = true;
+let _compareSyncing = false;
 
 function openCompare(leftId, rightId) {
     const agents = [...state.agents.entries()];
@@ -11424,6 +11805,27 @@ function openCompare(leftId, rightId) {
     leftSel.value = leftId || agents[0][0];
     rightSel.value = rightId || (agents.length > 1 ? agents[1][0] : agents[0][0]);
     document.getElementById('compareOverlay').classList.add('active');
+
+    // Wire synchronized scrolling
+    const leftTerm = document.getElementById('compareLeftTerminal');
+    const rightTerm = document.getElementById('compareRightTerminal');
+    leftTerm._compareSyncHandler = () => {
+        if (_compareSyncing || !_compareSyncScroll) return;
+        _compareSyncing = true;
+        const pct = leftTerm.scrollTop / Math.max(1, leftTerm.scrollHeight - leftTerm.clientHeight);
+        rightTerm.scrollTop = pct * (rightTerm.scrollHeight - rightTerm.clientHeight);
+        _compareSyncing = false;
+    };
+    rightTerm._compareSyncHandler = () => {
+        if (_compareSyncing || !_compareSyncScroll) return;
+        _compareSyncing = true;
+        const pct = rightTerm.scrollTop / Math.max(1, rightTerm.scrollHeight - rightTerm.clientHeight);
+        leftTerm.scrollTop = pct * (leftTerm.scrollHeight - leftTerm.clientHeight);
+        _compareSyncing = false;
+    };
+    leftTerm.addEventListener('scroll', leftTerm._compareSyncHandler);
+    rightTerm.addEventListener('scroll', rightTerm._compareSyncHandler);
+
     refreshCompare();
     compareRefreshTimer = setInterval(refreshCompare, 2000);
 }
@@ -11431,6 +11833,15 @@ function openCompare(leftId, rightId) {
 function closeCompare() {
     document.getElementById('compareOverlay').classList.remove('active');
     if (compareRefreshTimer) { clearInterval(compareRefreshTimer); compareRefreshTimer = null; }
+    // Clean up scroll handlers
+    const leftTerm = document.getElementById('compareLeftTerminal');
+    const rightTerm = document.getElementById('compareRightTerminal');
+    if (leftTerm?._compareSyncHandler) { leftTerm.removeEventListener('scroll', leftTerm._compareSyncHandler); leftTerm._compareSyncHandler = null; }
+    if (rightTerm?._compareSyncHandler) { rightTerm.removeEventListener('scroll', rightTerm._compareSyncHandler); rightTerm._compareSyncHandler = null; }
+}
+
+function toggleCompareSync() {
+    _compareSyncScroll = document.getElementById('compareSyncScroll').checked;
 }
 
 function refreshCompare() {
@@ -11438,6 +11849,7 @@ function refreshCompare() {
     const rightId = document.getElementById('compareRightSelect').value;
     renderComparePane(leftId, 'compareLeftHeader', 'compareLeftTerminal');
     renderComparePane(rightId, 'compareRightHeader', 'compareRightTerminal');
+    renderCompareStats(leftId, rightId);
 }
 
 function renderComparePane(agentId, headerElId, termElId) {
@@ -11450,12 +11862,40 @@ function renderComparePane(agentId, headerElId, termElId) {
         return;
     }
     const info = ROLE_INFO[agent.role] || ROLE_INFO.general;
-    header.innerHTML = `${roleIcon(agent.role, 16)}<span style="font-weight:600">${escapeHtml(agent.name)}</span><span class="status-badge" style="font-size:9px">${agent.status}</span><span style="color:var(--text-tertiary);font-size:11px;margin-left:auto">${info.name}</span>`;
+    const ctxPct = Math.round((agent.context_pct || 0) * 100);
+    const healthPct = Math.round((agent.health_score ?? 1) * 100);
+    header.innerHTML = `${roleIcon(agent.role, 16)}<span style="font-weight:600">${escapeHtml(agent.name)}</span><span class="status-badge" style="font-size:9px">${agent.status}</span><span style="color:var(--text-tertiary);font-size:11px;margin-left:auto">ctx ${ctxPct}% · health ${healthPct}%</span>`;
     const lines = agent.output_lines || [];
-    const tail = lines.slice(-80);
+    const tail = lines.slice(-100);
     const shouldScroll = term.scrollTop + term.clientHeight >= term.scrollHeight - 50;
-    term.innerHTML = tail.map(l => ansiToHtml(escapeHtml(l))).join('\n');
+    term.innerHTML = tail.map(l => `<div class="terminal-line">${ansiToHtml(l)}</div>`).join('');
     if (shouldScroll) term.scrollTop = term.scrollHeight;
+}
+
+function renderCompareStats(leftId, rightId) {
+    const left = state.agents.get(leftId);
+    const right = state.agents.get(rightId);
+    const statsEl = document.getElementById('compareStats');
+    if (!left || !right || !statsEl) return;
+
+    const metrics = [
+        { label: 'Output Lines', l: left.total_output_lines || (left.output_lines || []).length, r: right.total_output_lines || (right.output_lines || []).length, higherBetter: true },
+        { label: 'Context Used', l: Math.round((left.context_pct || 0) * 100), r: Math.round((right.context_pct || 0) * 100), unit: '%', higherBetter: false },
+        { label: 'Health', l: Math.round((left.health_score ?? 1) * 100), r: Math.round((right.health_score ?? 1) * 100), unit: '%', higherBetter: true },
+        { label: 'Memory', l: Math.round(left.memory_mb || 0), r: Math.round(right.memory_mb || 0), unit: 'MB', higherBetter: false },
+        { label: 'Cost', l: (left.estimated_cost_usd || 0).toFixed(4), r: (right.estimated_cost_usd || 0).toFixed(4), unit: '$', higherBetter: false, isFloat: true },
+        { label: 'Tools', l: left.tool_invocations_count || 0, r: right.tool_invocations_count || 0, higherBetter: true },
+        { label: 'Files', l: left.file_operations_count || 0, r: right.file_operations_count || 0, higherBetter: true },
+    ];
+
+    statsEl.innerHTML = metrics.map(m => {
+        const lv = m.isFloat ? parseFloat(m.l) : m.l;
+        const rv = m.isFloat ? parseFloat(m.r) : m.r;
+        const lBetter = m.higherBetter ? lv > rv : lv < rv;
+        const rBetter = m.higherBetter ? rv > lv : rv < lv;
+        const u = m.unit || '';
+        return `<div class="compare-stat"><span class="compare-stat-label">${m.label}</span><span class="compare-stat-val left${lBetter ? ' better' : rBetter ? ' worse' : ''}">${u === '$' ? '$' : ''}${m.l}${u !== '$' ? u : ''}</span><span style="font-size:9px;color:var(--text-tertiary)">vs</span><span class="compare-stat-val right${rBetter ? ' better' : lBetter ? ' worse' : ''}">${u === '$' ? '$' : ''}${m.r}${u !== '$' ? u : ''}</span></div>`;
+    }).join('');
 }
 
 function switchTimelineTab(tab) {
@@ -11466,6 +11906,198 @@ function switchTimelineTab(tab) {
     document.getElementById('timelineAgentFilter').style.display = tab === 'events' ? '' : 'none';
     document.getElementById('timelineTypeFilter').style.display = tab === 'events' ? '' : 'none';
     if (tab === 'history') loadSessionHistory();
+}
+
+// ── Collaboration Graph ──
+
+let _collabData = null;
+let _collabAnim = null;
+
+function openCollabGraph() {
+    document.getElementById('collabOverlay').classList.add('active');
+    loadCollabGraph();
+}
+
+function closeCollabGraph() {
+    document.getElementById('collabOverlay').classList.remove('active');
+    if (_collabAnim) { cancelAnimationFrame(_collabAnim); _collabAnim = null; }
+}
+
+async function loadCollabGraph() {
+    try {
+        const resp = await apiFetch('/api/collaboration');
+        if (!resp.ok) throw new Error('Failed');
+        _collabData = await resp.json();
+        renderCollabGraph();
+    } catch (e) {
+        showToast('Failed to load collaboration data', 'error');
+    }
+}
+
+function renderCollabGraph() {
+    const canvas = document.getElementById('collabCanvas');
+    if (!canvas || !_collabData) return;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * (window.devicePixelRatio || 1);
+    canvas.height = rect.height * (window.devicePixelRatio || 1);
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = rect.height + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+    const W = rect.width, H = rect.height;
+    const nodes = _collabData.nodes;
+    const edges = _collabData.edges;
+
+    if (!nodes.length) {
+        ctx.fillStyle = '#5C6370';
+        ctx.font = '14px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('No agents to visualize', W / 2, H / 2);
+        return;
+    }
+
+    // Force-directed layout: position nodes in a circle initially
+    const cx = W / 2, cy = H / 2;
+    const radius = Math.min(W, H) * 0.32;
+    const positions = nodes.map((n, i) => {
+        const angle = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
+        return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius, vx: 0, vy: 0 };
+    });
+
+    // Simple force simulation (10 iterations)
+    const nodeMap = new Map(nodes.map((n, i) => [n.id, i]));
+    for (let iter = 0; iter < 30; iter++) {
+        // Repulsion between all nodes
+        for (let i = 0; i < positions.length; i++) {
+            for (let j = i + 1; j < positions.length; j++) {
+                let dx = positions[j].x - positions[i].x;
+                let dy = positions[j].y - positions[i].y;
+                let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                let force = 3000 / (dist * dist);
+                let fx = (dx / dist) * force;
+                let fy = (dy / dist) * force;
+                positions[i].vx -= fx;
+                positions[i].vy -= fy;
+                positions[j].vx += fx;
+                positions[j].vy += fy;
+            }
+        }
+        // Attraction along edges
+        for (const edge of edges) {
+            const fi = nodeMap.get(edge.from);
+            const ti = nodeMap.get(edge.to);
+            if (fi == null || ti == null) continue;
+            let dx = positions[ti].x - positions[fi].x;
+            let dy = positions[ti].y - positions[fi].y;
+            let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            let force = (dist - 120) * 0.01 * (edge.weight || 1);
+            let fx = (dx / dist) * force;
+            let fy = (dy / dist) * force;
+            positions[fi].vx += fx;
+            positions[fi].vy += fy;
+            positions[ti].vx -= fx;
+            positions[ti].vy -= fy;
+        }
+        // Center gravity
+        for (let i = 0; i < positions.length; i++) {
+            positions[i].vx += (cx - positions[i].x) * 0.005;
+            positions[i].vy += (cy - positions[i].y) * 0.005;
+            positions[i].x += positions[i].vx * 0.3;
+            positions[i].y += positions[i].vy * 0.3;
+            positions[i].vx *= 0.6;
+            positions[i].vy *= 0.6;
+            // Keep within bounds
+            positions[i].x = Math.max(50, Math.min(W - 50, positions[i].x));
+            positions[i].y = Math.max(50, Math.min(H - 50, positions[i].y));
+        }
+    }
+
+    // Draw
+    ctx.clearRect(0, 0, W, H);
+
+    // Edges
+    const edgeColors = { message: '#60A5FA', shared_file: '#4ADE80', project: '#F59E0B', conflict: '#EF4444' };
+    for (const edge of edges) {
+        const fi = nodeMap.get(edge.from);
+        const ti = nodeMap.get(edge.to);
+        if (fi == null || ti == null) continue;
+        const p1 = positions[fi], p2 = positions[ti];
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = edgeColors[edge.type] || '#5C6370';
+        ctx.lineWidth = Math.min(4, 0.5 + (edge.weight || 1) * 0.5);
+        ctx.globalAlpha = 0.5;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // Edge label for conflicts/shared files
+        if (edge.file && (edge.type === 'conflict' || edge.type === 'shared_file')) {
+            const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+            ctx.font = '9px system-ui';
+            ctx.fillStyle = edgeColors[edge.type];
+            ctx.globalAlpha = 0.7;
+            ctx.textAlign = 'center';
+            ctx.fillText(edge.file, mx, my - 4);
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    // Nodes
+    const statusColors = { working: '#6366F1', planning: '#EAB308', waiting: '#F97316', error: '#EF4444', idle: '#64748B', paused: '#5C6370' };
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        const pos = positions[i];
+        const info = ROLE_INFO[node.role] || ROLE_INFO.general;
+        const nodeRadius = 18 + Math.min(10, (node.tool_count || 0) / 10);
+
+        // Glow for active nodes
+        if (node.status === 'working' || node.status === 'planning') {
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, nodeRadius + 6, 0, Math.PI * 2);
+            ctx.fillStyle = (statusColors[node.status] || info.color) + '22';
+            ctx.fill();
+        }
+
+        // Node circle
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, nodeRadius, 0, Math.PI * 2);
+        ctx.fillStyle = '#131B2E';
+        ctx.fill();
+        ctx.strokeStyle = info.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Status dot
+        ctx.beginPath();
+        ctx.arc(pos.x + nodeRadius * 0.6, pos.y - nodeRadius * 0.6, 5, 0, Math.PI * 2);
+        ctx.fillStyle = statusColors[node.status] || '#64748B';
+        ctx.fill();
+
+        // Health ring (partial arc)
+        const healthPct = node.health_score ?? 1;
+        if (healthPct < 1) {
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, nodeRadius + 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * healthPct);
+            ctx.strokeStyle = healthPct >= 0.6 ? '#4ADE80' : '#EF4444';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Icon (use first letter as fallback)
+        ctx.font = 'bold 14px system-ui';
+        ctx.fillStyle = info.color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(node.name.charAt(0).toUpperCase(), pos.x, pos.y);
+
+        // Name label below
+        ctx.font = '11px system-ui';
+        ctx.fillStyle = '#EDEEF0';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(node.name, pos.x, pos.y + nodeRadius + 4);
+    }
 }
 
 // ── Fleet Analytics ──
@@ -12253,12 +12885,26 @@ function renderVirtualRange(terminal) {
     document.getElementById('vtSpacerBottom').style.height = ((virtualTermData.length - 1 - lastVisible) * virtualTermLineH) + 'px';
     const content = document.getElementById('vtContent');
     const markLine = state.focusedAgentId ? getOutputMarkLine(state.focusedAgentId) : -1;
+    // Reset code block state and pre-scan from start to firstVisible for correct state
+    const aid = state.focusedAgentId || '';
+    resetCodeBlockState(aid);
+    for (let i = 0; i < firstVisible; i++) {
+        const stripped = virtualTermData[i].replace(/\x1b\[[0-9;]*m/g, '').replace(/\x1b\[[^m]*[a-zA-Z]/g, '');
+        const fm = stripped.match(CODE_FENCE_RE);
+        if (fm) {
+            const st = getCodeBlockState(aid);
+            st.inBlock = !st.inBlock;
+            if (st.inBlock) st.language = fm[3] || '';
+            else st.language = '';
+        }
+    }
     const frag = document.createDocumentFragment();
     for (let i = firstVisible; i <= lastVisible; i++) {
+        const cl = classifyTerminalLine(virtualTermData[i], aid);
         const div = document.createElement('div');
-        div.className = 'terminal-line' + (markLine >= 0 && i >= markLine ? ' marked-new' : '');
+        div.className = cl.className + (markLine >= 0 && i >= markLine ? ' marked-new' : '');
         if (markLine >= 0 && i === markLine) div.className += ' mark-boundary';
-        div.innerHTML = ansiToHtml(virtualTermData[i]);
+        div.innerHTML = cl.html;
         frag.appendChild(div);
     }
     content.innerHTML = '';
@@ -12423,6 +13069,9 @@ function _prependOutputLines(lines) {
     const prevScrollT = terminal.scrollTop;
     const frag = document.createDocumentFragment();
     const loadIndicator = document.getElementById('loadMoreIndicator');
+    const pAid = state.focusedAgentId || '';
+    // Note: prepended lines won't have perfect code block state tracking
+    // because we're inserting before the main content. Use simple ansiToHtml.
     for (const line of lines) {
         const div = document.createElement('div');
         div.className = 'terminal-line';
