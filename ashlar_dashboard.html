@@ -2418,6 +2418,17 @@ body {
 .agent-tag-chip .tag-remove:hover { opacity: 1; color: var(--danger); }
 .card-tags-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-bottom: 4px; }
 
+/* ── Bookmarks Panel ── */
+.bookmarks-panel { position: absolute; right: 0; top: 0; bottom: 0; width: 280px; background: var(--bg-surface); border-left: 1px solid var(--border-subtle); display: flex; flex-direction: column; z-index: 5; animation: slideInRight 0.2s ease; }
+@keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.bookmark-item { padding: 8px 10px; border-bottom: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.15s; }
+.bookmark-item:hover { background: var(--bg-elevated); }
+.bookmark-label { font-size: 11px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+.bookmark-text { font-size: 10px; color: var(--text-tertiary); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bookmark-meta { font-size: 9px; color: var(--text-tertiary); margin-top: 2px; display: flex; justify-content: space-between; }
+.bookmark-delete { cursor: pointer; color: var(--text-tertiary); font-size: 12px; }
+.bookmark-delete:hover { color: var(--danger); }
+
 .deep-scratchpad-panel {
     flex: 1;
     overflow-y: auto;
@@ -3867,7 +3878,7 @@ body {
         <div class="dialog-actions">
             <button class="btn btn-secondary" onclick="closeSpawnDialog()">Cancel</button>
             <button class="btn btn-secondary" onclick="queueFromSpawnDialog()" title="Queue task for auto-spawn when slots are available">Queue</button>
-            <button class="btn btn-primary" onclick="spawnAgent()">Spawn Agent</button>
+            <button class="btn btn-primary" onclick="spawnAgent()">Spawn Agent <span style="font-size:9px;opacity:0.6;margin-left:4px">⌘↵</span></button>
         </div>
     </div>
 </div>
@@ -3909,6 +3920,7 @@ body {
         <button class="terminal-toolbar-btn" id="toolbarLineWrap" onclick="toggleLineWrap()">⇔ Wrap</button>
         <button class="terminal-toolbar-btn" onclick="exportTerminalTxt()">⬇ Export .txt</button>
         <button class="terminal-toolbar-btn" onclick="clearTerminalDisplay()">⌫ Clear</button>
+        <button class="terminal-toolbar-btn" onclick="toggleBookmarksPanel()" id="toolbarBookmarks">★ Bookmarks</button>
         <div class="toolbar-spacer"></div>
         <div class="follow-indicator" id="followIndicator" style="display:none">FOLLOWING</div>
     </div>
@@ -3920,6 +3932,13 @@ body {
     </div>
     <div class="deep-terminal-wrap">
         <div class="deep-terminal" id="deepTerminal"></div>
+        <div class="bookmarks-panel" id="bookmarksPanel" style="display:none">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border-subtle)">
+                <span style="font-size:12px;font-weight:700;color:var(--text-primary)">Bookmarks</span>
+                <button class="btn btn-secondary btn-sm" onclick="addBookmarkFromSelection()" style="font-size:10px;padding:2px 6px">+ Bookmark</button>
+            </div>
+            <div id="bookmarksList" style="flex:1;overflow-y:auto;padding:8px"></div>
+        </div>
         <div class="deep-activity-panel" id="deepActivityPanel">
             <div class="activity-stats" id="activityStats"></div>
             <div id="activityFeedContent"><div class="activity-empty">No activity detected yet</div></div>
@@ -4260,6 +4279,8 @@ body {
         <div class="cheatsheet-row"><span class="desc">Search in terminal</span><span class="keys"><span class="kbd">⌘F</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Cycle agents</span><span class="keys"><span class="kbd">Tab</span> / <span class="kbd">⇧Tab</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Activity timeline</span><span class="keys"><span class="kbd">⌘T</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Spawn (in dialog)</span><span class="keys"><span class="kbd">⌘↵</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Navigate roles</span><span class="keys"><span class="kbd">←</span><span class="kbd">→</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Settings</span><span class="keys"><span class="kbd">⌘,</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Show this cheatsheet</span><span class="keys"><span class="kbd">?</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Push-to-talk</span><span class="keys">Hold <span class="kbd">Space</span></span></div>
@@ -5901,6 +5922,39 @@ function openSpawnDialog() {
     document.getElementById('spawnTask').placeholder = TASK_PLACEHOLDERS[state.selectedRole] || TASK_PLACEHOLDERS.general;
     setTimeout(() => document.getElementById('spawnTask').focus(), 100);
     trapFocus(document.getElementById('spawnOverlay'));
+
+    // Keyboard navigation for role grid
+    if (!roleGrid._kbSetup) {
+        roleGrid._kbSetup = true;
+        roleGrid.addEventListener('keydown', (e) => {
+            const opts = Array.from(roleGrid.querySelectorAll('.role-option'));
+            const current = opts.findIndex(o => o === document.activeElement);
+            if (current === -1) return;
+            let next = -1;
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                next = (current + 1) % opts.length;
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                next = (current - 1 + opts.length) % opts.length;
+            }
+            if (next !== -1) {
+                e.preventDefault();
+                opts[next].focus();
+                opts[next].click();
+            }
+        });
+    }
+
+    // Cmd+Enter to spawn from anywhere in the form
+    const overlay = document.getElementById('spawnOverlay');
+    if (!overlay._cmdEnter) {
+        overlay._cmdEnter = true;
+        overlay.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                spawnAgent();
+            }
+        });
+    }
 }
 
 function closeSpawnDialog() {
@@ -6468,6 +6522,95 @@ function deepCopyMarkdown() {
     }).catch(() => {
         showToast('Failed to copy', 'error');
     });
+}
+
+// ── Bookmarks ──
+function toggleBookmarksPanel() {
+    const panel = document.getElementById('bookmarksPanel');
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'flex';
+    document.getElementById('toolbarBookmarks').classList.toggle('active', !isOpen);
+    if (!isOpen) renderBookmarksList();
+}
+
+function renderBookmarksList() {
+    const container = document.getElementById('bookmarksList');
+    if (!state.focusedAgentId) { container.innerHTML = ''; return; }
+    const agent = state.agents.get(state.focusedAgentId);
+    if (!agent) { container.innerHTML = ''; return; }
+    const bookmarks = agent.bookmarks || [];
+    if (bookmarks.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);font-size:11px;padding:20px">No bookmarks yet. Select text in the terminal and click "+ Bookmark" to save.</div>';
+        return;
+    }
+    container.innerHTML = bookmarks.map(b => `
+        <div class="bookmark-item" onclick="jumpToBookmarkLine(${b.line})">
+            <div class="bookmark-label">${escapeHtml(b.label || `Line ${b.line}`)}</div>
+            <div class="bookmark-text">${escapeHtml(b.text)}</div>
+            <div class="bookmark-meta">
+                <span>Line ${b.line}</span>
+                <span class="bookmark-delete" onclick="event.stopPropagation();deleteBookmark('${b.id}')" title="Remove">&times;</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function addBookmarkFromSelection() {
+    if (!state.focusedAgentId) return;
+    const terminal = document.getElementById('deepTerminal');
+    const selection = window.getSelection();
+    let selectedText = selection ? selection.toString().trim() : '';
+    if (!selectedText) {
+        // Bookmark the last visible line
+        const agent = state.agents.get(state.focusedAgentId);
+        if (!agent) return;
+        const lines = agent.output_lines || [];
+        selectedText = lines.length > 0 ? lines[lines.length - 1] : '';
+    }
+    const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+    const cleanText = selectedText.replace(ansiRe, '').substring(0, 200);
+    // Estimate line number
+    const agent = state.agents.get(state.focusedAgentId);
+    const lineNum = agent ? (agent.output_lines || []).length : 0;
+    const label = await promptInput('Bookmark Label', 'Optional label for this bookmark', {
+        iconKey: 'bookmark', confirmText: 'Save', defaultValue: ''
+    });
+    if (label === null) return; // cancelled
+    const res = await apiFetch(`/api/agents/${state.focusedAgentId}/bookmarks`, {
+        method: 'POST',
+        body: JSON.stringify({ line: lineNum, text: cleanText, label: label || '' })
+    });
+    if (res && res.bookmark) {
+        const agent = state.agents.get(state.focusedAgentId);
+        if (agent) {
+            if (!agent.bookmarks) agent.bookmarks = [];
+            agent.bookmarks.push(res.bookmark);
+        }
+        renderBookmarksList();
+        showToast('Bookmark added', 'success');
+    }
+}
+
+async function deleteBookmark(bookmarkId) {
+    if (!state.focusedAgentId) return;
+    await apiFetch(`/api/agents/${state.focusedAgentId}/bookmarks/${bookmarkId}`, { method: 'DELETE' });
+    const agent = state.agents.get(state.focusedAgentId);
+    if (agent) {
+        agent.bookmarks = (agent.bookmarks || []).filter(b => b.id !== bookmarkId);
+    }
+    renderBookmarksList();
+    showToast('Bookmark removed', 'info');
+}
+
+function jumpToBookmarkLine(lineNum) {
+    const terminal = document.getElementById('deepTerminal');
+    const lines = terminal.querySelectorAll('.terminal-line, span, div');
+    // Scroll to approximate position based on line number
+    const totalHeight = terminal.scrollHeight;
+    const agent = state.agents.get(state.focusedAgentId);
+    const totalLines = agent ? (agent.output_lines || []).length : 1;
+    const ratio = Math.min(1, lineNum / Math.max(1, totalLines));
+    terminal.scrollTop = ratio * totalHeight;
 }
 
 async function deepKill() {

@@ -931,6 +931,8 @@ class Agent:
     # Notes and tags
     notes: str = ""
     tags: list = field(default_factory=list)
+    # Output bookmarks: list of {"line": int, "text": str, "label": str, "created_at": str}
+    bookmarks: list = field(default_factory=list)
 
     def set_status(self, new_status: str) -> bool:
         """Update status with monotonic timestamp guard. Returns True if updated."""
@@ -990,6 +992,7 @@ class Agent:
             "last_test_result": self._test_results[-1].to_dict() if self._test_results else None,
             "notes": self.notes,
             "tags": list(self.tags),
+            "bookmarks": list(self.bookmarks),
         }
 
     def to_dict_full(self) -> dict:
@@ -4878,6 +4881,60 @@ async def update_agent_tags(request: web.Request) -> web.Response:
     return web.json_response({"status": "updated", "tags": agent.tags})
 
 
+async def add_agent_bookmark(request: web.Request) -> web.Response:
+    """POST /api/agents/{id}/bookmarks — add a bookmark to agent output."""
+    manager: AgentManager = request.app["agent_manager"]
+    agent_id = request.match_info["id"]
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    line_idx = data.get("line", 0)
+    text = data.get("text", "")
+    label = data.get("label", "")
+    if not isinstance(line_idx, int) or not isinstance(text, str):
+        return web.json_response({"error": "Invalid bookmark data"}, status=400)
+    if len(agent.bookmarks) >= 100:
+        return web.json_response({"error": "Maximum 100 bookmarks per agent"}, status=400)
+    bookmark = {
+        "id": uuid.uuid4().hex[:6],
+        "line": line_idx,
+        "text": text[:200],
+        "label": label[:100] if label else "",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    agent.bookmarks.append(bookmark)
+    return web.json_response({"status": "added", "bookmark": bookmark})
+
+
+async def delete_agent_bookmark(request: web.Request) -> web.Response:
+    """DELETE /api/agents/{id}/bookmarks/{bid} — remove a bookmark."""
+    manager: AgentManager = request.app["agent_manager"]
+    agent_id = request.match_info["id"]
+    bookmark_id = request.match_info["bid"]
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+    before = len(agent.bookmarks)
+    agent.bookmarks = [b for b in agent.bookmarks if b.get("id") != bookmark_id]
+    if len(agent.bookmarks) == before:
+        return web.json_response({"error": "Bookmark not found"}, status=404)
+    return web.json_response({"status": "deleted"})
+
+
+async def list_agent_bookmarks(request: web.Request) -> web.Response:
+    """GET /api/agents/{id}/bookmarks — list agent bookmarks."""
+    manager: AgentManager = request.app["agent_manager"]
+    agent_id = request.match_info["id"]
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+    return web.json_response({"bookmarks": agent.bookmarks})
+
+
 async def pause_agent(request: web.Request) -> web.Response:
     manager: AgentManager = request.app["agent_manager"]
     hub: WebSocketHub = request.app["ws_hub"]
@@ -7416,6 +7473,9 @@ def create_app(config: Config) -> web.Application:
     app.router.add_post("/api/agents/{id}/handoff", handoff_agent)
     app.router.add_put("/api/agents/{id}/notes", update_agent_notes)
     app.router.add_put("/api/agents/{id}/tags", update_agent_tags)
+    app.router.add_get("/api/agents/{id}/bookmarks", list_agent_bookmarks)
+    app.router.add_post("/api/agents/{id}/bookmarks", add_agent_bookmark)
+    app.router.add_delete("/api/agents/{id}/bookmarks/{bid}", delete_agent_bookmark)
     app.router.add_get("/api/agents/{id}/activity", get_agent_activity)
     app.router.add_get("/api/agents/{id}/tool-invocations", get_agent_tool_invocations)
     app.router.add_get("/api/agents/{id}/file-operations", get_agent_file_operations)

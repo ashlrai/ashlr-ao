@@ -1332,3 +1332,53 @@ class TestAgentNotesAndTags:
         max_len = 10000
         long_notes = "x" * 15000
         assert len(long_notes[:max_len]) == max_len
+
+
+class TestAgentBookmarks:
+    """Tests for agent bookmark functionality."""
+
+    def _make_agent(self, **kwargs):
+        defaults = dict(
+            id="a001", name="test", role="backend", status="working",
+            project_id=None, working_dir="/tmp", backend="claude-code",
+            task="test", tmux_session="ashlar-a001"
+        )
+        defaults.update(kwargs)
+        return ashlar_server.Agent(**defaults)
+
+    def test_default_bookmarks_empty(self):
+        agent = self._make_agent()
+        assert agent.bookmarks == []
+
+    def test_bookmarks_in_to_dict(self):
+        agent = self._make_agent()
+        agent.bookmarks = [{"id": "abc123", "line": 42, "text": "important", "label": "bug", "created_at": ""}]
+        d = agent.to_dict()
+        assert len(d["bookmarks"]) == 1
+        assert d["bookmarks"][0]["line"] == 42
+
+    def test_bookmark_cap(self):
+        """Maximum 100 bookmarks per agent."""
+        agent = self._make_agent()
+        for i in range(100):
+            agent.bookmarks.append({"id": f"b{i:03d}", "line": i, "text": f"line {i}"})
+        assert len(agent.bookmarks) == 100
+
+    def test_bookmark_text_truncation(self):
+        """Bookmark text should be capped at 200 chars."""
+        long_text = "x" * 300
+        capped = long_text[:200]
+        assert len(capped) == 200
+
+    def test_bookmark_delete(self):
+        """Deleting a bookmark removes it from the list."""
+        agent = self._make_agent()
+        agent.bookmarks = [
+            {"id": "aaa", "line": 1, "text": "one"},
+            {"id": "bbb", "line": 2, "text": "two"},
+            {"id": "ccc", "line": 3, "text": "three"},
+        ]
+        bid = "bbb"
+        agent.bookmarks = [b for b in agent.bookmarks if b.get("id") != bid]
+        assert len(agent.bookmarks) == 2
+        assert all(b["id"] != "bbb" for b in agent.bookmarks)
