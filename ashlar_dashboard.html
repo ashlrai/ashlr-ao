@@ -5515,6 +5515,7 @@ body {
         <div class="deep-search-bar" id="deepSearchBar">
             <button class="deep-search-toggle" id="deepRegexToggle" onclick="toggleDeepRegex()" title="Toggle regex mode">.*</button>
             <button class="deep-search-toggle" id="deepCaseToggle" onclick="toggleDeepCase()" title="Toggle case sensitivity">Aa</button>
+            <button class="deep-search-toggle" id="deepServerSearchToggle" onclick="toggleServerSearch()" title="Search server archive (slower, searches full history)">SRV</button>
             <div class="deep-filter-chips" id="deepFilterChips">
                 <button class="deep-filter-chip active" data-filter="all" onclick="setOutputFilter('all')">All</button>
                 <button class="deep-filter-chip err" data-filter="errors" onclick="setOutputFilter('errors')">Errors</button>
@@ -7158,6 +7159,37 @@ class AshlarSocket {
                         renderInsightsPanel();
                         showToast(data.insight.message, data.insight.severity === 'critical' ? 'error' : data.insight.severity === 'warning' ? 'warning' : 'info');
                     }
+                    break;
+                }
+                case 'pattern_alert': {
+                    const alertAgent = state.agents.get(data.agent_id);
+                    const agentLabel = alertAgent ? alertAgent.name : data.agent_name || data.agent_id;
+                    const isCritical = data.severity === 'critical';
+                    const truncLine = (data.line || '').substring(0, 120);
+                    showToast(
+                        `${isCritical ? 'CRITICAL' : 'Warning'}: ${data.label} on ${agentLabel}` +
+                        (truncLine ? ` — ${truncLine}` : ''),
+                        isCritical ? 'error' : 'warning'
+                    );
+                    if (isCritical) {
+                        playTone([220, 330], 0.2);
+                        sendBrowserNotification(
+                            `Pattern Alert: ${data.label}`,
+                            `Agent ${agentLabel}: ${truncLine}`,
+                            data.agent_id
+                        );
+                    }
+                    // Store in pattern alert history
+                    if (!state.patternAlerts) state.patternAlerts = [];
+                    state.patternAlerts.unshift({
+                        agent_id: data.agent_id,
+                        agent_name: agentLabel,
+                        severity: data.severity,
+                        label: data.label,
+                        line: data.line,
+                        timestamp: data.timestamp || new Date().toISOString(),
+                    });
+                    if (state.patternAlerts.length > 100) state.patternAlerts.pop();
                     break;
                 }
                 case 'queue_update': {
@@ -10492,6 +10524,66 @@ function toggleDeepCase() {
     deepSearch();
 }
 
+let deepServerSearch = false;
+
+function toggleServerSearch() {
+    deepServerSearch = !deepServerSearch;
+    document.getElementById('deepServerSearchToggle').classList.toggle('active', deepServerSearch);
+    const input = document.getElementById('deepSearchInput');
+    input.placeholder = deepServerSearch ? 'Server archive search...' : 'Search...';
+    deepSearch();
+}
+
+async function serverArchiveSearch(query) {
+    if (!state.focusedAgentId || !query) return;
+    const countEl = document.getElementById('deepSearchCount');
+    countEl.textContent = 'Searching...';
+    countEl.style.color = 'var(--text-tertiary)';
+    try {
+        const params = new URLSearchParams({
+            q: query,
+            regex: deepRegexMode ? 'true' : 'false',
+            context: '2',
+            limit: '200',
+        });
+        const res = await fetch(`/api/agents/${state.focusedAgentId}/output/search?${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const terminal = document.getElementById('deepTerminal');
+        if (data.matches && data.matches.length > 0) {
+            // Render server results as highlighted output in a results overlay
+            let html = `<div class="server-search-results" style="padding:8px;font-family:var(--font-mono);font-size:12px">`;
+            html += `<div style="color:var(--text-secondary);margin-bottom:8px;font-size:11px">${data.total_matches} matches in ${data.total_lines} lines (server archive)</div>`;
+            data.matches.forEach((m, i) => {
+                html += `<div style="margin-bottom:12px;border-left:2px solid var(--accent);padding-left:8px">`;
+                html += `<div style="color:var(--text-tertiary);font-size:10px;margin-bottom:2px">Line ${m.line_index}</div>`;
+                if (m.context) {
+                    m.context.forEach(cl => {
+                        const isMatch = cl === m.line;
+                        html += `<div style="color:${isMatch ? 'var(--text-primary)' : 'var(--text-tertiary)'};${isMatch ? 'background:rgba(99,102,241,0.15);padding:1px 4px;border-radius:2px' : ''}">${escapeHtml(cl)}</div>`;
+                    });
+                } else {
+                    html += `<div style="color:var(--text-primary);background:rgba(99,102,241,0.15);padding:1px 4px;border-radius:2px">${escapeHtml(m.line)}</div>`;
+                }
+                html += `</div>`;
+            });
+            html += `</div>`;
+            // Store original content and show results
+            if (!terminal._origContent) terminal._origContent = terminal.innerHTML;
+            terminal.innerHTML = html;
+            countEl.textContent = `${data.total_matches} server matches`;
+            countEl.style.color = '';
+        } else {
+            countEl.textContent = 'No server matches';
+            countEl.style.color = 'var(--danger)';
+        }
+    } catch (e) {
+        countEl.textContent = 'Search failed';
+        countEl.style.color = 'var(--danger)';
+        console.error('Server search error:', e);
+    }
+}
+
 let _activeOutputFilter = 'all';
 let _filteredVirtualData = null; // null = no filter, array = filtered lines
 
@@ -10626,10 +10718,19 @@ function closeDeepSearch() {
     document.getElementById('deepSearchBar').classList.remove('active');
     document.getElementById('deepSearchInput').value = '';
     clearSearchHighlights();
+    _restoreTerminalContent();
     deepSearchMatches = [];
     deepSearchIdx = -1;
     // Reset output filter
     setOutputFilter('all');
+}
+
+function _restoreTerminalContent() {
+    const terminal = document.getElementById('deepTerminal');
+    if (terminal && terminal._origContent) {
+        terminal.innerHTML = terminal._origContent;
+        terminal._origContent = null;
+    }
 }
 
 // Virtual scroll search state
@@ -10674,11 +10775,18 @@ function deepSearch() {
     clearSearchHighlights();
     _virtualSearchMatches = [];
     const query = document.getElementById('deepSearchInput').value;
-    if (!query) { document.getElementById('deepSearchCount').textContent = ''; return; }
+    if (!query) { document.getElementById('deepSearchCount').textContent = ''; _restoreTerminalContent(); return; }
     // Save to history after a debounce
     clearTimeout(deepSearch._historyTimer);
     deepSearch._historyTimer = setTimeout(() => addToSearchHistory(query), 1500);
     hideSearchHistory();
+
+    // Server-side archive search mode
+    if (deepServerSearch) {
+        clearTimeout(deepSearch._serverTimer);
+        deepSearch._serverTimer = setTimeout(() => serverArchiveSearch(query), 400);
+        return;
+    }
 
     const terminal = document.getElementById('deepTerminal');
     const flags = 'g' + (deepCaseSensitive ? '' : 'i');

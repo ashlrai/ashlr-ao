@@ -2725,3 +2725,56 @@ class TestPatternAlerting:
         assert "pattern_alert" in src
         assert "_compiled_alert_patterns" in src
         assert "_alert_throttle" in src
+
+
+class TestCriticalBugFixes:
+    """Tests for critical bug fixes found in audit."""
+
+    def test_health_detailed_uses_max_agents(self):
+        """health_detailed should use config.max_agents, not max_concurrent_agents."""
+        import inspect
+        src = inspect.getsource(ashlar_server.health_detailed)
+        assert "max_concurrent_agents" not in src
+        assert "max_agents" in src
+
+    def test_db_save_message_null_guard(self):
+        """save_message should guard against null db."""
+        import inspect
+        src = inspect.getsource(ashlar_server.Database.save_message)
+        assert "if not self._db" in src
+
+    def test_db_get_messages_for_agent_null_guard(self):
+        """get_messages_for_agent should guard against null db."""
+        import inspect
+        src = inspect.getsource(ashlar_server.Database.get_messages_for_agent)
+        assert "if not self._db" in src
+
+    def test_db_get_messages_between_null_guard(self):
+        """get_messages_between should guard against null db."""
+        import inspect
+        src = inspect.getsource(ashlar_server.Database.get_messages_between)
+        assert "if not self._db" in src
+
+    def test_db_get_message_count_null_guard(self):
+        """get_message_count_for_agent should guard against null db."""
+        import inspect
+        src = inspect.getsource(ashlar_server.Database.get_message_count_for_agent)
+        assert "if not self._db" in src
+
+    def test_db_mark_messages_read_null_guard(self):
+        """mark_messages_read should guard against null db."""
+        import inspect
+        src = inspect.getsource(ashlar_server.Database.mark_messages_read)
+        assert "if not self._db" in src
+
+    def test_db_get_unread_count_null_guard(self):
+        """get_unread_count should guard against null db."""
+        import inspect
+        src = inspect.getsource(ashlar_server.Database.get_unread_count)
+        assert "if not self._db" in src
+
+    def test_compiled_alert_patterns_in_create_app(self):
+        """create_app should compile alert patterns at startup."""
+        import inspect
+        src = inspect.getsource(ashlar_server.create_app)
+        assert "_compiled_alert_patterns" in src

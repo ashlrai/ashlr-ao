@@ -4412,6 +4412,8 @@ class Database:
     # ── Agent Messages ──
 
     async def save_message(self, msg: dict) -> None:
+        if not self._db:
+            return
         await self._db.execute(
             """INSERT INTO agent_messages (id, from_agent_id, to_agent_id, content, created_at)
                VALUES (?, ?, ?, ?, ?)""",
@@ -4421,6 +4423,8 @@ class Database:
         await self._db.commit()
 
     async def get_messages_for_agent(self, agent_id: str, limit: int = 50) -> list[dict]:
+        if not self._db:
+            return []
         async with self._db.execute(
             "SELECT * FROM agent_messages WHERE to_agent_id = ? ORDER BY created_at DESC LIMIT ?",
             (agent_id, limit),
@@ -4428,6 +4432,8 @@ class Database:
             return [dict(r) for r in await cur.fetchall()]
 
     async def get_messages_between(self, agent_a: str, agent_b: str, limit: int = 50) -> list[dict]:
+        if not self._db:
+            return []
         async with self._db.execute(
             """SELECT * FROM agent_messages
                WHERE (from_agent_id = ? AND to_agent_id = ?)
@@ -4438,6 +4444,8 @@ class Database:
             return [dict(r) for r in await cur.fetchall()]
 
     async def get_message_count_for_agent(self, agent_id: str) -> int:
+        if not self._db:
+            return 0
         async with self._db.execute(
             "SELECT COUNT(*) FROM agent_messages WHERE to_agent_id = ?", (agent_id,)
         ) as cur:
@@ -4445,6 +4453,8 @@ class Database:
             return row[0] if row else 0
 
     async def mark_messages_read(self, agent_id: str) -> int:
+        if not self._db:
+            return 0
         now = datetime.now(timezone.utc).isoformat()
         async with self._db.execute(
             "UPDATE agent_messages SET read_at = ? WHERE to_agent_id = ? AND read_at IS NULL",
@@ -4454,6 +4464,8 @@ class Database:
             return cur.rowcount
 
     async def get_unread_count(self, agent_id: str) -> int:
+        if not self._db:
+            return 0
         async with self._db.execute(
             "SELECT COUNT(*) FROM agent_messages WHERE to_agent_id = ? AND read_at IS NULL",
             (agent_id,),
@@ -5747,7 +5759,7 @@ async def health_detailed(request: web.Request) -> web.Response:
         },
         "backends": {k: {"available": v.available, "command": v.command} for k, v in manager.backend_configs.items()},
         "config": {
-            "max_concurrent": config.max_concurrent_agents,
+            "max_concurrent": config.max_agents,
             "port": config.port,
             "cost_budget_usd": config.cost_budget_usd,
         },
