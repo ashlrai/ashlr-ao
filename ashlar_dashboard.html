@@ -5036,6 +5036,7 @@ body {
                         <option value="error">Errors</option>
                         <option value="input">Waiting</option>
                         <option value="spawn">Spawned</option>
+                        <option value="alerts">Pattern Alerts</option>
                     </select>
                     <span style="cursor:pointer;color:var(--accent);font-size:12px" onclick="clearNotifications()">Clear</span>
                 </div>
@@ -7191,6 +7192,8 @@ class AshlarSocket {
                         timestamp: data.timestamp || new Date().toISOString(),
                     });
                     if (state.patternAlerts.length > 100) state.patternAlerts.pop();
+                    // Flash notification bell for pattern alerts
+                    document.getElementById('unreadDot')?.classList.add('active');
                     break;
                 }
                 case 'queue_update': {
@@ -12812,6 +12815,29 @@ function renderNotificationList() {
     const list = document.getElementById('notifList');
     list.innerHTML = '';
     const filter = document.getElementById('notifFilter')?.value || 'all';
+
+    // Pattern alerts rendering
+    if (filter === 'alerts') {
+        const alerts = state.patternAlerts || [];
+        if (alerts.length === 0) {
+            list.innerHTML = `<div style="padding:16px;text-align:center;color:var(--text-tertiary);font-size:12px">No pattern alerts yet</div>`;
+            return;
+        }
+        alerts.slice(0, 50).forEach(a => {
+            const el = document.createElement('div');
+            const isCrit = a.severity === 'critical';
+            el.className = 'notification-item';
+            el.style.borderLeft = `3px solid ${isCrit ? 'var(--status-error)' : 'var(--status-waiting)'}`;
+            el.innerHTML = `<span class="ni-icon">${icon(isCrit ? 'shield-alert' : 'alert-triangle', 14)}</span>`
+                + `<span class="ni-text"><strong style="color:${isCrit ? 'var(--status-error)' : 'var(--status-waiting)'}">${escapeHtml(a.label)}</strong> on ${escapeHtml(a.agent_name)}`
+                + (a.line ? `<br><span style="font-size:10px;color:var(--text-tertiary);font-family:var(--font-mono)">${escapeHtml(a.line.substring(0, 100))}</span>` : '')
+                + `</span><span class="ni-time">${timeAgo(a.timestamp)}</span>`;
+            el.onclick = () => { closeNotifications(); if (a.agent_id && state.agents.has(a.agent_id)) openDeepView(a.agent_id); };
+            list.appendChild(el);
+        });
+        return;
+    }
+
     const filterMap = { error: ['agent_error'], input: ['agent_needs_input'], spawn: ['agent_spawned', 'agent_killed'] };
     const icons = { agent_spawned: icon('rocket', 14), agent_killed: icon('skull', 14), agent_needs_input: icon('alert-triangle', 14), agent_error: icon('x', 14) };
     const filtered = filter === 'all' ? state.notifications : state.notifications.filter(n => (filterMap[filter] || []).includes(n.type));
