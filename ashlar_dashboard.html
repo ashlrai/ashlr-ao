@@ -2889,6 +2889,19 @@ body {
     min-width: 60px;
 }
 .show-timestamps .terminal-line .line-timestamp { display: inline-block; }
+.dedup-collapsed { display: none; }
+.dedup-marker {
+    font-size: 9px;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    padding: 1px 6px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 3px;
+    cursor: pointer;
+    margin-left: 8px;
+    opacity: 0.7;
+}
+.dedup-marker:hover { opacity: 1; background: rgba(255,255,255,0.06); }
 .terminal-line.truncated { position: relative; }
 .terminal-line.truncated .trunc-fade { display: inline; }
 .terminal-line.truncated .trunc-full { display: none; }
@@ -4646,6 +4659,9 @@ body {
         <div class="fleet-stat" id="fsCost"><span class="fs-value">$0</span><span class="fs-label">Cost</span></div>
         <div class="fleet-stat" id="fsTokens"><span class="fs-value">0</span><span class="fs-label">Tokens</span></div>
         <div class="fleet-stat" id="fsHealth"><span class="fs-value">-</span><span class="fs-label">Avg Health</span></div>
+        <div class="fleet-stat" id="fsContext"><span class="fs-value">-</span><span class="fs-label">Avg Context</span></div>
+        <div class="fleet-stat" id="fsOutputRate"><span class="fs-value">0</span><span class="fs-label">Lines/min</span></div>
+        <div class="fleet-stat" id="fsUptime"><span class="fs-value">-</span><span class="fs-label">Fleet Uptime</span></div>
         <div class="fleet-status-bar" id="fsStatusBar"></div>
     </div>
     <div class="conflict-banner" id="conflictBanner" style="display:none">
@@ -4856,6 +4872,7 @@ body {
         <button class="terminal-toolbar-btn" id="toolbarTailMode" onclick="toggleTailMode()" title="Show only last 50 lines">⊟ Tail</button>
         <button class="terminal-toolbar-btn" onclick="openGoToLine()" title="Go to line (Cmd+G)">⤓ Go to line</button>
         <button class="terminal-toolbar-btn" id="toolbarTimestamps" onclick="toggleTimestamps()" title="Show line timestamps">⏱ Timestamps</button>
+        <button class="terminal-toolbar-btn" id="toolbarDedup" onclick="toggleDedup()" title="Collapse repeated and empty lines">⊞ Dedup</button>
         <div class="goto-line-popover" id="gotoLinePopover">
             <label>Line:</label>
             <input type="number" id="gotoLineInput" min="1" placeholder="Line #" />
@@ -7160,6 +7177,34 @@ function updateFleetSummary() {
     const hEl = document.querySelector('#fsHealth .fs-value');
     hEl.textContent = `${Math.round(avgHealth * 100)}%`;
     hEl.style.color = avgHealth >= 0.8 ? 'var(--success)' : avgHealth >= 0.6 ? 'var(--warning)' : 'var(--danger)';
+
+    // Average context usage
+    const ctxValues = agents.filter(a => a.context_pct > 0).map(a => a.context_pct);
+    const avgCtx = ctxValues.length ? ctxValues.reduce((s, c) => s + c, 0) / ctxValues.length : 0;
+    const ctxEl = document.querySelector('#fsContext .fs-value');
+    if (ctxEl) {
+        ctxEl.textContent = `${Math.round(avgCtx * 100)}%`;
+        ctxEl.style.color = avgCtx >= 0.8 ? 'var(--danger)' : avgCtx >= 0.5 ? 'var(--warning)' : 'var(--text-secondary)';
+    }
+
+    // Total output rate
+    const totalRate = agents.reduce((s, a) => s + (a.output_rate || 0), 0);
+    const rateEl = document.querySelector('#fsOutputRate .fs-value');
+    if (rateEl) rateEl.textContent = Math.round(totalRate);
+
+    // Fleet uptime (oldest agent)
+    const uptimeEl = document.querySelector('#fsUptime .fs-value');
+    if (uptimeEl) {
+        const oldest = agents.filter(a => a.created_at).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))[0];
+        if (oldest) {
+            const sec = (Date.now() - new Date(oldest.created_at).getTime()) / 1000;
+            if (sec >= 3600) uptimeEl.textContent = `${Math.floor(sec/3600)}h${Math.floor((sec%3600)/60)}m`;
+            else if (sec >= 60) uptimeEl.textContent = `${Math.floor(sec/60)}m`;
+            else uptimeEl.textContent = `${Math.floor(sec)}s`;
+        } else {
+            uptimeEl.textContent = '-';
+        }
+    }
 
     // Status distribution bar
     const total = agents.length;
@@ -11640,6 +11685,94 @@ function formatLineTimestamp(ts) {
     const m = d.getMinutes().toString().padStart(2, '0');
     const s = d.getSeconds().toString().padStart(2, '0');
     return `${h}:${m}:${s}`;
+}
+
+// ── Dedup / Noise Reduction ──
+
+let _dedupEnabled = false;
+function toggleDedup() {
+    _dedupEnabled = !_dedupEnabled;
+    const btn = document.getElementById('toolbarDedup');
+    btn.classList.toggle('active', _dedupEnabled);
+    if (_dedupEnabled) applyDedup();
+    else removeDedup();
+}
+
+function applyDedup() {
+    const terminal = document.getElementById('deepTerminal');
+    if (!terminal) return;
+    const lines = terminal.querySelectorAll('.terminal-line');
+    if (lines.length === 0) return;
+    const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+    let dupCount = 0;
+    let prevText = null;
+    let blankCount = 0;
+    let totalCollapsed = 0;
+    for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i].textContent.replace(ansiRe, '').trim();
+        // Collapse consecutive blanks (keep first)
+        if (raw === '') {
+            blankCount++;
+            if (blankCount > 1) {
+                lines[i].classList.add('dedup-collapsed');
+                totalCollapsed++;
+                continue;
+            }
+        } else {
+            if (blankCount > 2) {
+                // Add marker on the kept blank line
+                const marker = document.createElement('span');
+                marker.className = 'dedup-marker';
+                marker.textContent = `... ${blankCount - 1} empty lines`;
+                lines[i - blankCount + 1]?.appendChild(marker);
+            }
+            blankCount = 0;
+        }
+        // Collapse consecutive duplicates
+        if (raw === prevText && raw !== '') {
+            dupCount++;
+            lines[i].classList.add('dedup-collapsed');
+            totalCollapsed++;
+        } else {
+            if (dupCount > 0) {
+                const marker = document.createElement('span');
+                marker.className = 'dedup-marker';
+                marker.textContent = `×${dupCount + 1}`;
+                marker.title = `${dupCount} identical lines collapsed`;
+                marker.onclick = (e) => { e.stopPropagation(); expandDedupGroup(marker); };
+                lines[i - dupCount - 1]?.appendChild(marker);
+            }
+            dupCount = 0;
+        }
+        prevText = raw;
+    }
+    // Handle trailing dup group
+    if (dupCount > 0 && lines.length > 0) {
+        const marker = document.createElement('span');
+        marker.className = 'dedup-marker';
+        marker.textContent = `×${dupCount + 1}`;
+        marker.onclick = (e) => { e.stopPropagation(); expandDedupGroup(marker); };
+        lines[lines.length - dupCount - 1]?.appendChild(marker);
+    }
+    if (totalCollapsed > 0) showToast(`Dedup: collapsed ${totalCollapsed} lines`, 'info');
+}
+
+function removeDedup() {
+    const terminal = document.getElementById('deepTerminal');
+    if (!terminal) return;
+    terminal.querySelectorAll('.dedup-collapsed').forEach(el => el.classList.remove('dedup-collapsed'));
+    terminal.querySelectorAll('.dedup-marker').forEach(el => el.remove());
+}
+
+function expandDedupGroup(marker) {
+    const parent = marker.parentElement;
+    if (!parent) return;
+    let el = parent.nextElementSibling;
+    while (el && el.classList.contains('dedup-collapsed')) {
+        el.classList.remove('dedup-collapsed');
+        el = el.nextElementSibling;
+    }
+    marker.remove();
 }
 
 // ── Go-to-Line ──
