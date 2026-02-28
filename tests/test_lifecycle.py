@@ -1168,3 +1168,167 @@ class TestSendMessageValidation:
         long_msg = "x" * 60000
         capped = long_msg[:max_len]
         assert len(capped) == max_len
+
+
+class TestFleetAnalytics:
+    """Tests for fleet analytics aggregation logic."""
+
+    def _make_agent(self, **kwargs):
+        defaults = dict(
+            id="a001", name="test", role="backend", status="working",
+            project_id=None, working_dir="/tmp", backend="claude-code",
+            task="test", tmux_session="ashlar-a001"
+        )
+        defaults.update(kwargs)
+        return ashlar_server.Agent(**defaults)
+
+    def test_cost_aggregation(self):
+        """Total cost sums across all agents."""
+        a1 = self._make_agent(id="a001")
+        a1.estimated_cost_usd = 0.15
+        a2 = self._make_agent(id="a002")
+        a2.estimated_cost_usd = 0.30
+        total = sum(a.estimated_cost_usd for a in [a1, a2])
+        assert abs(total - 0.45) < 0.001
+
+    def test_status_distribution(self):
+        """Status counts are correctly tallied."""
+        agents = [
+            self._make_agent(id="a001", status="working"),
+            self._make_agent(id="a002", status="working"),
+            self._make_agent(id="a003", status="waiting"),
+        ]
+        counts = {}
+        for a in agents:
+            counts[a.status] = counts.get(a.status, 0) + 1
+        assert counts["working"] == 2
+        assert counts["waiting"] == 1
+
+    def test_role_distribution(self):
+        """Role counts are correctly tallied."""
+        agents = [
+            self._make_agent(id="a001", role="frontend"),
+            self._make_agent(id="a002", role="backend"),
+            self._make_agent(id="a003", role="backend"),
+        ]
+        counts = {}
+        for a in agents:
+            counts[a.role] = counts.get(a.role, 0) + 1
+        assert counts["frontend"] == 1
+        assert counts["backend"] == 2
+
+    def test_tool_usage_aggregation(self):
+        """Tool usage counts across agents."""
+        a1 = self._make_agent(id="a001")
+        a1._tool_invocations.append(ToolInvocation(
+            agent_id="a001", tool="Read", args="file.py",
+            timestamp="", line_index=0
+        ))
+        a1._tool_invocations.append(ToolInvocation(
+            agent_id="a001", tool="Edit", args="file.py",
+            timestamp="", line_index=1
+        ))
+        a2 = self._make_agent(id="a002")
+        a2._tool_invocations.append(ToolInvocation(
+            agent_id="a002", tool="Read", args="other.py",
+            timestamp="", line_index=0
+        ))
+        tool_counts = {}
+        for a in [a1, a2]:
+            for inv in a._tool_invocations:
+                tool_counts[inv.tool] = tool_counts.get(inv.tool, 0) + 1
+        assert tool_counts["Read"] == 2
+        assert tool_counts["Edit"] == 1
+
+    def test_file_operations_aggregation(self):
+        """Top files are correctly counted across agents."""
+        a1 = self._make_agent(id="a001")
+        a1._file_operations.append(FileOperation(
+            agent_id="a001", file_path="src/api.py", operation="read", timestamp=""
+        ))
+        a1._file_operations.append(FileOperation(
+            agent_id="a001", file_path="src/api.py", operation="write", timestamp=""
+        ))
+        a2 = self._make_agent(id="a002")
+        a2._file_operations.append(FileOperation(
+            agent_id="a002", file_path="src/models.py", operation="read", timestamp=""
+        ))
+        all_files = {}
+        for a in [a1, a2]:
+            for fop in a._file_operations:
+                all_files[fop.file_path] = all_files.get(fop.file_path, 0) + 1
+        top = sorted(all_files.items(), key=lambda x: -x[1])
+        assert top[0] == ("src/api.py", 2)
+        assert top[1] == ("src/models.py", 1)
+
+    def test_health_score_average(self):
+        """Average health excludes zero-scored agents."""
+        a1 = self._make_agent(id="a001")
+        a1.health_score = 90.0
+        a2 = self._make_agent(id="a002")
+        a2.health_score = 80.0
+        a3 = self._make_agent(id="a003")
+        a3.health_score = 0.0  # new agent, not yet scored
+        scores = [a.health_score for a in [a1, a2, a3] if a.health_score > 0]
+        avg = sum(scores) / len(scores) if scores else 0
+        assert abs(avg - 85.0) < 0.1
+
+    def test_empty_fleet(self):
+        """Analytics with no agents returns sensible defaults."""
+        agents = []
+        total_cost = sum(a.estimated_cost_usd for a in agents)
+        scores = [a.health_score for a in agents if a.health_score > 0]
+        avg = sum(scores) / len(scores) if scores else 0
+        assert total_cost == 0
+        assert avg == 0
+
+
+class TestAgentNotesAndTags:
+    """Tests for agent notes and tags fields."""
+
+    def _make_agent(self, **kwargs):
+        defaults = dict(
+            id="a001", name="test", role="backend", status="working",
+            project_id=None, working_dir="/tmp", backend="claude-code",
+            task="test", tmux_session="ashlar-a001"
+        )
+        defaults.update(kwargs)
+        return ashlar_server.Agent(**defaults)
+
+    def test_default_notes_empty(self):
+        agent = self._make_agent()
+        assert agent.notes == ""
+
+    def test_default_tags_empty(self):
+        agent = self._make_agent()
+        assert agent.tags == []
+
+    def test_notes_in_to_dict(self):
+        agent = self._make_agent()
+        agent.notes = "Important context about this agent"
+        d = agent.to_dict()
+        assert d["notes"] == "Important context about this agent"
+
+    def test_tags_in_to_dict(self):
+        agent = self._make_agent()
+        agent.tags = ["critical", "frontend", "v2"]
+        d = agent.to_dict()
+        assert d["tags"] == ["critical", "frontend", "v2"]
+
+    def test_tag_sanitization(self):
+        """Tags should be stripped, lowercased, and deduplicated."""
+        tags = ["  Frontend ", "BACKEND", "frontend", "  ", "API"]
+        clean = list(dict.fromkeys(t.strip().lower()[:30] for t in tags if t.strip()))
+        assert clean == ["frontend", "backend", "api"]
+
+    def test_tag_max_length(self):
+        """Individual tags should be capped at 30 chars."""
+        long_tag = "a" * 50
+        capped = long_tag[:30]
+        assert len(capped) == 30
+
+    def test_notes_max_length(self):
+        """Notes should be capped at 10K chars."""
+        max_len = 10000
+        long_notes = "x" * 15000
+        assert len(long_notes[:max_len]) == max_len

@@ -2412,6 +2412,12 @@ body {
     animation: tabSlideIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }
 @keyframes tabSlideIn { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.deep-notes-panel { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.agent-tag-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--text-secondary); font-family: var(--font-mono); cursor: default; }
+.agent-tag-chip .tag-remove { cursor: pointer; opacity: 0.5; font-size: 14px; line-height: 1; }
+.agent-tag-chip .tag-remove:hover { opacity: 1; color: var(--danger); }
+.card-tags-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; margin-bottom: 4px; }
+
 .deep-scratchpad-panel {
     flex: 1;
     overflow-y: auto;
@@ -3163,6 +3169,29 @@ body {
 .compare-pane + .compare-pane { border-left: 1px solid var(--border-subtle); }
 .compare-pane-header { padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; background: var(--bg-elevated); }
 .compare-pane-terminal { flex: 1; overflow-y: auto; padding: 8px 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; background: var(--bg-page); }
+/* ── Fleet Analytics Panel ── */
+.analytics-panel { background: var(--bg-surface); width: 90vw; max-width: 900px; max-height: 85vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); overflow: hidden; }
+.analytics-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
+.analytics-body { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+.analytics-kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.analytics-kpi { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.analytics-kpi-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.analytics-kpi-value { font-size: 24px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
+.analytics-kpi-sub { font-size: 11px; color: var(--text-secondary); }
+.analytics-section { display: flex; flex-direction: column; gap: 10px; }
+.analytics-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.analytics-bar-chart { display: flex; flex-direction: column; gap: 6px; }
+.analytics-bar-row { display: flex; align-items: center; gap: 10px; }
+.analytics-bar-label { font-size: 12px; color: var(--text-secondary); width: 100px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+.analytics-bar-track { flex: 1; height: 20px; background: var(--bg-page); border-radius: 4px; overflow: hidden; position: relative; }
+.analytics-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; min-width: 2px; }
+.analytics-bar-count { font-size: 11px; color: var(--text-tertiary); width: 36px; text-align: right; font-family: var(--font-mono); }
+.analytics-dist-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.analytics-dist-chip { display: flex; align-items: center; gap: 6px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 6px 12px; font-size: 12px; }
+.analytics-dist-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.analytics-dist-name { color: var(--text-secondary); text-transform: capitalize; }
+.analytics-dist-val { font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
+
 .pipeline-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); }
 .pipeline-status { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .pipeline-graph { overflow: auto; flex: 1; padding: 24px; }
@@ -3706,6 +3735,7 @@ body {
             <button class="view-toggle-btn" id="viewTableBtn" onclick="setViewMode('table')" title="Table view"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg></button>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="openTimeline()" title="Activity Timeline (Cmd+T)"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/><path d="m16 12 5 3-5 3v-6Z"/></svg> Timeline</button>
+        <button class="btn btn-secondary btn-sm" onclick="openAnalytics()" title="Fleet Analytics"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> Analytics</button>
     </div>
     <table class="agent-table" id="agentTable">
         <thead><tr>
@@ -3869,6 +3899,7 @@ body {
             <button class="deep-action-btn" onclick="deepRestart()" title="Restart agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></span> Restart</button>
             <button class="deep-action-btn" onclick="openHandoff()" title="Handoff to another agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></span> Handoff</button>
             <button class="deep-action-btn" onclick="deepExportOutput()" title="Download output log"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></span> Export</button>
+            <button class="deep-action-btn" onclick="deepCopyMarkdown()" title="Copy output as markdown"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span> Copy MD</button>
             <button class="deep-action-btn danger" onclick="deepKill()">Kill</button>
         </div>
     </div>
@@ -3884,6 +3915,7 @@ body {
     <div class="deep-tab-bar" id="deepTabBar">
         <button class="deep-tab active" id="deepTabTerminal" onclick="switchDeepTab('terminal')">Terminal</button>
         <button class="deep-tab" id="deepTabActivity" onclick="switchDeepTab('activity')">Activity</button>
+        <button class="deep-tab" id="deepTabNotes" onclick="switchDeepTab('notes')">Notes</button>
         <button class="deep-tab" id="deepTabScratchpad" onclick="switchDeepTab('scratchpad')">Scratchpad</button>
     </div>
     <div class="deep-terminal-wrap">
@@ -3891,6 +3923,26 @@ body {
         <div class="deep-activity-panel" id="deepActivityPanel">
             <div class="activity-stats" id="activityStats"></div>
             <div id="activityFeedContent"><div class="activity-empty">No activity detected yet</div></div>
+        </div>
+        <div class="deep-notes-panel" id="deepNotesPanel" style="display:none">
+            <div style="padding:16px;display:flex;flex-direction:column;gap:12px;height:100%">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <h4 style="margin:0;color:var(--text-primary)">Agent Notes & Tags</h4>
+                    <button class="btn btn-primary" style="font-size:12px;padding:4px 10px" onclick="saveAgentNotes()">Save</button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px">
+                    <label style="font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px">Tags</label>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center" id="agentTagsContainer"></div>
+                    <div style="display:flex;gap:6px">
+                        <input type="text" class="form-input" id="agentTagInput" placeholder="Add tag..." style="flex:1;font-size:12px;padding:4px 8px" onkeydown="if(event.key==='Enter'){addAgentTag();event.preventDefault()}">
+                        <button class="btn btn-secondary" style="font-size:11px;padding:3px 8px" onclick="addAgentTag()">Add</button>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+                    <label style="font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px">Notes</label>
+                    <textarea id="agentNotesTextarea" class="form-input" style="flex:1;resize:none;font-size:13px;line-height:1.5;font-family:var(--font-sans);padding:10px;min-height:150px" placeholder="Add notes about this agent..."></textarea>
+                </div>
+            </div>
         </div>
         <div class="deep-scratchpad-panel" id="deepScratchpadPanel" style="display:none">
             <div class="scratchpad-header">
@@ -4299,6 +4351,22 @@ body {
                 <div class="compare-pane-header" id="compareRightHeader"></div>
                 <div class="compare-pane-terminal" id="compareRightTerminal"></div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Fleet Analytics Modal ── -->
+<div class="modal-overlay" id="analyticsOverlay" onclick="if(event.target===this)closeAnalytics()">
+    <div class="analytics-panel">
+        <div class="analytics-header">
+            <h3 style="margin:0;font-weight:700;letter-spacing:-0.02em">Fleet Analytics</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn-secondary btn-sm" onclick="loadAnalytics()" title="Refresh">Refresh</button>
+                <button class="btn btn-secondary btn-sm" onclick="closeAnalytics()">Close</button>
+            </div>
+        </div>
+        <div class="analytics-body" id="analyticsBody">
+            <div style="text-align:center;color:var(--text-tertiary);padding:40px">Loading analytics...</div>
         </div>
     </div>
 </div>
@@ -5396,6 +5464,7 @@ function createAgentCard(agent) {
         <canvas class="card-sparkline" width="160" height="20"></canvas>
         <div class="context-bar-row"><div class="context-bar" role="progressbar" aria-label="Context window usage"><div class="context-bar-fill"></div></div><span class="context-pct-label low">0%</span><span class="context-warn-icon" title="High context usage">&#9888;</span><span class="context-text"></span></div>
         <span class="card-pin-indicator">${icon('pin', 12)}</span>
+        <div class="card-tags-row" style="display:none"></div>
         <div class="card-footer">
             <span class="status-badge"></span>
             <span class="card-cost-badge" style="display:none"></span>
@@ -5704,6 +5773,19 @@ function updateAgentCard(card, agent) {
     if (agent.files_touched > 0) metaParts.push(`${agent.files_touched} files`);
     metaParts.push(timeAgo(agent.updated_at || agent.created_at));
     meta.innerHTML = metaParts.map(p => `<span>${p}</span>`).join('');
+
+    // Tags row
+    const tagsRow = card.querySelector('.card-tags-row');
+    if (tagsRow) {
+        const tags = agent.tags || [];
+        if (tags.length > 0) {
+            tagsRow.style.display = 'flex';
+            tagsRow.innerHTML = tags.slice(0, 5).map(t => `<span class="agent-tag-chip" style="font-size:9px;padding:1px 5px">${escapeHtml(t)}</span>`).join('');
+            if (tags.length > 5) tagsRow.innerHTML += `<span style="font-size:9px;color:var(--text-tertiary)">+${tags.length - 5}</span>`;
+        } else {
+            tagsRow.style.display = 'none';
+        }
+    }
 }
 
 function shortenPath(p) {
@@ -6362,6 +6444,30 @@ function deepExportOutput() {
     a.click();
     document.body.removeChild(a);
     showToast('Downloading output log...', 'info');
+}
+
+function deepCopyMarkdown() {
+    if (!state.focusedAgentId) return;
+    const agent = state.agents.get(state.focusedAgentId);
+    if (!agent) return;
+    const info = ROLE_INFO[agent.role] || ROLE_INFO.general;
+    const lines = agent.output_lines || [];
+    // Strip ANSI codes for clean markdown
+    const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+    const cleanLines = lines.map(l => l.replace(ansiRe, ''));
+    // Build markdown
+    let md = `# ${agent.name} (${info.name})\n\n`;
+    md += `**Status:** ${agent.status}  \n`;
+    md += `**Task:** ${agent.task || 'N/A'}  \n`;
+    if (agent.summary) md += `**Summary:** ${agent.summary}  \n`;
+    md += `**Context:** ${Math.round((agent.context_pct || 0) * 100)}%  \n`;
+    if (agent.estimated_cost_usd > 0) md += `**Cost:** $${agent.estimated_cost_usd.toFixed(4)}  \n`;
+    md += `\n## Output\n\n\`\`\`\n${cleanLines.join('\n')}\n\`\`\`\n`;
+    navigator.clipboard.writeText(md).then(() => {
+        showToast('Copied as markdown', 'success');
+    }).catch(() => {
+        showToast('Failed to copy', 'error');
+    });
 }
 
 async function deepKill() {
@@ -7184,6 +7290,7 @@ document.addEventListener('keydown', (e) => {
         if (document.getElementById('interactionOverlay').classList.contains('active')) { closeInteraction(); return; }
         if (document.getElementById('timelineOverlay').classList.contains('active')) { closeTimeline(); return; }
         if (document.getElementById('compareOverlay').classList.contains('active')) { closeCompare(); return; }
+        if (document.getElementById('analyticsOverlay').classList.contains('active')) { closeAnalytics(); return; }
         if (document.getElementById('pipelineOverlay').classList.contains('active')) { closePipeline(); return; }
         if (document.getElementById('handoffOverlay').classList.contains('active')) { closeHandoff(); return; }
         return;
@@ -9591,6 +9698,105 @@ function switchTimelineTab(tab) {
     if (tab === 'history') loadSessionHistory();
 }
 
+// ── Fleet Analytics ──
+function openAnalytics() {
+    document.getElementById('analyticsOverlay').classList.add('active');
+    loadAnalytics();
+}
+
+function closeAnalytics() {
+    document.getElementById('analyticsOverlay').classList.remove('active');
+}
+
+async function loadAnalytics() {
+    const body = document.getElementById('analyticsBody');
+    body.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:40px">Loading analytics...</div>';
+    try {
+        const res = await apiFetch('/api/analytics');
+        if (!res) throw new Error('No data');
+        renderAnalytics(res);
+    } catch (e) {
+        body.innerHTML = `<div style="text-align:center;color:var(--text-tertiary);padding:40px">Failed to load analytics</div>`;
+    }
+}
+
+function renderAnalytics(data) {
+    const body = document.getElementById('analyticsBody');
+    const formatCost = (v) => v < 0.01 ? '$0.00' : `$${v.toFixed(2)}`;
+    const formatTokens = (v) => v > 1000000 ? `${(v / 1000000).toFixed(1)}M` : v > 1000 ? `${(v / 1000).toFixed(1)}K` : String(v);
+
+    // Status color map
+    const statusColors = {
+        working: 'var(--accent)', planning: 'var(--yellow)', waiting: 'var(--orange)',
+        error: 'var(--danger)', idle: 'var(--text-tertiary)', paused: 'var(--text-tertiary)',
+        spawning: 'var(--accent)', reading: 'var(--accent)', complete: 'var(--success)',
+    };
+
+    // Role color map
+    const roleColors = {};
+    for (const [key, info] of Object.entries(ROLE_INFO)) {
+        roleColors[key] = info.color;
+    }
+
+    // KPI cards
+    let html = `<div class="analytics-kpi-row">`;
+    html += `<div class="analytics-kpi"><div class="analytics-kpi-label">Active Agents</div><div class="analytics-kpi-value">${data.total_agents}</div><div class="analytics-kpi-sub">${data.historical_agents || 0} historical</div></div>`;
+    html += `<div class="analytics-kpi"><div class="analytics-kpi-label">Total Cost</div><div class="analytics-kpi-value">${formatCost(data.total_cost_usd)}</div><div class="analytics-kpi-sub">${formatTokens(data.total_tokens_input)} in / ${formatTokens(data.total_tokens_output)} out</div></div>`;
+    html += `<div class="analytics-kpi"><div class="analytics-kpi-label">Avg Health</div><div class="analytics-kpi-value">${data.avg_health_score}%</div><div class="analytics-kpi-sub">${data.total_restarts} total restarts</div></div>`;
+    html += `<div class="analytics-kpi"><div class="analytics-kpi-label">Avg Lifespan</div><div class="analytics-kpi-value">${data.avg_lifespan_minutes < 60 ? data.avg_lifespan_minutes.toFixed(0) + 'm' : (data.avg_lifespan_minutes / 60).toFixed(1) + 'h'}</div><div class="analytics-kpi-sub">per agent</div></div>`;
+    html += `</div>`;
+
+    // Status distribution
+    const statusEntries = Object.entries(data.status_distribution || {});
+    if (statusEntries.length > 0) {
+        html += `<div class="analytics-section"><div class="analytics-section-title">Status Distribution</div><div class="analytics-dist-row">`;
+        for (const [status, count] of statusEntries.sort((a, b) => b[1] - a[1])) {
+            const color = statusColors[status] || 'var(--text-tertiary)';
+            html += `<div class="analytics-dist-chip"><div class="analytics-dist-dot" style="background:${color}"></div><span class="analytics-dist-name">${status}</span><span class="analytics-dist-val">${count}</span></div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    // Role distribution
+    const roleEntries = Object.entries(data.role_distribution || {});
+    if (roleEntries.length > 0) {
+        html += `<div class="analytics-section"><div class="analytics-section-title">Role Distribution</div><div class="analytics-dist-row">`;
+        for (const [role, count] of roleEntries.sort((a, b) => b[1] - a[1])) {
+            const color = roleColors[role] || 'var(--text-tertiary)';
+            html += `<div class="analytics-dist-chip"><div class="analytics-dist-dot" style="background:${color}"></div><span class="analytics-dist-name">${role}</span><span class="analytics-dist-val">${count}</span></div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    // Tool usage bar chart
+    const toolEntries = Object.entries(data.tool_usage || {}).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    if (toolEntries.length > 0) {
+        const maxTool = toolEntries[0][1];
+        html += `<div class="analytics-section"><div class="analytics-section-title">Tool Usage</div><div class="analytics-bar-chart">`;
+        for (const [tool, count] of toolEntries) {
+            const pct = Math.max(2, (count / maxTool) * 100);
+            html += `<div class="analytics-bar-row"><div class="analytics-bar-label" title="${tool}">${tool}</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${pct}%;background:var(--accent)"></div></div><div class="analytics-bar-count">${count}</div></div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    // Top files bar chart
+    const fileEntries = (data.top_files || []).slice(0, 10);
+    if (fileEntries.length > 0) {
+        const maxFile = fileEntries[0].count;
+        html += `<div class="analytics-section"><div class="analytics-section-title">Most Touched Files</div><div class="analytics-bar-chart">`;
+        for (const { path, count } of fileEntries) {
+            const shortPath = path.split('/').slice(-2).join('/');
+            const pct = Math.max(2, (count / maxFile) * 100);
+            html += `<div class="analytics-bar-row"><div class="analytics-bar-label" title="${escapeHtml(path)}">${escapeHtml(shortPath)}</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${pct}%;background:var(--success)"></div></div><div class="analytics-bar-count">${count}</div></div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    body.innerHTML = html;
+}
+
+
 async function loadSessionHistory() {
     const list = document.getElementById('historyList');
     list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">Loading...</div>';
@@ -10262,9 +10468,11 @@ function switchDeepTab(tab) {
     const terminal = document.getElementById('deepTerminal');
     const scratchpad = document.getElementById('deepScratchpadPanel');
     const activityPanel = document.getElementById('deepActivityPanel');
+    const notesPanel = document.getElementById('deepNotesPanel');
     const tabTerminal = document.getElementById('deepTabTerminal');
     const tabScratchpad = document.getElementById('deepTabScratchpad');
     const tabActivity = document.getElementById('deepTabActivity');
+    const tabNotes = document.getElementById('deepTabNotes');
     const toolbar = document.getElementById('terminalToolbar');
     const searchBar = document.getElementById('deepSearchBar');
 
@@ -10272,12 +10480,14 @@ function switchDeepTab(tab) {
     terminal.style.display = 'none';
     scratchpad.style.display = 'none';
     activityPanel.style.display = 'none';
+    notesPanel.style.display = 'none';
     toolbar.style.display = 'none';
     closeDeepSearch();
     searchBar.style.display = 'none';
     tabTerminal.classList.remove('active');
     tabScratchpad.classList.remove('active');
     tabActivity.classList.remove('active');
+    tabNotes.classList.remove('active');
 
     if (tab === 'terminal') {
         terminal.style.display = '';
@@ -10288,11 +10498,77 @@ function switchDeepTab(tab) {
         activityPanel.style.display = 'block';
         tabActivity.classList.add('active');
         if (state.focusedAgentId) renderActivityFeed(state.focusedAgentId);
+    } else if (tab === 'notes') {
+        notesPanel.style.display = 'flex';
+        tabNotes.classList.add('active');
+        loadAgentNotesUI();
     } else {
         scratchpad.style.display = '';
         tabScratchpad.classList.add('active');
         if (_scratchpadProjectId) refreshScratchpad();
     }
+}
+
+function loadAgentNotesUI() {
+    if (!state.focusedAgentId) return;
+    const agent = state.agents.get(state.focusedAgentId);
+    if (!agent) return;
+    document.getElementById('agentNotesTextarea').value = agent.notes || '';
+    renderAgentTags(agent.tags || []);
+}
+
+function renderAgentTags(tags) {
+    const container = document.getElementById('agentTagsContainer');
+    if (!tags || tags.length === 0) {
+        container.innerHTML = '<span style="font-size:11px;color:var(--text-tertiary)">No tags yet</span>';
+        return;
+    }
+    container.innerHTML = tags.map((tag, i) =>
+        `<span class="agent-tag-chip">${escapeHtml(tag)}<span class="tag-remove" data-tag-idx="${i}">&times;</span></span>`
+    ).join('');
+    container.querySelectorAll('.tag-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.tagIdx, 10);
+            const agent = state.agents.get(state.focusedAgentId);
+            if (!agent) return;
+            const newTags = [...(agent.tags || [])];
+            newTags.splice(idx, 1);
+            agent.tags = newTags;
+            renderAgentTags(newTags);
+            apiFetch(`/api/agents/${state.focusedAgentId}/tags`, {
+                method: 'PUT', body: JSON.stringify({ tags: newTags })
+            });
+        });
+    });
+}
+
+function addAgentTag() {
+    const input = document.getElementById('agentTagInput');
+    const tag = input.value.trim().toLowerCase();
+    if (!tag || !state.focusedAgentId) return;
+    const agent = state.agents.get(state.focusedAgentId);
+    if (!agent) return;
+    const tags = [...(agent.tags || [])];
+    if (tags.includes(tag)) { input.value = ''; return; }
+    if (tags.length >= 20) { showToast('Maximum 20 tags', 'warning'); return; }
+    tags.push(tag);
+    agent.tags = tags;
+    input.value = '';
+    renderAgentTags(tags);
+    apiFetch(`/api/agents/${state.focusedAgentId}/tags`, {
+        method: 'PUT', body: JSON.stringify({ tags })
+    });
+}
+
+async function saveAgentNotes() {
+    if (!state.focusedAgentId) return;
+    const notes = document.getElementById('agentNotesTextarea').value;
+    const agent = state.agents.get(state.focusedAgentId);
+    if (agent) agent.notes = notes;
+    await apiFetch(`/api/agents/${state.focusedAgentId}/notes`, {
+        method: 'PUT', body: JSON.stringify({ notes })
+    });
+    showToast('Notes saved', 'success');
 }
 
 async function refreshScratchpad() {
@@ -10569,6 +10845,7 @@ if (state.viewMode === 'table') {
 PALETTE_ACTIONS.push(
     { icon: 'clipboard', label: 'Activity Timeline', shortcut: '⌘T', action: () => { closePalette(); openTimeline(); } },
     { icon: 'git-merge', label: 'Pipeline Graph', shortcut: '', action: () => { closePalette(); openPipeline(); } },
+    { icon: 'bar-chart-3', label: 'Fleet Analytics', shortcut: '', action: () => { closePalette(); openAnalytics(); }, section: 'view' },
     { icon: 'table', label: 'Toggle Table View', shortcut: '', action: () => { closePalette(); setViewMode(state.viewMode === 'table' ? 'grid' : 'table'); }, section: 'view' },
     { icon: 'save', label: 'Manage Presets', shortcut: '', action: () => { closePalette(); openSettings(); }, section: 'config' },
     { icon: 'file-text', label: 'View Scratchpad', shortcut: '', action: () => { closePalette(); if (state.focusedAgentId) { switchDeepTab('scratchpad'); } else { showToast('Open an agent first to view its scratchpad', 'info'); } }, section: 'view' },

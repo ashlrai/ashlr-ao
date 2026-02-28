@@ -928,6 +928,9 @@ class Agent:
     _test_results: list = field(default_factory=list, repr=False)  # list[TestResult], capped at 50
     _last_parse_index: int = field(default=0, repr=False)  # Incremental parsing watermark
     _overflow_to_archive: bool = field(default=False, repr=False)
+    # Notes and tags
+    notes: str = ""
+    tags: list = field(default_factory=list)
 
     def set_status(self, new_status: str) -> bool:
         """Update status with monotonic timestamp guard. Returns True if updated."""
@@ -985,6 +988,8 @@ class Agent:
             "tool_invocations_count": len(self._tool_invocations),
             "file_operations_count": len(self._file_operations),
             "last_test_result": self._test_results[-1].to_dict() if self._test_results else None,
+            "notes": self.notes,
+            "tags": list(self.tags),
         }
 
     def to_dict_full(self) -> dict:
@@ -4827,6 +4832,52 @@ async def send_to_agent(request: web.Request) -> web.Response:
     return web.json_response({"error": f"Failed to send message to '{agent.name}' — agent may have terminated"}, status=500)
 
 
+async def update_agent_notes(request: web.Request) -> web.Response:
+    """PUT /api/agents/{id}/notes — update agent notes."""
+    manager: AgentManager = request.app["agent_manager"]
+    hub: WebSocketHub = request.app["ws_hub"]
+    agent_id = request.match_info["id"]
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    notes = data.get("notes", "")
+    if not isinstance(notes, str):
+        return web.json_response({"error": "Notes must be a string"}, status=400)
+    if len(notes) > 10000:
+        return web.json_response({"error": "Notes too long (max 10,000 chars)"}, status=400)
+    agent.notes = notes
+    await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
+    return web.json_response({"status": "updated", "notes": agent.notes})
+
+
+async def update_agent_tags(request: web.Request) -> web.Response:
+    """PUT /api/agents/{id}/tags — update agent tags."""
+    manager: AgentManager = request.app["agent_manager"]
+    hub: WebSocketHub = request.app["ws_hub"]
+    agent_id = request.match_info["id"]
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    tags = data.get("tags", [])
+    if not isinstance(tags, list) or not all(isinstance(t, str) for t in tags):
+        return web.json_response({"error": "Tags must be a list of strings"}, status=400)
+    if len(tags) > 20:
+        return web.json_response({"error": "Maximum 20 tags"}, status=400)
+    # Sanitize: strip whitespace, lowercase, remove empty, deduplicate
+    clean_tags = list(dict.fromkeys(t.strip().lower()[:30] for t in tags if t.strip()))
+    agent.tags = clean_tags
+    await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
+    return web.json_response({"status": "updated", "tags": agent.tags})
+
+
 async def pause_agent(request: web.Request) -> web.Response:
     manager: AgentManager = request.app["agent_manager"]
     hub: WebSocketHub = request.app["ws_hub"]
@@ -4916,6 +4967,73 @@ async def system_metrics(request: web.Request) -> web.Response:
     }
     data["server_cwd"] = os.getcwd()
     return web.json_response(data)
+
+
+async def fleet_analytics(request: web.Request) -> web.Response:
+    """GET /api/analytics — fleet-wide performance analytics."""
+    manager: AgentManager = request.app["agent_manager"]
+    db: Database = request.app["db"]
+    agents = list(manager.agents.values())
+
+    total_cost = sum(a.estimated_cost_usd for a in agents)
+    total_tokens_in = sum(a.tokens_input for a in agents)
+    total_tokens_out = sum(a.tokens_output for a in agents)
+    total_restarts = sum(a.restart_count for a in agents)
+
+    status_counts = {}
+    role_counts = {}
+    for a in agents:
+        status_counts[a.status] = status_counts.get(a.status, 0) + 1
+        role_counts[a.role] = role_counts.get(a.role, 0) + 1
+
+    # File activity across all agents
+    all_files: dict[str, int] = {}
+    for a in agents:
+        for fop in a._file_operations[-100:]:
+            path = fop.file_path
+            all_files[path] = all_files.get(path, 0) + 1
+    top_files = sorted(all_files.items(), key=lambda x: -x[1])[:20]
+
+    # Tool usage across all agents
+    tool_counts: dict[str, int] = {}
+    for a in agents:
+        for inv in a._tool_invocations[-200:]:
+            tool_counts[inv.tool] = tool_counts.get(inv.tool, 0) + 1
+
+    # Average health score
+    health_scores = [a.health_score for a in agents if a.health_score > 0]
+    avg_health = sum(health_scores) / len(health_scores) if health_scores else 0
+
+    # Agent lifespans
+    now_iso = datetime.now(timezone.utc).isoformat()
+    lifespans = []
+    for a in agents:
+        if a.created_at:
+            try:
+                created = datetime.fromisoformat(a.created_at.replace('Z', '+00:00'))
+                age_min = (datetime.now(timezone.utc) - created).total_seconds() / 60
+                lifespans.append(age_min)
+            except Exception:
+                pass
+    avg_lifespan_min = sum(lifespans) / len(lifespans) if lifespans else 0
+
+    # Historical count
+    history_count = await db.get_agent_history_count()
+
+    return web.json_response({
+        "total_agents": len(agents),
+        "total_cost_usd": round(total_cost, 4),
+        "total_tokens_input": total_tokens_in,
+        "total_tokens_output": total_tokens_out,
+        "total_restarts": total_restarts,
+        "status_distribution": status_counts,
+        "role_distribution": role_counts,
+        "top_files": [{"path": p, "count": c} for p, c in top_files],
+        "tool_usage": tool_counts,
+        "avg_health_score": round(avg_health, 1),
+        "avg_lifespan_minutes": round(avg_lifespan_min, 1),
+        "historical_agents": history_count,
+    })
 
 
 async def health_check(request: web.Request) -> web.Response:
@@ -7296,6 +7414,8 @@ def create_app(config: Config) -> web.Application:
     app.router.add_post("/api/agents/{id}/message", send_agent_message)
     app.router.add_get("/api/agents/{id}/messages", get_agent_messages)
     app.router.add_post("/api/agents/{id}/handoff", handoff_agent)
+    app.router.add_put("/api/agents/{id}/notes", update_agent_notes)
+    app.router.add_put("/api/agents/{id}/tags", update_agent_tags)
     app.router.add_get("/api/agents/{id}/activity", get_agent_activity)
     app.router.add_get("/api/agents/{id}/tool-invocations", get_agent_tool_invocations)
     app.router.add_get("/api/agents/{id}/file-operations", get_agent_file_operations)
@@ -7308,6 +7428,9 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/intelligence/insights", get_intelligence_insights)
     app.router.add_post("/api/intelligence/insights/{id}/ack", acknowledge_insight)
     app.router.add_post("/api/intelligence/command", intelligence_command)
+
+    # REST API — Analytics
+    app.router.add_get("/api/analytics", fleet_analytics)
 
     # REST API — System
     app.router.add_get("/api/health", health_check)
