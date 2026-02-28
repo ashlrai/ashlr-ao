@@ -1042,6 +1042,23 @@ body {
     border-color: var(--danger);
     box-shadow: 0 0 0 3px rgba(239,68,68,0.2);
 }
+.recent-tasks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.recent-task-chip {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-sans);
+}
+.recent-task-chip:hover { border-color: var(--accent); color: var(--accent); }
 .form-textarea { resize: vertical; min-height: 80px; }
 .form-input::placeholder, .form-textarea::placeholder { color: var(--text-tertiary); }
 
@@ -1499,6 +1516,8 @@ body {
     max-height: 60px;
     overflow: hidden;
 }
+
+.aq-item-error { border-left: 3px solid var(--danger); background: color-mix(in srgb, var(--danger) 5%, var(--bg-surface)); }
 
 .aq-item-actions {
     display: flex;
@@ -4025,6 +4044,7 @@ body {
             <div class="form-group">
                 <label class="form-label">Task</label>
                 <textarea class="form-textarea" id="spawnTask" placeholder="What should this agent work on?"></textarea>
+                <div class="recent-tasks" id="recentTasksList" style="display:none"></div>
             </div>
         </div>
 
@@ -6285,6 +6305,20 @@ function openSpawnDialog() {
     backendSel.value = state.config.default_backend || 'claude-code';
 
     document.getElementById('spawnTask').placeholder = TASK_PLACEHOLDERS[state.selectedRole] || TASK_PLACEHOLDERS.general;
+
+    // Load recent tasks
+    const recentTasksList = document.getElementById('recentTasksList');
+    const recentTasks = JSON.parse(localStorage.getItem('ashlar_recent_tasks') || '[]');
+    if (recentTasks.length > 0) {
+        recentTasksList.style.display = '';
+        recentTasksList.innerHTML = recentTasks.slice(0, 8).map(t => {
+            const shortTask = t.task.length > 50 ? t.task.slice(0, 50) + '...' : t.task;
+            return `<span class="recent-task-chip" onclick="document.getElementById('spawnTask').value=this.dataset.task" data-task="${escapeHtml(t.task)}" title="${escapeHtml(t.task)}">${escapeHtml(shortTask)}</span>`;
+        }).join('');
+    } else {
+        recentTasksList.style.display = 'none';
+    }
+
     setTimeout(() => document.getElementById('spawnTask').focus(), 100);
     trapFocus(document.getElementById('spawnOverlay'));
 
@@ -6484,6 +6518,12 @@ async function spawnAgent() {
             const recent = JSON.parse(localStorage.getItem('ashlar_recent_dirs') || '[]');
             const updated = [dir, ...recent.filter(d => d !== dir)].slice(0, 10);
             localStorage.setItem('ashlar_recent_dirs', JSON.stringify(updated));
+        }
+        // Save task to recent
+        if (task) {
+            const recentTasks = JSON.parse(localStorage.getItem('ashlar_recent_tasks') || '[]');
+            const updated = [{ task, role: state.selectedRole, dir }, ...recentTasks.filter(t => t.task !== task)].slice(0, 15);
+            localStorage.setItem('ashlar_recent_tasks', JSON.stringify(updated));
         }
 
         document.getElementById('spawnName').value = '';
@@ -8917,10 +8957,13 @@ function updateGridLayout() {
 
 function updateAttentionBadge() {
     const waiting = [...state.agents.values()].filter(a => a.needs_input).length;
+    const errored = [...state.agents.values()].filter(a => a.status === 'error').length;
+    const total = waiting + errored;
     const badge = document.getElementById('attentionBadge');
     const prevCount = parseInt(badge.textContent) || 0;
-    badge.textContent = waiting;
-    badge.classList.toggle('active', waiting > 0);
+    badge.textContent = total;
+    badge.classList.toggle('active', total > 0);
+    badge.style.background = errored > 0 ? 'var(--danger)' : '';
     // Auto-open attention queue when first agent enters waiting (and user hasn't dismissed recently)
     const aqOverlay = document.getElementById('attentionQueueOverlay');
     if (waiting > 0 && prevCount === 0 && !aqOverlay.classList.contains('active')) {
@@ -8968,22 +9011,55 @@ function renderAttentionQueue() {
     const waiting = [...state.agents.values()]
         .filter(a => a.needs_input)
         .sort((a, b) => {
-            // Sort by updated_at ascending (longest waiting first)
             const ta = a.updated_at || a.created_at || '';
             const tb = b.updated_at || b.created_at || '';
             return ta.localeCompare(tb);
         });
 
-    countEl.textContent = waiting.length ? `${waiting.length} waiting` : '';
+    // Also include errored agents for attention
+    const errored = [...state.agents.values()]
+        .filter(a => a.status === 'error' && !a.needs_input)
+        .sort((a, b) => (a.updated_at || '').localeCompare(b.updated_at || ''));
+
+    const totalAttention = waiting.length + errored.length;
+    countEl.textContent = totalAttention ? `${totalAttention} need attention` : '';
     bulkBar.style.display = waiting.length > 1 ? '' : 'none';
 
-    if (!waiting.length) {
-        list.innerHTML = '<div class="aq-empty">No agents waiting for input</div>';
+    if (!totalAttention) {
+        list.innerHTML = '<div class="aq-empty">No agents need attention</div>';
         return;
     }
 
     list.innerHTML = '';
     const frag = document.createDocumentFragment();
+
+    // Render errored agents first (more urgent)
+    for (const agent of errored) {
+        const roleIconHtml = roleIcon(agent.role, 14);
+        const elapsed = agent.updated_at ? timeAgo(agent.updated_at) : '';
+        const errorMsg = agent.error_message ? escapeHtml(agent.error_message.slice(0, 150)) : 'Unknown error';
+
+        const item = document.createElement('div');
+        item.className = 'aq-item aq-item-error';
+        item.dataset.agentId = agent.id;
+        item.innerHTML = `
+            <div class="aq-item-header">
+                <span class="aq-item-icon">${roleIconHtml}</span>
+                <span class="aq-item-name">${escapeHtml(agent.name)}</span>
+                <span style="font-size:10px;font-weight:700;color:var(--danger);text-transform:uppercase;font-family:var(--font-mono)">ERROR</span>
+                <span class="aq-item-time">${elapsed}</span>
+            </div>
+            <div class="aq-item-question" style="color:var(--danger)">${errorMsg}</div>
+            <div class="aq-item-actions">
+                <button class="btn btn-primary" onclick="restartAgent('${agent.id}')">Restart</button>
+                <button class="btn btn-secondary" onclick="openDeepView('${agent.id}');closeAttentionQueue()">View Output</button>
+                <button class="btn btn-danger" onclick="killAgent('${agent.id}')">Kill</button>
+            </div>
+        `;
+        frag.appendChild(item);
+    }
+
+    // Render waiting agents
     for (const agent of waiting) {
         const info = ROLE_INFO[agent.role] || ROLE_INFO.general;
         const roleIconHtml = roleIcon(agent.role, 14);
@@ -8993,7 +9069,6 @@ function renderAttentionQueue() {
         const questionText = isPlan ? 'Plan ready for review' : escapeHtml(agent.input_prompt || 'Waiting for input...');
         const approveLabel = isPlan ? 'Approve Plan' : 'Approve';
 
-        // Get last few meaningful output lines for context preview
         const outputLines = (agent._outputBuffer || agent.output_lines || []);
         const meaningfulLines = outputLines
             .filter(l => l.trim() && !/^[\s─╭╰│┌┐└┘]+$/.test(l))
