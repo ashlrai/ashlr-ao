@@ -5009,6 +5009,70 @@ async def get_agent_full_output(request: web.Request) -> web.Response:
     })
 
 
+async def export_agent_output(request: web.Request) -> web.Response:
+    """GET /api/agents/{id}/output/export — download agent output as plain text."""
+    manager: AgentManager = request.app["agent_manager"]
+    db: Database = request.app["db"]
+    agent_id = request.match_info["id"]
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+
+    # Collect all output: archive + live
+    archived, _ = await db.get_archived_output(agent_id, 0, 100000)
+    live = list(agent.output_lines)
+    all_lines = archived + live
+
+    # Strip ANSI codes for clean text
+    ansi_re = re.compile(r'\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]')
+    clean = [ansi_re.sub('', line) for line in all_lines]
+    text = "\n".join(clean)
+
+    filename = f"ashlar-{agent.name}-{agent_id}.log"
+    return web.Response(
+        text=text,
+        content_type="text/plain",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+async def search_agents(request: web.Request) -> web.Response:
+    """GET /api/search?q=pattern — search across all agent outputs."""
+    manager: AgentManager = request.app["agent_manager"]
+    query = request.query.get("q", "").strip()
+    if not query or len(query) < 2:
+        return web.json_response({"error": "Query 'q' must be at least 2 characters"}, status=400)
+    if len(query) > 200:
+        return web.json_response({"error": "Query too long"}, status=400)
+
+    try:
+        pattern = re.compile(re.escape(query), re.IGNORECASE)
+    except re.error:
+        return web.json_response({"error": "Invalid search pattern"}, status=400)
+
+    results = []
+    for agent in list(manager.agents.values()):
+        matches = []
+        lines = list(agent.output_lines)
+        for i, line in enumerate(lines):
+            stripped = _strip_ansi(line) if callable(_strip_ansi) else line
+            if pattern.search(stripped):
+                matches.append({"line": i, "text": stripped[:200]})
+                if len(matches) >= 10:
+                    break
+        if matches:
+            results.append({
+                "agent_id": agent.id,
+                "agent_name": agent.name,
+                "role": agent.role,
+                "status": agent.status,
+                "match_count": len(matches),
+                "matches": matches,
+            })
+
+    return web.json_response({"query": query, "results": results, "agents_searched": len(manager.agents)})
+
+
 async def get_config(request: web.Request) -> web.Response:
     config: Config = request.app["config"]
     return web.json_response(config.to_dict())
@@ -7235,6 +7299,10 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/agents/{id}/activity", get_agent_activity)
     app.router.add_get("/api/agents/{id}/tool-invocations", get_agent_tool_invocations)
     app.router.add_get("/api/agents/{id}/file-operations", get_agent_file_operations)
+    app.router.add_get("/api/agents/{id}/output/export", export_agent_output)
+
+    # REST API — Search
+    app.router.add_get("/api/search", search_agents)
 
     # REST API — Intelligence
     app.router.add_get("/api/intelligence/insights", get_intelligence_insights)

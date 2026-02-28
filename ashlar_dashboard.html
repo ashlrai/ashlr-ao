@@ -3731,6 +3731,11 @@ body {
                 <button class="btn btn-secondary btn-sm" onclick="openSpawnDialog();setTimeout(()=>applyTemplate('bugfix'),100)" style="font-size:11px">Bug Fix</button>
                 <button class="btn btn-secondary btn-sm" onclick="openSpawnDialog();setTimeout(()=>applyTemplate('security'),100)" style="font-size:11px">Security Audit</button>
             </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:16px">
+                <button class="btn btn-secondary btn-sm" onclick="spawnFleet('full-stack')" style="font-size:11px;border-color:var(--accent);color:var(--accent)">Full Stack Team</button>
+                <button class="btn btn-secondary btn-sm" onclick="spawnFleet('review-team')" style="font-size:11px;border-color:var(--accent);color:var(--accent)">Review Team</button>
+                <button class="btn btn-secondary btn-sm" onclick="spawnFleet('build-and-test')" style="font-size:11px;border-color:var(--accent);color:var(--accent)">Build & Test</button>
+            </div>
             <div class="shortcuts">
                 <span class="shortcut-hint"><span class="kbd">⌘N</span> spawn agent</span>
                 <span class="shortcut-hint"><span class="kbd">⌘K</span> command palette</span>
@@ -3856,6 +3861,7 @@ body {
             <button class="deep-action-btn" onclick="openDeepMessaging()" title="Send to another agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span> Msg</button>
             <button class="deep-action-btn" onclick="deepRestart()" title="Restart agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></span> Restart</button>
             <button class="deep-action-btn" onclick="openHandoff()" title="Handoff to another agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></span> Handoff</button>
+            <button class="deep-action-btn" onclick="deepExportOutput()" title="Download output log"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></span> Export</button>
             <button class="deep-action-btn danger" onclick="deepKill()">Kill</button>
         </div>
     </div>
@@ -4189,8 +4195,12 @@ body {
         <div class="cheatsheet-row"><span class="desc">Approve first waiting</span><span class="keys"><span class="kbd">⌘⇧A</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Pause/resume focused</span><span class="keys"><span class="kbd">⌘⇧P</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Kill focused</span><span class="keys"><span class="kbd">⌘⇧K</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Restart focused</span><span class="keys"><span class="kbd">⌘⇧R</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Bulk select mode</span><span class="keys"><span class="kbd">⌘⇧S</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Search all agents</span><span class="keys"><span class="kbd">⌘⇧F</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Search in terminal</span><span class="keys"><span class="kbd">⌘F</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Cycle agents</span><span class="keys"><span class="kbd">Tab</span> / <span class="kbd">⇧Tab</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Activity timeline</span><span class="keys"><span class="kbd">⌘T</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Settings</span><span class="keys"><span class="kbd">⌘,</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Show this cheatsheet</span><span class="keys"><span class="kbd">?</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Push-to-talk</span><span class="keys">Hold <span class="kbd">Space</span></span></div>
@@ -4218,7 +4228,13 @@ body {
 <div class="modal-overlay" id="timelineOverlay" onclick="if(event.target===this)closeTimeline()">
     <div class="timeline-panel">
         <div class="timeline-header">
-            <h3 style="margin:0;font-weight:700;letter-spacing:-0.02em">Activity Timeline</h3>
+            <div style="display:flex;align-items:center;gap:12px">
+                <h3 style="margin:0;font-weight:700;letter-spacing:-0.02em">Timeline</h3>
+                <div style="display:flex;gap:2px;background:var(--bg-surface);border-radius:6px;padding:2px;border:1px solid var(--border-subtle)">
+                    <button class="view-toggle-btn active" id="tlTabEvents" onclick="switchTimelineTab('events')" style="font-size:12px;padding:3px 10px">Events</button>
+                    <button class="view-toggle-btn" id="tlTabHistory" onclick="switchTimelineTab('history')" style="font-size:12px;padding:3px 10px">History</button>
+                </div>
+            </div>
             <div style="display:flex;gap:8px;align-items:center">
                 <select class="form-input" id="timelineAgentFilter" style="width:140px;padding:4px 8px;font-size:12px" onchange="refreshTimeline()">
                     <option value="">All Agents</option>
@@ -4237,6 +4253,7 @@ body {
             </div>
         </div>
         <div class="timeline-list" id="timelineList"></div>
+        <div class="timeline-list" id="historyList" style="display:none"></div>
     </div>
 </div>
 
@@ -5777,6 +5794,43 @@ function closeSpawnDialog() {
     state.view = 'grid';
 }
 
+const FLEET_PRESETS = {
+    'full-stack': {
+        label: 'Full Stack Team',
+        description: 'Frontend + Backend + Tester',
+        agents: [
+            { role: 'frontend', name: 'ui', task: 'Implement the frontend changes. Follow existing component patterns and styling conventions.' },
+            { role: 'backend', name: 'api', task: 'Implement the backend changes. Follow existing API patterns, add proper error handling.' },
+            { role: 'tester', name: 'tests', task: 'Write comprehensive tests for the frontend and backend changes once they are complete.' },
+        ],
+    },
+    'review-team': {
+        label: 'Review Team',
+        description: 'Code Review + Security Audit',
+        agents: [
+            { role: 'reviewer', name: 'review', task: 'Review the recent code changes for bugs, logic errors, and code quality issues.' },
+            { role: 'security', name: 'security', task: 'Perform a security audit of the recent changes. Check for vulnerabilities and auth issues.' },
+        ],
+    },
+    'build-and-test': {
+        label: 'Build & Test',
+        description: 'Backend + Tester + Reviewer',
+        agents: [
+            { role: 'backend', name: 'builder', task: 'Implement the requested feature following existing code patterns.' },
+            { role: 'tester', name: 'tester', task: 'Write tests for the feature once the builder agent completes implementation.' },
+            { role: 'reviewer', name: 'reviewer', task: 'Review all code changes after implementation and testing are complete.' },
+        ],
+    },
+    'docs-and-polish': {
+        label: 'Docs & Polish',
+        description: 'Docs + Architect review',
+        agents: [
+            { role: 'docs', name: 'docs', task: 'Update documentation to reflect recent changes. Add JSDoc, README updates, and API docs.' },
+            { role: 'architect', name: 'refactor', task: 'Review the codebase for refactoring opportunities. Improve code organization and reduce tech debt.' },
+        ],
+    },
+};
+
 const SPAWN_TEMPLATES = {
     review: { role: 'reviewer', task: 'Review the recent code changes for bugs, security issues, and code quality. Check for edge cases and suggest improvements.' },
     tests: { role: 'tester', task: 'Write comprehensive tests for the recent code changes. Cover edge cases, error scenarios, and integration points.' },
@@ -5798,6 +5852,34 @@ function applyTemplate(templateKey) {
     document.getElementById('spawnTask').value = tmpl.task;
     document.getElementById('spawnTask').placeholder = TASK_PLACEHOLDERS[tmpl.role] || TASK_PLACEHOLDERS.general;
     showToast(`Template applied: ${templateKey}`, 'info');
+}
+
+async function spawnFleet(presetKey) {
+    const preset = FLEET_PRESETS[presetKey];
+    if (!preset) return;
+    const workingDir = document.getElementById('spawnDir')?.value || state.config?.default_working_dir || '';
+    const projectId = document.getElementById('spawnProject')?.value || '';
+    const ok = await confirmAction(`Spawn ${preset.label}`, `Spawn ${preset.agents.length} agents: ${preset.description}?`, 'Spawn Fleet', { iconKey: 'rocket', danger: false });
+    if (!ok) return;
+    let spawned = 0;
+    for (const agentDef of preset.agents) {
+        try {
+            const res = await apiFetch('/api/agents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    role: agentDef.role,
+                    name: agentDef.name,
+                    task: agentDef.task,
+                    working_dir: workingDir,
+                    project_id: projectId || undefined,
+                }),
+            });
+            if (res.ok) spawned++;
+        } catch (e) { console.warn('Fleet spawn failed for', agentDef.name, e); }
+    }
+    showToast(`Fleet "${preset.label}": ${spawned}/${preset.agents.length} agents spawned`, spawned === preset.agents.length ? 'success' : 'warning');
+    closeSpawnDialog();
 }
 
 async function queueFromSpawnDialog() {
@@ -6238,6 +6320,17 @@ function deepCopyOutput() {
     navigator.clipboard.writeText(text).then(() => showToast('Output copied to clipboard', 'success'));
 }
 
+function deepExportOutput() {
+    if (!state.focusedAgentId) return;
+    const a = document.createElement('a');
+    a.href = `/api/agents/${state.focusedAgentId}/output/export`;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('Downloading output log...', 'info');
+}
+
 async function deepKill() {
     if (!state.focusedAgentId) return;
     const killed = await killAgent(state.focusedAgentId);
@@ -6676,6 +6769,10 @@ const PALETTE_ACTIONS = [
     { icon: 'activity', label: 'System metrics', shortcut: '', action: () => { closePalette(); toggleMetricsDropdown(); } },
     { icon: 'message-square', label: 'Natural language command...', shortcut: '', action: () => { closePalette(); openNlCommand(); } },
     { icon: 'list', label: 'View task queue', shortcut: '', action: () => { closePalette(); openQueuePanel(); } },
+    { icon: 'search', label: 'Search across all agents...', shortcut: '⌘⇧F', action: () => { closePalette(); openCrossAgentSearch(); } },
+    { icon: 'users', label: 'Spawn Full Stack Team', shortcut: '', action: () => { closePalette(); spawnFleet('full-stack'); } },
+    { icon: 'shield', label: 'Spawn Review Team', shortcut: '', action: () => { closePalette(); spawnFleet('review-team'); } },
+    { icon: 'layers', label: 'Spawn Build & Test', shortcut: '', action: () => { closePalette(); spawnFleet('build-and-test'); } },
 ];
 
 function openPalette() {
@@ -7125,6 +7222,20 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
+    // Cmd+Shift+R — restart focused
+    if (e.metaKey && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        if (state.focusedAgentId) deepRestart();
+        return;
+    }
+
+    // Cmd+Shift+F — cross-agent search
+    if (e.metaKey && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        openCrossAgentSearch();
+        return;
+    }
+
     // Cmd+Enter — send command bar
     if (e.metaKey && e.key === 'Enter' && state.view === 'grid') { e.preventDefault(); sendCommand(); return; }
 
@@ -7147,6 +7258,19 @@ document.addEventListener('keydown', (e) => {
 
     // ? — cheatsheet (handles both e.key='?' and shift+/ automation)
     if ((e.key === '?' || (e.key === '/' && e.shiftKey)) && !e.metaKey) { e.preventDefault(); openCheatsheet(); return; }
+
+    // Tab — cycle agents in grid view
+    if (e.key === 'Tab' && state.view === 'grid') {
+        e.preventDefault();
+        const cards = getVisibleCards();
+        if (!cards.length) return;
+        if (e.shiftKey) {
+            setKeyboardFocus(keyboardFocusIdx <= 0 ? cards.length - 1 : keyboardFocusIdx - 1);
+        } else {
+            setKeyboardFocus(keyboardFocusIdx >= cards.length - 1 ? 0 : keyboardFocusIdx + 1);
+        }
+        return;
+    }
 
     // Arrow keys + hjkl — keyboard grid navigation
     if (state.view === 'grid') {
@@ -7617,6 +7741,35 @@ function showVoiceTranscript(text) {
     el.textContent = text;
     el.classList.add('active');
     setTimeout(() => el.classList.remove('active'), 3000);
+}
+
+async function openCrossAgentSearch() {
+    const query = await promptInput('Search All Agents', 'Search across all agent outputs...', { iconKey: 'search', confirmText: 'Search' });
+    if (!query) return;
+    try {
+        const res = await apiFetch(`/api/search?q=${encodeURIComponent(query)}`);
+        if (!res.ok) { showToast('Search failed', 'error'); return; }
+        const data = await res.json();
+        if (!data.results || data.results.length === 0) {
+            showToast(`No matches found for "${query}"`, 'info');
+            return;
+        }
+        // Show results in insights panel
+        const body = document.getElementById('insightsBody');
+        body.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--text-secondary);border-bottom:1px solid var(--border-subtle)">Search: "${escapeHtml(query)}" — ${data.results.length} agent(s) matched</div>`;
+        data.results.forEach(r => {
+            const div = document.createElement('div');
+            div.style.cssText = 'padding:10px 12px;border-bottom:1px solid var(--border-subtle);cursor:pointer';
+            div.innerHTML = `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">${roleIcon(r.role, 14)}<span style="font-weight:600;font-size:12px">${escapeHtml(r.agent_name)}</span><span class="status-badge" style="font-size:9px">${r.status}</span></div>` +
+                r.matches.slice(0, 3).map(m => `<div style="font-size:11px;color:var(--text-tertiary);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 0">${escapeHtml(m.text)}</div>`).join('');
+            div.onclick = () => openDeepView(r.agent_id);
+            body.appendChild(div);
+        });
+        document.getElementById('insightsHeaderLabel').textContent = 'Search Results';
+        document.getElementById('insightsPanel').classList.add('active');
+    } catch (e) {
+        showToast('Search failed', 'error');
+    }
 }
 
 function openNlCommand() {
@@ -9338,6 +9491,52 @@ async function refreshTimeline() {
         });
     } catch (e) {
         list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">Failed to load events</div>';
+    }
+}
+
+function switchTimelineTab(tab) {
+    document.getElementById('tlTabEvents').classList.toggle('active', tab === 'events');
+    document.getElementById('tlTabHistory').classList.toggle('active', tab === 'history');
+    document.getElementById('timelineList').style.display = tab === 'events' ? '' : 'none';
+    document.getElementById('historyList').style.display = tab === 'history' ? '' : 'none';
+    document.getElementById('timelineAgentFilter').style.display = tab === 'events' ? '' : 'none';
+    document.getElementById('timelineTypeFilter').style.display = tab === 'events' ? '' : 'none';
+    if (tab === 'history') loadSessionHistory();
+}
+
+async function loadSessionHistory() {
+    const list = document.getElementById('historyList');
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">Loading...</div>';
+    try {
+        const res = await apiFetch('/api/history?limit=50');
+        const result = await res.json();
+        const items = result.data || [];
+        if (!items.length) {
+            list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">No agent history yet</div>';
+            return;
+        }
+        list.innerHTML = '';
+        items.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'timeline-event';
+            el.style.cursor = 'default';
+            const info = ROLE_INFO[item.role] || ROLE_INFO.general;
+            const created = item.created_at ? timeAgo(item.created_at) : '';
+            const cost = item.estimated_cost_usd ? `$${item.estimated_cost_usd.toFixed(4)}` : '';
+            const restarts = item.restart_count || 0;
+            el.innerHTML = `
+                <span style="flex-shrink:0">${roleIcon(item.role, 16)}</span>
+                <span style="font-weight:600;flex-shrink:0;min-width:80px">${escapeHtml(item.name || item.id)}</span>
+                <span style="color:var(--text-tertiary);font-size:11px;flex-shrink:0">${escapeHtml(info.name)}</span>
+                <span style="flex:1;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${escapeHtml(item.task || item.summary || '')}</span>
+                ${cost ? `<span style="color:var(--text-tertiary);font-size:11px;font-family:var(--font-mono)">${cost}</span>` : ''}
+                ${restarts ? `<span style="color:var(--warning);font-size:10px">${restarts}x</span>` : ''}
+                <span style="color:var(--text-tertiary);font-size:11px;flex-shrink:0">${created}</span>
+            `;
+            list.appendChild(el);
+        });
+    } catch (e) {
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">Failed to load history</div>';
     }
 }
 
