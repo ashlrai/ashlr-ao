@@ -532,6 +532,8 @@ body {
 .agent-card[data-status="planning"] { border-left-color: var(--warning) !important; }
 .agent-card[data-status="error"] { border-left-color: var(--danger) !important; background: color-mix(in srgb, var(--danger) 4%, var(--bg-surface)); }
 .agent-card[data-status="paused"] { opacity: 0.45; filter: grayscale(0.3); cursor: default; }
+.agent-card[data-active-output="true"] .card-name::after { content: ''; display: inline-block; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; margin-left: 6px; animation: output-pulse 1s ease-in-out infinite; vertical-align: middle; }
+@keyframes output-pulse { 0%, 100% { opacity: 0.4; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
 .agent-card[data-status="paused"]:hover { opacity: 0.75; filter: grayscale(0.1); cursor: pointer; }
 .agent-card[data-status="idle"] { border-left-color: var(--text-tertiary) !important; opacity: 0.6; }
 .agent-card[data-status="idle"]:hover { opacity: 0.85; }
@@ -3826,6 +3828,13 @@ body {
             <button class="status-chip" data-status="idle" onclick="setStatusFilter('idle')">Idle <span class="status-chip-count" id="chipCountIdle">0</span></button>
         </div>
         <button class="bulk-select-btn" id="bulkSelectBtn" onclick="toggleBulkMode()" title="Select agents (⌘⇧S)"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Select</button>
+        <select class="eventlog-filter-select" id="cardSortSelect" onchange="setCardSort(this.value)" title="Sort cards" style="font-size:11px;padding:3px 6px">
+            <option value="priority">Priority</option>
+            <option value="name">Name</option>
+            <option value="status">Status</option>
+            <option value="cost">Cost</option>
+            <option value="age">Age</option>
+        </select>
         <div class="view-toggle">
             <button class="view-toggle-btn active" id="viewGridBtn" onclick="setViewMode('grid')" title="Card grid"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/></svg></button>
             <button class="view-toggle-btn" id="viewTableBtn" onclick="setViewMode('table')" title="Table view"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg></button>
@@ -4112,7 +4121,7 @@ body {
             <button class="btn btn-primary" onclick="sendInteraction('yes')">Yes</button>
             <button class="btn btn-secondary" onclick="sendInteraction('no')">No</button>
         </div>
-        <div class="interaction-divider">or type a custom response</div>
+        <div class="interaction-divider">or type a custom response · <span style="opacity:0.5;font-size:10px">Press <kbd style="background:var(--bg-page);padding:1px 4px;border-radius:3px;font-family:var(--font-mono)">A</kbd> to approve · <kbd style="background:var(--bg-page);padding:1px 4px;border-radius:3px;font-family:var(--font-mono)">R</kbd> to reject</span></div>
         <div class="interaction-input-area">
             <textarea class="interaction-input" id="interactionInput" placeholder="Custom response..."
                       onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCustomInteraction()}"></textarea>
@@ -4688,6 +4697,8 @@ const state = {
     aqDismissedAt: 0,
     insights: [],
     taskQueue: [],
+    cardSort: localStorage.getItem('ashlar_card_sort') || 'priority',
+    notificationLog: [],
 };
 
 const ROLE_INFO = {
@@ -5593,7 +5604,18 @@ function createAgentCard(agent) {
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
     card.setAttribute('aria-label', `Agent ${agent.name}`);
-    card.onkeydown = (e) => { if (e.key === 'Enter') { if (document.getElementById('agentGrid').classList.contains('bulk-mode')) { toggleAgentSelection(agent.id); } else { openDeepView(agent.id); } } };
+    card.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            if (document.getElementById('agentGrid').classList.contains('bulk-mode')) {
+                toggleAgentSelection(agent.id);
+            } else {
+                // If agent is waiting, open interaction sheet; otherwise deep view
+                const ag = state.agents.get(agent.id);
+                if (ag && ag.needs_input) { openInteraction(agent.id); }
+                else { openDeepView(agent.id); }
+            }
+        }
+    };
     card.innerHTML = `
         <div class="card-select" data-agent-id="${agent.id}" onclick="toggleAgentSelection('${agent.id}', event)"></div>
         <div class="card-header">
@@ -5660,6 +5682,7 @@ function createAgentCard(agent) {
 function updateAgentCard(card, agent) {
     card.dataset.status = agent.status;
     card.dataset.planMode = agent.plan_mode ? 'true' : 'false';
+    card.dataset.activeOutput = (agent.output_rate && agent.output_rate > 0 && agent.status === 'working') ? 'true' : 'false';
     const roleColor = agent.role_color || ROLE_INFO[agent.role]?.color || '#64748B';
     card.style.borderLeftColor = roleColor;
 
@@ -7611,6 +7634,12 @@ document.addEventListener('keydown', (e) => {
     const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
     const hasActiveOverlay = document.querySelector('.confirm-overlay.active');
 
+    // Interaction sheet keyboard shortcuts (when overlay is active and not focused on input)
+    if (!isInput && document.getElementById('interactionOverlay').classList.contains('active')) {
+        if (e.key === 'a' || e.key === 'y') { e.preventDefault(); sendInteraction('yes'); return; }
+        if (e.key === 'r' || e.key === 'n') { e.preventDefault(); sendInteraction('no'); return; }
+    }
+
     // Escape always works
     if (e.key === 'Escape') {
         if (state.view === 'deep') { closeDeepView(); return; }
@@ -8400,6 +8429,10 @@ function clearTerminalDisplay() {
 // ── Toasts with Progress Bar ──
 
 function showToast(message, type = 'info') {
+    // Log to notification center
+    state.notificationLog.unshift({ message, type, time: Date.now() });
+    if (state.notificationLog.length > 200) state.notificationLog.length = 200;
+
     const container = document.getElementById('toastContainer');
     const durations = { info: 3000, success: 3000, warning: 5000, error: 8000 };
     const duration = durations[type] || 3000;
@@ -9000,6 +9033,17 @@ function toggleTheme() {
         setTimeout(() => {
             const btn = document.getElementById('themeToggleBtn');
             if (btn) btn.innerHTML = '<svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+        }, 0);
+    }
+})();
+
+// Restore saved card sort
+(function() {
+    const saved = localStorage.getItem('ashlar_card_sort');
+    if (saved) {
+        setTimeout(() => {
+            const sel = document.getElementById('cardSortSelect');
+            if (sel) sel.value = saved;
         }, 0);
     }
 })();
@@ -11454,21 +11498,50 @@ openSpawnDialog = function() {
     populatePresetSelector();
 };
 
-// Pin-aware grid rendering: pinned agents first
+// Smart card sorting: pinned first, then by selected sort mode
+const _statusPriority = { error: 0, waiting: 1, working: 2, planning: 3, reading: 3, spawning: 4, idle: 5, paused: 6, complete: 7 };
 const _origRenderGrid = renderAgentGrid;
 renderAgentGrid = function() {
-    if (state.pinnedAgents.size > 0) {
-        // Sort state.agents Map so pinned come first
-        const entries = [...state.agents.entries()];
-        entries.sort((a, b) => {
-            const pa = state.pinnedAgents.has(a[0]) ? 0 : 1;
-            const pb = state.pinnedAgents.has(b[0]) ? 0 : 1;
-            return pa - pb;
-        });
-        state.agents = new Map(entries);
-    }
+    const entries = [...state.agents.entries()];
+    entries.sort((a, b) => {
+        // Pinned always first
+        const pa = state.pinnedAgents.has(a[0]) ? 0 : 1;
+        const pb = state.pinnedAgents.has(b[0]) ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+
+        const agA = a[1], agB = b[1];
+        switch (state.cardSort) {
+            case 'priority': {
+                const sa = _statusPriority[agA.status] ?? 5;
+                const sb = _statusPriority[agB.status] ?? 5;
+                if (sa !== sb) return sa - sb;
+                return (agB.updated_at || '').localeCompare(agA.updated_at || '');
+            }
+            case 'name':
+                return (agA.name || '').localeCompare(agB.name || '');
+            case 'status': {
+                const sa = _statusPriority[agA.status] ?? 5;
+                const sb = _statusPriority[agB.status] ?? 5;
+                return sa - sb;
+            }
+            case 'cost':
+                return (agB.estimated_cost_usd || 0) - (agA.estimated_cost_usd || 0);
+            case 'age':
+                return (agA.created_at || '').localeCompare(agB.created_at || '');
+            default:
+                return 0;
+        }
+    });
+    state.agents = new Map(entries);
     _origRenderGrid();
 };
+
+function setCardSort(mode) {
+    state.cardSort = mode;
+    localStorage.setItem('ashlar_card_sort', mode);
+    scheduleRender();
+    showToast(`Sorting by ${mode}`, 'info');
+}
 
 // Settings: populate alert thresholds
 const _origOpenSettings = openSettings;
