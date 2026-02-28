@@ -248,10 +248,54 @@ body {
 .metric-value.yellow { color: var(--warning); }
 .metric-value.red { color: var(--danger); }
 
+.intelligence-status { cursor: pointer; }
+.intelligence-status:hover { opacity: 0.8; }
 .intelligence-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; vertical-align: middle; }
 .intelligence-dot.connected { background: var(--success); }
 .intelligence-dot.disabled { background: var(--text-tertiary); }
 .intelligence-dot.error { background: var(--danger); }
+.intelligence-count {
+    font-size: 9px; font-weight: 700; font-family: var(--font-mono);
+    background: var(--accent); color: white; border-radius: 8px;
+    padding: 0 5px; min-width: 16px; text-align: center; line-height: 16px;
+    margin-left: 2px;
+}
+.insights-panel {
+    position: fixed; top: 52px; right: 0; width: 380px; bottom: 0;
+    background: var(--bg-surface); border-left: 1px solid var(--border-subtle);
+    z-index: 200; display: none; flex-direction: column;
+    box-shadow: -4px 0 16px rgba(0,0,0,0.2);
+}
+.insights-panel.active { display: flex; }
+.insights-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--border-subtle);
+    font-size: 13px; font-weight: 600;
+}
+.insights-header span { display: flex; align-items: center; gap: 8px; }
+.insights-close { background: none; border: none; color: var(--text-tertiary); cursor: pointer; padding: 4px; }
+.insights-close:hover { color: var(--text-primary); }
+.insights-body { flex: 1; overflow-y: auto; padding: 12px; }
+.insight-card {
+    padding: 10px 12px; border-radius: var(--radius-sm);
+    border-left: 3px solid var(--text-tertiary);
+    background: var(--bg-elevated); margin-bottom: 8px;
+}
+.insight-card.critical { border-left-color: var(--danger); }
+.insight-card.warning { border-left-color: var(--orange); }
+.insight-card.info { border-left-color: var(--accent); }
+.insight-card .insight-type { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); margin-bottom: 4px; }
+.insight-card .insight-msg { font-size: 12px; color: var(--text-primary); line-height: 1.4; margin-bottom: 6px; }
+.insight-card .insight-agents { font-size: 10px; color: var(--text-secondary); font-family: var(--font-mono); }
+.insight-card .insight-action {
+    margin-top: 8px; display: flex; gap: 6px;
+}
+.insight-card .insight-action button {
+    font-size: 10px; padding: 3px 8px; border-radius: 4px; border: none;
+    cursor: pointer; font-weight: 600; font-family: var(--font-sans);
+}
+.insight-card .insight-action .btn-suggest { background: var(--accent); color: white; }
+.insight-card .insight-action .btn-dismiss { background: var(--bg-overlay); color: var(--text-secondary); }
 
 .cpu-sparkline {
     width: 72px;
@@ -555,41 +599,48 @@ body {
     min-height: 32px;
 }
 
-.card-input-section { display: none; margin-bottom: 6px; }
-.card-input-prompt {
-    font-size: 10px;
-    color: var(--orange);
+.card-input-section { display: none; margin-bottom: 4px; }
+.card-input-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     background: var(--orange-subtle);
     border: 1px solid rgba(249,115,22,0.15);
     border-radius: var(--radius-sm);
-    padding: 6px 8px;
-    margin-bottom: 4px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    padding: 4px 6px;
+}
+.card-input-prompt {
+    font-size: 10px;
+    color: var(--orange);
+    flex: 1;
     overflow: hidden;
-    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.3;
+    min-width: 0;
 }
 .card-respond-btn {
     background: var(--orange);
     color: white;
     border: none;
-    padding: 4px 10px;
-    border-radius: 5px;
-    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 9px;
     font-weight: 600;
     font-family: var(--font-sans);
     cursor: pointer;
     transition: all var(--transition);
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 .card-respond-btn:hover { background: #EA580C; }
 .card-quick-actions {
-    display: none; gap: 4px; margin-bottom: 4px;
+    display: none; gap: 3px; flex-shrink: 0;
 }
 .card-quick-btn {
-    flex: 1; padding: 4px 8px; border: none; border-radius: 5px;
-    font-size: 10px; font-weight: 600; cursor: pointer; transition: var(--transition);
-    font-family: var(--font-sans);
+    padding: 3px 8px; border: none; border-radius: 4px;
+    font-size: 9px; font-weight: 600; cursor: pointer; transition: var(--transition);
+    font-family: var(--font-sans); white-space: nowrap;
 }
 .card-quick-btn.approve {
     background: var(--success); color: white;
@@ -3514,6 +3565,11 @@ body {
     font-family: var(--font-mono);
 }
 .activity-stat .label { color: var(--text-tertiary); font-weight: 400; margin-right: 4px; }
+.activity-stat.minor { font-size: 10px; font-weight: 400; color: var(--text-secondary); }
+.activity-stat.minor .label { font-size: 10px; }
+.activity-stat-break { width: 1px; background: var(--border-subtle); margin: 0 4px; align-self: stretch; }
+.activity-event.activity-error .activity-desc { color: var(--danger); }
+.activity-event.activity-success .activity-icon { color: var(--success); }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -3574,9 +3630,10 @@ body {
             <span class="metric-label">Cost</span>
             <span class="metric-value" id="metricCost">$0.00</span>
         </div>
-        <div class="metric intelligence-status" id="intelligenceStatus" style="display:none">
+        <div class="metric intelligence-status" id="intelligenceStatus" style="display:none" onclick="toggleInsightsPanel()" role="button" tabindex="0" title="Intelligence status — click for insights">
             <span class="intelligence-dot"></span>
             <span class="metric-label">AI</span>
+            <span class="intelligence-count" id="insightCount" style="display:none">0</span>
         </div>
     </div>
     <div class="attention-badge" id="attentionBadge" onclick="focusFirstWaiting()" role="button" tabindex="0" aria-label="Agents needing attention" onkeydown="if(event.key==='Enter')focusFirstWaiting()">0</div>
@@ -3597,6 +3654,17 @@ body {
         <span>+</span> New Agent
     </button>
     <div class="metrics-dropdown" id="metricsDropdown"></div>
+</div>
+
+<!-- ── Insights Panel ── -->
+<div class="insights-panel" id="insightsPanel">
+    <div class="insights-header">
+        <span id="insightsHeaderLabel">Intelligence Insights</span>
+        <button class="insights-close" onclick="closeInsightsPanel()" aria-label="Close">&#x2715;</button>
+    </div>
+    <div class="insights-body" id="insightsBody">
+        <div class="activity-empty">No insights yet — the meta-agent analyzes your fleet every 30s when multiple agents are running</div>
+    </div>
 </div>
 
 <!-- ── Connection Banner ── -->
@@ -4309,6 +4377,7 @@ const state = {
     extTab: 'skills',
     extFilter: '',
     aqDismissedAt: 0,
+    insights: [],
 };
 
 const ROLE_INFO = {
@@ -4717,6 +4786,11 @@ class AshlarSocket {
                 }
                 case 'intelligence_alert': {
                     if (data.insight) {
+                        if (!state.insights) state.insights = [];
+                        state.insights.unshift(data.insight);
+                        if (state.insights.length > 50) state.insights.pop();
+                        updateInsightsBadge();
+                        renderInsightsPanel();
                         showToast(data.insight.message, data.insight.severity === 'critical' ? 'error' : data.insight.severity === 'warning' ? 'warning' : 'info');
                     }
                     break;
@@ -4750,6 +4824,82 @@ function updateIntelligenceStatus() {
         el.style.display = '';
         dot.className = 'intelligence-dot disabled';
     }
+}
+
+// ── Intelligence Insights Panel ──
+
+function toggleInsightsPanel() {
+    const panel = document.getElementById('insightsPanel');
+    if (panel.classList.contains('active')) {
+        closeInsightsPanel();
+    } else {
+        panel.classList.add('active');
+        fetchInsights();
+    }
+}
+
+function closeInsightsPanel() {
+    document.getElementById('insightsPanel').classList.remove('active');
+}
+
+async function fetchInsights() {
+    try {
+        const resp = await fetch('/api/intelligence/insights');
+        if (resp.ok) {
+            const data = await resp.json();
+            if (data.insights) {
+                state.insights = data.insights;
+                updateInsightsBadge();
+                renderInsightsPanel();
+            }
+        }
+    } catch (e) { /* no intelligence endpoint */ }
+}
+
+function updateInsightsBadge() {
+    const countEl = document.getElementById('insightCount');
+    if (!countEl) return;
+    const unacked = (state.insights || []).filter(i => !i.acknowledged).length;
+    if (unacked > 0) {
+        countEl.style.display = '';
+        countEl.textContent = unacked;
+    } else {
+        countEl.style.display = 'none';
+    }
+}
+
+function renderInsightsPanel() {
+    const body = document.getElementById('insightsBody');
+    const insights = state.insights || [];
+    if (!insights.length) {
+        body.innerHTML = '<div class="activity-empty">No insights yet — the meta-agent analyzes your fleet every 30s when multiple agents are running</div>';
+        return;
+    }
+    body.innerHTML = insights.map(i => {
+        const agentNames = (i.agent_ids || []).map(id => {
+            const a = state.agents.get(id);
+            return a ? a.name : id;
+        }).join(', ');
+        return `<div class="insight-card ${i.severity || 'info'}${i.acknowledged ? ' acknowledged' : ''}">
+            <div class="insight-type">${i.insight_type || 'insight'} · ${i.severity || 'info'}</div>
+            <div class="insight-msg">${escapeHtml(i.message || '')}</div>
+            ${agentNames ? `<div class="insight-agents">Agents: ${escapeHtml(agentNames)}</div>` : ''}
+            <div class="insight-action">
+                ${i.suggested_action ? `<button class="btn-suggest" onclick="showToast('${escapeHtml(i.suggested_action).replace(/'/g, "\\'")}', 'info')">${escapeHtml(i.suggested_action.slice(0, 30))}</button>` : ''}
+                ${!i.acknowledged ? `<button class="btn-dismiss" onclick="acknowledgeInsight('${i.id}')">Dismiss</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function acknowledgeInsight(insightId) {
+    try {
+        await fetch(`/api/intelligence/insights/${insightId}/ack`, { method: 'POST' });
+        const insight = (state.insights || []).find(i => i.id === insightId);
+        if (insight) insight.acknowledged = true;
+        updateInsightsBadge();
+        renderInsightsPanel();
+    } catch (e) { showToast('Failed to acknowledge insight', 'error'); }
 }
 
 // ── Message Handlers ──
@@ -5127,9 +5277,11 @@ function createAgentCard(agent) {
         <div class="card-dir"></div>
         <div class="card-summary"></div>
         <div class="card-input-section">
-            <div class="card-input-prompt"></div>
-            <div class="card-quick-actions"></div>
-            <button class="card-respond-btn" onclick="event.stopPropagation();openInteraction('${agent.id}')">Respond</button>
+            <div class="card-input-row">
+                <div class="card-input-prompt"></div>
+                <div class="card-quick-actions"></div>
+                <button class="card-respond-btn" onclick="event.stopPropagation();openInteraction('${agent.id}')">Reply</button>
+            </div>
         </div>
         <div class="progress-bar" role="progressbar" aria-label="Task progress"><div class="progress-bar-fill"></div></div>
         <canvas class="card-sparkline" width="160" height="20"></canvas>
@@ -5401,13 +5553,21 @@ function updateAgentCard(card, agent) {
         }
     }
 
-    // Cost badge
+    // Cost badge — show health score if available, otherwise cost
     const costBadge = card.querySelector('.card-cost-badge');
     if (costBadge) {
-        if (agent.estimated_cost_usd > 0) {
+        if (typeof agent.health_score === 'number') {
+            const hp = Math.round(agent.health_score * 100);
+            const hpColor = hp >= 80 ? 'var(--success)' : hp >= 50 ? 'var(--orange)' : 'var(--danger)';
+            costBadge.style.display = '';
+            costBadge.style.color = hpColor;
+            costBadge.textContent = `♥ ${hp}%`;
+            costBadge.title = `Health: ${hp}%`;
+        } else if (agent.estimated_cost_usd > 0) {
             const cost = agent.estimated_cost_usd;
             costBadge.textContent = cost >= 1 ? `$${cost.toFixed(2)}` : `$${cost.toFixed(3)}`;
             costBadge.style.display = '';
+            costBadge.style.color = '';
         } else {
             costBadge.style.display = 'none';
         }
@@ -5424,13 +5584,16 @@ function updateAgentCard(card, agent) {
     }
     badge.className = `status-badge ${agent.status}`;
 
-    // Meta: memory + time + output rate + restart indicator
+    // Meta: memory + time + output rate + cost + health + files
     const meta = card.querySelector('.card-meta');
-    const memStr = agent.memory_mb ? `${Math.round(agent.memory_mb)}MB` : '';
-    const timeStr = timeAgo(agent.updated_at || agent.created_at);
-    const rateStr = agent.output_rate ? `${Math.round(agent.output_rate)}l/m` : '';
-    const restartStr = agent.restart_count > 0 ? `↻${agent.restart_count}` : '';
-    meta.textContent = [restartStr, memStr, rateStr, timeStr].filter(Boolean).join(' · ');
+    const metaParts = [];
+    if (agent.restart_count > 0) metaParts.push(`↻${agent.restart_count}`);
+    if (agent.memory_mb) metaParts.push(`${Math.round(agent.memory_mb)}MB`);
+    if (agent.output_rate) metaParts.push(`${Math.round(agent.output_rate)}l/m`);
+    if (agent.estimated_cost_usd > 0.001) metaParts.push(`$${agent.estimated_cost_usd.toFixed(2)}`);
+    if (agent.files_touched > 0) metaParts.push(`${agent.files_touched} files`);
+    metaParts.push(timeAgo(agent.updated_at || agent.created_at));
+    meta.innerHTML = metaParts.map(p => `<span>${p}</span>`).join('');
 }
 
 function shortenPath(p) {
@@ -6756,6 +6919,7 @@ document.addEventListener('keydown', (e) => {
         if (document.getElementById('projectDetailPanel')?.classList.contains('active')) { closeProjectDetail(); return; }
         if (document.getElementById('historyOverlay').classList.contains('active')) { closeHistory(); return; }
         if (document.getElementById('cheatsheetOverlay').classList.contains('active')) { closeCheatsheet(); return; }
+        if (document.getElementById('insightsPanel').classList.contains('active')) { closeInsightsPanel(); return; }
         if (document.getElementById('extensionsOverlay').classList.contains('active')) { closeExtensionsPanel(); return; }
         if (document.getElementById('settingsOverlay').classList.contains('active')) { closeSettings(); return; }
         if (document.getElementById('wfEditorOverlay').classList.contains('active')) { closeWfEditor(); return; }
@@ -6779,8 +6943,8 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
-    // / — palette (when not in input)
-    if (e.key === '/' && !isInput && state.view === 'grid') {
+    // / — palette (when not in input, not shift+/ which is ?)
+    if (e.key === '/' && !e.shiftKey && !isInput && state.view === 'grid') {
         e.preventDefault();
         openPalette();
         return;
@@ -6857,8 +7021,8 @@ document.addEventListener('keydown', (e) => {
 
     if (isInput) return;
 
-    // ? — cheatsheet
-    if (e.key === '?' && !e.metaKey) { e.preventDefault(); openCheatsheet(); return; }
+    // ? — cheatsheet (handles both e.key='?' and shift+/ automation)
+    if ((e.key === '?' || (e.key === '/' && e.shiftKey)) && !e.metaKey) { e.preventDefault(); openCheatsheet(); return; }
 
     // Arrow keys + hjkl — keyboard grid navigation
     if (state.view === 'grid') {
@@ -9614,36 +9778,109 @@ function parseActivityFromOutput(agentId) {
     return cache.events;
 }
 
-function renderActivityFeed(agentId) {
-    const events = parseActivityFromOutput(agentId);
+async function renderActivityFeed(agentId) {
     const container = document.getElementById('activityFeedContent');
     const statsEl = document.getElementById('activityStats');
+    const agent = state.agents.get(agentId);
 
-    if (!events.length) {
+    // Try server structured data first, fall back to client-side parsing
+    let serverActivity = agent?._activity;
+    if (!serverActivity) {
+        try {
+            const resp = await fetch(`/api/agents/${agentId}/activity`);
+            if (resp.ok) {
+                serverActivity = await resp.json();
+                if (agent) agent._activity = serverActivity;
+            }
+        } catch (e) { /* fall back to client parsing */ }
+    }
+
+    // Build unified event list from server structured data
+    const structuredEvents = [];
+    if (serverActivity) {
+        const toolIcons = { Read: 'file-code', Edit: 'edit', Write: 'edit', Bash: 'terminal', Glob: 'search', Grep: 'search', LS: 'folder', Task: 'bot', WebFetch: 'globe', WebSearch: 'search', NotebookEdit: 'file-code' };
+        const toolCats = { Read: 'files', Edit: 'files', Write: 'files', Bash: 'commands', Glob: 'search', Grep: 'search', LS: 'files', Task: 'tools', WebFetch: 'search', WebSearch: 'search', NotebookEdit: 'files' };
+        for (const t of (serverActivity.tool_invocations || [])) {
+            structuredEvents.push({
+                icon: toolIcons[t.tool] || 'wrench',
+                desc: `${t.tool}(${t.args?.slice(0, 60) || ''})`,
+                raw: t.result_snippet || '',
+                cat: toolCats[t.tool] || 'tools',
+                time: null,
+                status: t.result_status
+            });
+        }
+        for (const g of (serverActivity.git_operations || [])) {
+            structuredEvents.push({
+                icon: 'git-branch', desc: `git ${g.operation}: ${g.detail?.slice(0, 50) || ''}`,
+                raw: g.files_affected?.join(', ') || '', cat: 'git', time: null
+            });
+        }
+        for (const t of (serverActivity.test_results || [])) {
+            const parts = [];
+            if (t.passed) parts.push(`${t.passed} passed`);
+            if (t.failed) parts.push(`${t.failed} failed`);
+            if (t.skipped) parts.push(`${t.skipped} skipped`);
+            structuredEvents.push({
+                icon: t.failed > 0 ? 'circle-alert' : 'circle-check',
+                desc: `Tests: ${parts.join(', ')}${t.framework ? ` (${t.framework})` : ''}`,
+                raw: t.coverage_pct ? `Coverage: ${t.coverage_pct}%` : '',
+                cat: 'tests', time: null
+            });
+        }
+    }
+
+    // Merge with client-side parsed events (which have timestamps)
+    const clientEvents = parseActivityFromOutput(agentId);
+    const allEvents = structuredEvents.length > clientEvents.length ? structuredEvents : clientEvents;
+
+    if (!allEvents.length) {
         container.innerHTML = '<div class="activity-empty">No activity detected yet — events appear as the agent reads, edits, and runs commands</div>';
         statsEl.innerHTML = '';
         return;
     }
 
-    // Stats summary
-    const cats = {};
-    for (const ev of events) { cats[ev.cat] = (cats[ev.cat] || 0) + 1; }
-    const statLabels = { files: `${icon('file-text',12)} Files`, commands: `${icon('terminal',12)} Cmds`, tests: `${icon('test-tube',12)} Tests`, errors: `${icon('circle-alert',12)} Errors`, search: `${icon('search',12)} Search`, thinking: `${icon('brain',12)} Think`, git: `${icon('git-branch',12)} Git`, tools: `${icon('wrench',12)} Tools` };
-    statsEl.innerHTML = Object.entries(cats).map(([cat, count]) =>
-        `<span class="activity-stat"><span class="label">${statLabels[cat] || cat}</span>${count}</span>`
-    ).join('');
+    // Stats summary — prefer server summary if available
+    const summary = serverActivity?.summary;
+    if (summary && summary.total_tools > 0) {
+        const toolsByType = summary.tools_by_type || {};
+        const filesByOp = summary.files_by_operation || {};
+        const statParts = [];
+        if (summary.total_tools) statParts.push(`<span class="activity-stat"><span class="label">${icon('wrench',12)} Tools</span>${summary.total_tools}</span>`);
+        if (summary.unique_files) statParts.push(`<span class="activity-stat"><span class="label">${icon('file-text',12)} Files</span>${summary.unique_files}</span>`);
+        if (summary.total_git_ops) statParts.push(`<span class="activity-stat"><span class="label">${icon('git-branch',12)} Git</span>${summary.total_git_ops}</span>`);
+        if (summary.total_test_runs) statParts.push(`<span class="activity-stat"><span class="label">${icon('test-tube',12)} Tests</span>${summary.total_test_runs}</span>`);
+        // Tool breakdown
+        const topTools = Object.entries(toolsByType).sort((a,b) => b[1] - a[1]).slice(0, 5);
+        if (topTools.length) {
+            statParts.push(`<span class="activity-stat-break"></span>`);
+            for (const [tool, count] of topTools) {
+                statParts.push(`<span class="activity-stat minor"><span class="label">${tool}</span>${count}</span>`);
+            }
+        }
+        statsEl.innerHTML = statParts.join('');
+    } else {
+        // Fall back to client-side category counts
+        const cats = {};
+        for (const ev of allEvents) { cats[ev.cat] = (cats[ev.cat] || 0) + 1; }
+        const statLabels = { files: `${icon('file-text',12)} Files`, commands: `${icon('terminal',12)} Cmds`, tests: `${icon('test-tube',12)} Tests`, errors: `${icon('circle-alert',12)} Errors`, search: `${icon('search',12)} Search`, thinking: `${icon('brain',12)} Think`, git: `${icon('git-branch',12)} Git`, tools: `${icon('wrench',12)} Tools` };
+        statsEl.innerHTML = Object.entries(cats).map(([cat, count]) =>
+            `<span class="activity-stat"><span class="label">${statLabels[cat] || cat}</span>${count}</span>`
+        ).join('');
+    }
 
     // Events in reverse chronological order (most recent first), limited to 200
-    const recent = events.slice(-200).reverse();
-    container.innerHTML = recent.map((ev, i) =>
-        `<div class="activity-event" onclick="this.classList.toggle('expanded')">` +
+    const recent = allEvents.slice(-200).reverse();
+    container.innerHTML = recent.map(ev => {
+        const statusCls = ev.status === 'error' ? ' activity-error' : ev.status === 'success' ? ' activity-success' : '';
+        return `<div class="activity-event${statusCls}" onclick="this.classList.toggle('expanded')">` +
         `<span class="activity-icon">${icon(ev.icon, 14)}</span>` +
         `<div class="activity-body">` +
         `<div class="activity-desc">${escapeHtml(ev.desc)}</div>` +
         `<div class="activity-time">${formatActivityTime(ev.time)}</div>` +
-        `<div class="activity-raw">${escapeHtml(ev.raw)}</div>` +
-        `</div></div>`
-    ).join('');
+        `${ev.raw ? `<div class="activity-raw">${escapeHtml(ev.raw)}</div>` : ''}` +
+        `</div></div>`;
+    }).join('');
 }
 
 function formatActivityTime(date) {
