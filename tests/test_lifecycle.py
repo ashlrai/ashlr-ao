@@ -2081,3 +2081,59 @@ class TestHistoricalAnalytics:
         result = asyncio.run(db.get_historical_analytics())
         assert isinstance(result, dict)
         assert "total_historical" in result
+
+
+class TestStatusTimeline:
+    """Tests for agent status timeline tracking."""
+
+    def test_status_history_recorded(self):
+        """set_status should record status transitions."""
+        agent = ashlar_server.Agent(
+            id="st01", name="test", role="general", status="spawning",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-st01",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        agent.set_status("planning")
+        agent.set_status("working")
+        agent.set_status("waiting")
+        assert len(agent._status_history) == 3
+        assert agent._status_history[0]["status"] == "planning"
+        assert agent._status_history[1]["status"] == "working"
+        assert agent._status_history[2]["status"] == "waiting"
+
+    def test_status_history_no_duplicate(self):
+        """Same status transition should not be recorded."""
+        agent = ashlar_server.Agent(
+            id="st02", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-st02",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        agent.set_status("working")  # Same status — should not record
+        assert len(agent._status_history) == 0
+
+    def test_status_timeline_in_to_dict(self):
+        """to_dict should include status_timeline."""
+        agent = ashlar_server.Agent(
+            id="st03", name="test", role="general", status="spawning",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-st03",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        agent.set_status("working")
+        d = agent.to_dict()
+        assert "status_timeline" in d
+        assert isinstance(d["status_timeline"], list)
+
+    def test_timeline_capped_at_100(self):
+        """Status history should not exceed 100 entries."""
+        agent = ashlar_server.Agent(
+            id="st04", name="test", role="general", status="spawning",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-st04",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        for i in range(110):
+            agent.set_status("working" if i % 2 == 0 else "planning")
+        assert len(agent._status_history) <= 100

@@ -975,6 +975,7 @@ class Agent:
     _git_operations: list = field(default_factory=list, repr=False)  # list[GitOperation], capped at 200
     _test_results: list = field(default_factory=list, repr=False)  # list[TestResult], capped at 50
     _snapshots: list = field(default_factory=list, repr=False)  # list[OutputSnapshot], capped at 20
+    _status_history: list = field(default_factory=list, repr=False)  # list of {"status": str, "at": float (monotonic)}
     _last_parse_index: int = field(default=0, repr=False)  # Incremental parsing watermark
     _overflow_to_archive: bool = field(default=False, repr=False)
     # Notes and tags
@@ -987,10 +988,29 @@ class Agent:
         """Update status with monotonic timestamp guard. Returns True if updated."""
         now = time.monotonic()
         if now >= self._status_updated_at:
+            old_status = self.status
             self.status = new_status
             self._status_updated_at = now
+            # Track status transitions for timeline
+            if old_status != new_status:
+                self._status_history.append({"status": new_status, "at": now})
+                if len(self._status_history) > 100:
+                    self._status_history = self._status_history[-100:]
             return True
         return False
+
+    def _get_status_timeline(self) -> list[dict]:
+        """Build a timeline of status durations for visualization."""
+        if not self._status_history:
+            return []
+        timeline = []
+        now = time.monotonic()
+        for i, entry in enumerate(self._status_history):
+            end_time = self._status_history[i + 1]["at"] if i + 1 < len(self._status_history) else now
+            duration_sec = round(end_time - entry["at"], 1)
+            if duration_sec > 0:
+                timeline.append({"status": entry["status"], "duration_sec": duration_sec})
+        return timeline
 
     def _cost_burn_rate(self) -> dict | None:
         """Calculate cost burn rate ($/min) and estimated time to context exhaustion."""
@@ -1081,6 +1101,7 @@ class Agent:
             "file_operations_count": len(self._file_operations),
             "last_test_result": self._test_results[-1].to_dict() if self._test_results else None,
             "snapshot_count": len(self._snapshots),
+            "status_timeline": self._get_status_timeline(),
             "notes": self.notes,
             "tags": list(self.tags),
             "bookmarks": list(self.bookmarks),

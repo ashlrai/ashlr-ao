@@ -1063,6 +1063,12 @@ body {
     font-family: var(--font-sans);
 }
 .recent-task-chip:hover { border-color: var(--accent); color: var(--accent); }
+.status-timeline-bar {
+    display: flex; height: 6px; border-radius: 3px; overflow: hidden;
+    background: var(--bg-overlay); margin: 4px 0 0 0; min-width: 200px;
+}
+.status-timeline-bar:empty { display: none; }
+.status-timeline-segment { height: 100%; min-width: 2px; transition: width 0.3s; }
 #taskSuggestions { margin-top: 6px; }
 .task-suggestion {
     display: flex; align-items: center; gap: 8px; padding: 6px 8px;
@@ -4167,6 +4173,7 @@ body {
             <div><span class="metric-label">Tests </span><span class="deep-stat-value" id="deepTestResult">-</span></div>
             <div><span class="metric-label">Rate </span><canvas class="deep-rate-sparkline" id="deepRateSparkline" width="80" height="20"></canvas></div>
         </div>
+        <div class="status-timeline-bar" id="statusTimelineBar"></div>
         <div class="deep-actions">
             <button class="deep-action-btn" id="deepPauseBtn" onclick="deepPauseResume()" id="deepPauseBtnInner"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg></span> Pause</button>
             <button class="deep-action-btn" onclick="deepCopyOutput()"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span> Copy</button>
@@ -5294,7 +5301,8 @@ class AshlarSocket {
             const banner = document.getElementById('connectionBanner');
             banner.classList.remove('active');
             banner.textContent = '';
-            showToast('Connected to Ashlar', 'success');
+            // Toast shown after sync provides fleet summary
+            state._showSyncSummary = true;
         };
 
         this.ws.onmessage = (e) => {
@@ -5515,6 +5523,26 @@ async function handleSync(data) {
             (Array.isArray(runs) ? runs : runs.data || []).forEach(r => state.workflowRuns.set(r.id, r));
         }
     } catch (e) { console.warn('Workflow runs fetch failed:', e.message); }
+
+    // Show fleet summary toast on connection
+    if (state._showSyncSummary) {
+        state._showSyncSummary = false;
+        const agents = [...state.agents.values()];
+        if (agents.length === 0) {
+            showToast('Connected to Ashlar — no agents running', 'success');
+        } else {
+            const working = agents.filter(a => ['working', 'planning', 'reading'].includes(a.status)).length;
+            const waiting = agents.filter(a => a.needs_input).length;
+            const errored = agents.filter(a => a.status === 'error').length;
+            const cost = agents.reduce((s, a) => s + (a.estimated_cost_usd || 0), 0);
+            const parts = [`${agents.length} agent${agents.length > 1 ? 's' : ''}`];
+            if (working > 0) parts.push(`${working} working`);
+            if (waiting > 0) parts.push(`${waiting} waiting`);
+            if (errored > 0) parts.push(`${errored} errored`);
+            if (cost > 0.01) parts.push(`$${cost.toFixed(2)} spent`);
+            showToast(`Connected — ${parts.join(', ')}`, waiting > 0 || errored > 0 ? 'warning' : 'success');
+        }
+    }
 }
 
 let _lastAriaAnnounce = 0;
@@ -6980,6 +7008,25 @@ function updateDeepViewHeader(agent) {
         ctx.closePath();
         ctx.fillStyle = info.color + '22';
         ctx.fill();
+    }
+
+    // Status timeline bar
+    const timelineBar = document.getElementById('statusTimelineBar');
+    if (timelineBar && agent.status_timeline?.length > 0) {
+        const statusBarColors = {
+            spawning: 'var(--text-tertiary)', planning: 'var(--warning)', working: 'var(--accent)',
+            reading: '#3B82F6', waiting: 'var(--orange)', error: 'var(--danger)',
+            idle: 'var(--text-disabled)', paused: 'var(--text-tertiary)', complete: 'var(--success)',
+        };
+        const totalDur = agent.status_timeline.reduce((s, e) => s + e.duration_sec, 0);
+        if (totalDur > 0) {
+            timelineBar.innerHTML = agent.status_timeline.map(seg => {
+                const pct = Math.max(1, (seg.duration_sec / totalDur) * 100);
+                const color = statusBarColors[seg.status] || 'var(--text-tertiary)';
+                const dur = seg.duration_sec >= 60 ? `${Math.round(seg.duration_sec / 60)}m` : `${Math.round(seg.duration_sec)}s`;
+                return `<div class="status-timeline-segment" style="width:${pct}%;background:${color}" title="${seg.status}: ${dur}"></div>`;
+            }).join('');
+        }
     }
 
     const pauseBtn = document.getElementById('deepPauseBtn');
