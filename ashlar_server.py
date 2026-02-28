@@ -2418,6 +2418,23 @@ class AgentManager:
         self._total_messages_sent += 1
         return True
 
+    @staticmethod
+    def _is_binary_garbage(lines: list[str], threshold: float = 0.3) -> bool:
+        """Check if output lines contain mostly binary/non-printable garbage.
+        Returns True if >threshold fraction of chars are non-printable (excluding common ANSI)."""
+        if not lines:
+            return False
+        sample = "\n".join(lines[-20:])  # Check last 20 lines
+        if not sample:
+            return False
+        # Strip common ANSI escape sequences before checking
+        import re
+        clean = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', sample)
+        if not clean:
+            return False
+        non_printable = sum(1 for c in clean if not c.isprintable() and c not in '\n\r\t')
+        return (non_printable / len(clean)) > threshold
+
     async def capture_output(self, agent_id: str) -> list[str] | None:
         """Capture terminal output and return new lines since last capture.
         Returns None if tmux session is dead/unreachable (vs empty list for no new output)."""
@@ -2429,6 +2446,11 @@ class AgentManager:
         if raw_lines is None:
             return None  # Propagate tmux failure signal
         if not raw_lines:
+            return []
+
+        # Binary/garbage detection — skip corrupt output to prevent memory bloat
+        if self._is_binary_garbage(raw_lines):
+            log.warning(f"Agent {agent_id} ({agent.name}) output contains binary garbage — skipping capture")
             return []
 
         # Strip trailing empty lines
@@ -4889,6 +4911,71 @@ def _get_client_ip(request: web.Request) -> str:
     return peername[0] if peername else "unknown"
 
 
+# Per-endpoint rate limit tiers: (rate tokens/sec, burst max)
+_RATE_LIMIT_TIERS: dict[str, tuple[float, float]] = {
+    # Heavy operations — strict limits
+    "spawn": (0.5, 3.0),       # 1 spawn per 2s, burst of 3
+    "bulk": (0.2, 2.0),        # 1 bulk op per 5s, burst of 2
+    "batch-spawn": (0.2, 2.0),
+    "fleet-export": (0.1, 1.0), # 1 export per 10s
+    # Moderate operations
+    "send": (2.0, 10.0),       # 2 sends/sec, burst of 10
+    "restart": (0.5, 3.0),
+    "delete": (1.0, 5.0),
+    # Light operations — generous limits
+    "default": (5.0, 20.0),    # 5 req/sec, burst of 20
+}
+
+
+def _get_rate_tier(path: str, method: str) -> str:
+    """Determine rate limit tier from request path and method."""
+    if method == "POST" and "/agents" in path and "bulk" in path:
+        return "bulk"
+    if method == "POST" and "batch-spawn" in path:
+        return "batch-spawn"
+    if method == "POST" and path.endswith("/agents"):
+        return "spawn"
+    if "fleet/export" in path:
+        return "fleet-export"
+    if "/send" in path or "/message" in path:
+        return "send"
+    if "/restart" in path:
+        return "restart"
+    if method == "DELETE":
+        return "delete"
+    return "default"
+
+
+@web.middleware
+async def rate_limit_middleware(request: web.Request, handler):
+    """Apply per-endpoint rate limiting to API requests."""
+    path = request.path
+    # Skip non-API paths (dashboard, static, WebSocket)
+    if not path.startswith("/api/"):
+        return await handler(request)
+
+    rl: RateLimiter | None = request.app.get("rate_limiter")
+    if not rl:
+        return await handler(request)
+
+    ip = _get_client_ip(request)
+    tier = _get_rate_tier(path, request.method)
+    rate, burst = _RATE_LIMIT_TIERS.get(tier, _RATE_LIMIT_TIERS["default"])
+
+    # Use tier-specific bucket key
+    bucket_key = f"{ip}:{tier}"
+    allowed, retry_after = rl.check(bucket_key, cost=1.0, rate=rate, burst=burst)
+
+    if not allowed:
+        return web.json_response(
+            {"error": "Rate limit exceeded", "retry_after": round(retry_after, 1)},
+            status=429,
+            headers={"Retry-After": str(int(retry_after + 1))},
+        )
+
+    return await handler(request)
+
+
 # ─────────────────────────────────────────────
 # Section 6: Metrics Collector
 # ─────────────────────────────────────────────
@@ -4991,6 +5078,13 @@ class WebSocketHub:
         finally:
             self.clients.discard(ws)
             self._last_sync_time.pop(ws, None)
+            # Clean up any per-client rate limiter state
+            rl: RateLimiter | None = request.app.get("rate_limiter")
+            if rl:
+                ip = _get_client_ip(request)
+                stale_keys = [k for k in rl._buckets if k.startswith(f"{ip}:")]
+                for k in stale_keys:
+                    del rl._buckets[k]
             log.info(f"WebSocket client disconnected ({len(self.clients)} total)")
 
         return ws
@@ -9016,7 +9110,7 @@ async def cleanup_background_tasks(app: web.Application) -> None:
 
 
 def create_app(config: Config) -> web.Application:
-    middlewares = []
+    middlewares = [rate_limit_middleware]
     if config.require_auth:
         middlewares.append(auth_middleware)
     app = web.Application(middlewares=middlewares)

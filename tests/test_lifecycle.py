@@ -3462,3 +3462,157 @@ class TestCascadeProtection:
         src = inspect.getsource(ashlar_server.memory_watchdog_loop)
         assert "agent.memory_mb > limit" in src
         assert "agent_killed" in src
+
+
+# ── Rate Limiting Tests ──────────────────────────────────────────────
+
+
+class TestRateLimiting:
+    """Tests for per-endpoint REST API rate limiting."""
+
+    def test_rate_limiter_allows_burst(self):
+        """RateLimiter should allow initial burst of requests."""
+        rl = ashlar_server.RateLimiter()
+        for _ in range(5):
+            allowed, _ = rl.check("127.0.0.1", cost=1.0, rate=1.0, burst=5.0)
+            assert allowed
+
+    def test_rate_limiter_blocks_after_burst(self):
+        """RateLimiter should block after burst is exhausted."""
+        rl = ashlar_server.RateLimiter()
+        for _ in range(10):
+            rl.check("127.0.0.1", cost=1.0, rate=1.0, burst=10.0)
+        allowed, retry_after = rl.check("127.0.0.1", cost=1.0, rate=1.0, burst=10.0)
+        assert not allowed
+        assert retry_after > 0
+
+    def test_rate_limiter_per_ip(self):
+        """Different IPs should have separate buckets."""
+        rl = ashlar_server.RateLimiter()
+        for _ in range(5):
+            rl.check("1.1.1.1", cost=1.0, rate=1.0, burst=5.0)
+        # IP 1 is exhausted
+        allowed1, _ = rl.check("1.1.1.1", cost=1.0, rate=1.0, burst=5.0)
+        # IP 2 should still have tokens
+        allowed2, _ = rl.check("2.2.2.2", cost=1.0, rate=1.0, burst=5.0)
+        assert not allowed1
+        assert allowed2
+
+    def test_rate_limiter_cleanup_stale(self):
+        """cleanup_stale should remove old bucket entries."""
+        rl = ashlar_server.RateLimiter()
+        rl.check("old_ip", cost=1.0)
+        # Artificially age the bucket
+        rl._buckets["old_ip"]["last_refill"] = time.monotonic() - 500
+        rl.cleanup_stale(max_age=300.0)
+        assert "old_ip" not in rl._buckets
+
+    def test_rate_limit_tiers_exist(self):
+        """Rate limit tier definitions should exist."""
+        assert "spawn" in ashlar_server._RATE_LIMIT_TIERS
+        assert "bulk" in ashlar_server._RATE_LIMIT_TIERS
+        assert "default" in ashlar_server._RATE_LIMIT_TIERS
+        assert "fleet-export" in ashlar_server._RATE_LIMIT_TIERS
+
+    def test_get_rate_tier_spawn(self):
+        """POST /api/agents should use spawn tier."""
+        tier = ashlar_server._get_rate_tier("/api/agents", "POST")
+        assert tier == "spawn"
+
+    def test_get_rate_tier_bulk(self):
+        """POST with bulk in path should use bulk tier."""
+        tier = ashlar_server._get_rate_tier("/api/agents/bulk", "POST")
+        assert tier == "bulk"
+
+    def test_get_rate_tier_default(self):
+        """GET /api/agents should use default tier."""
+        tier = ashlar_server._get_rate_tier("/api/agents", "GET")
+        assert tier == "default"
+
+    def test_get_rate_tier_fleet_export(self):
+        """Fleet export should use fleet-export tier."""
+        tier = ashlar_server._get_rate_tier("/api/fleet/export", "GET")
+        assert tier == "fleet-export"
+
+    def test_rate_limit_middleware_exists(self):
+        """rate_limit_middleware should exist as a function."""
+        assert callable(ashlar_server.rate_limit_middleware)
+
+    def test_middleware_registered_in_create_app(self):
+        """create_app should include rate_limit_middleware."""
+        src = inspect.getsource(ashlar_server.create_app)
+        assert "rate_limit_middleware" in src
+
+
+# ── Binary/Garbage Detection Tests ───────────────────────────────────
+
+
+class TestBinaryGarbageDetection:
+    """Tests for binary/garbage output detection in capture."""
+
+    def test_normal_text_not_garbage(self):
+        """Normal text output should not be flagged as garbage."""
+        lines = ["Hello world", "Processing file.py", "Done."]
+        assert not ashlar_server.AgentManager._is_binary_garbage(lines)
+
+    def test_empty_lines_not_garbage(self):
+        """Empty lines should not be flagged as garbage."""
+        assert not ashlar_server.AgentManager._is_binary_garbage([])
+        assert not ashlar_server.AgentManager._is_binary_garbage([""])
+
+    def test_ansi_colored_text_not_garbage(self):
+        """Text with ANSI color codes should not be flagged."""
+        lines = ["\x1b[32mSuccess\x1b[0m", "\x1b[1;31mError\x1b[0m: something failed"]
+        assert not ashlar_server.AgentManager._is_binary_garbage(lines)
+
+    def test_binary_content_is_garbage(self):
+        """Binary content (mostly non-printable) should be flagged."""
+        binary_line = "".join(chr(i) for i in range(0, 32) if i not in (9, 10, 13)) * 5
+        lines = [binary_line, binary_line]
+        assert ashlar_server.AgentManager._is_binary_garbage(lines)
+
+    def test_mixed_with_threshold(self):
+        """Mixed content below threshold should not be flagged."""
+        # Mostly printable with a few non-printable chars
+        lines = ["Normal text with a \x00 byte here"]
+        assert not ashlar_server.AgentManager._is_binary_garbage(lines)
+
+    def test_garbage_detection_in_capture_output(self):
+        """capture_output should call _is_binary_garbage."""
+        src = inspect.getsource(ashlar_server.AgentManager.capture_output)
+        assert "_is_binary_garbage" in src
+        assert "binary garbage" in src
+
+
+# ── WebSocket Disconnect Cleanup Tests ───────────────────────────────
+
+
+class TestWebSocketDisconnectCleanup:
+    """Tests for WebSocket client disconnect handling."""
+
+    def test_ws_heartbeat_enabled(self):
+        """WebSocket should have heartbeat=30.0 for ping/pong."""
+        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        assert "heartbeat=30.0" in src
+
+    def test_ws_disconnect_cleans_sync_time(self):
+        """Disconnect should clean up _last_sync_time entry."""
+        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        assert "_last_sync_time.pop" in src
+
+    def test_ws_disconnect_cleans_rate_limiter(self):
+        """Disconnect should clean up rate limiter entries for client IP."""
+        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        assert "rate_limiter" in src
+        assert "stale_keys" in src
+
+    def test_ws_disconnect_discards_client(self):
+        """Disconnect should remove client from set."""
+        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        assert "clients.discard(ws)" in src
+
+    def test_ws_max_clients_limit(self):
+        """WebSocketHub should enforce max_clients connection limit."""
+        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        assert "max_clients" in src
+        assert "1013" in src  # HTTP status for "Try Again Later"
