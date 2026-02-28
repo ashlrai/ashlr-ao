@@ -4655,20 +4655,28 @@ const ANSI_256 = (() => {
 
 function ansiToHtml(text) {
     let result = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let openSpans = 0;
     // Process SGR sequences
     result = result.replace(/\x1b\[(\d+(?:;\d+)*)m/g, (_, codes) => {
         const parts = codes.split(';');
         let style = '';
+        let isReset = false;
         let i = 0;
         while (i < parts.length) {
             const c = parts[i];
-            if (c === '0') return '</span>';
+            if (c === '0' || c === '') { isReset = true; i++; continue; }
             if (c === '1') { style += 'font-weight:bold;'; i++; continue; }
             if (c === '2') { style += 'opacity:0.7;'; i++; continue; }
             if (c === '3') { style += 'font-style:italic;'; i++; continue; }
             if (c === '4') { style += 'text-decoration:underline;'; i++; continue; }
             if (c === '7') { style += 'filter:invert(1);'; i++; continue; }
             if (c === '9') { style += 'text-decoration:line-through;'; i++; continue; }
+            if (c === '22') { style += 'font-weight:normal;'; i++; continue; }
+            if (c === '23') { style += 'font-style:normal;'; i++; continue; }
+            if (c === '24') { style += 'text-decoration:none;'; i++; continue; }
+            if (c === '27') { style += 'filter:none;'; i++; continue; }
+            if (c === '39') { style += 'color:inherit;'; i++; continue; }
+            if (c === '49') { style += 'background:inherit;'; i++; continue; }
             // 256-color foreground: 38;5;N
             if (c === '38' && parts[i+1] === '5' && parts[i+2] !== undefined) {
                 const idx = parseInt(parts[i+2]);
@@ -4699,13 +4707,20 @@ function ansiToHtml(text) {
             if (bg >= 100 && bg <= 107) { style += `background:${ANSI_COLORS[String(bg-10)] || ''};`; i++; continue; }
             i++;
         }
-        return style ? `<span style="${style}">` : '';
+        let out = '';
+        if (isReset && openSpans > 0) { out += '</span>'.repeat(openSpans); openSpans = 0; }
+        if (style) { out += `<span style="${style}">`; openSpans++; }
+        return out;
     });
-    // Strip remaining escape sequences
+    // Close any remaining open spans
+    if (openSpans > 0) result += '</span>'.repeat(openSpans);
+    // Strip remaining escape sequences (cursor movement, mode changes, etc.)
     return result
         .replace(/\x1b\[[^m]*m/g, '')
         .replace(/\x1b\[\?[0-9;]*[a-zA-Z]/g, '')
-        .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+        .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '')
+        .replace(/\x1b\][^\x07]*\x07/g, '')  // OSC sequences (title changes)
+        .replace(/\x1b[()][A-Z0-9]/g, '');    // Character set selection
 }
 
 // ── WebSocket ──
@@ -5145,6 +5160,15 @@ function handleEvent(data) {
             showToast(`Background task "${data.task}" crashed (restart #${data.restart})`, 'warning');
             playTone([330, 220], 0.15);
             break;
+        case 'agent_followup_suggestion': {
+            const meta = data.metadata || {};
+            showToast(msg, 'info');
+            playTone([550, 660, 880], 0.08);
+            addNotification('followup_suggestion', msg, data.agent_id);
+            // Store suggestion for spawn dialog pre-fill
+            state._lastFollowup = meta;
+            break;
+        }
     }
 }
 

@@ -496,11 +496,14 @@ KNOWN_BACKENDS: dict[str, BackendConfig] = {
         plan_mode_flag="--permission-mode plan",
         status_patterns={
             "working": [r"⎿", r"╭─", r"╰─", r"Tool Use:", r"Bash:", r"\$ ",
-                        r"esc to interrupt"],
+                        r"esc to interrupt", r"Running ", r"Updated \d+ file",
+                        r"Created ", r"Wrote ", r"tokens remaining"],
             "waiting": [r"Do you want to proceed", r"Allow once", r"Allow always",
-                        r"Press Enter to retry", r"Type your response"],
-            "planning": [r"Thinking\.\.\.", r"Schlepping"],
-            "complete": [r"❯"],
+                        r"Press Enter to retry", r"Type your response",
+                        r"waiting for your", r"What would you like"],
+            "planning": [r"Thinking\.\.\.", r"Schlepping", r"I'll start by",
+                         r"Let me analyze"],
+            "complete": [r"❯", r"Task completed", r"All done"],
         },
         cost_input_per_1k=0.003,
         cost_output_per_1k=0.015,
@@ -2747,6 +2750,55 @@ WAITING_LINE_PATTERNS = [
     # (contains "you", "I", or starts with a question word)
     re.compile(r"(?i)^(do|can|will|should|shall|would|may|is|are|does|did|have|has)\b.+\?\s*$"),
 ]
+
+# Follow-up suggestions based on role completion
+FOLLOWUP_SUGGESTIONS: dict[str, list[dict]] = {
+    "backend": [
+        {"role": "tester", "task_template": "Write tests for the changes made by {name}: {summary}",
+         "reason": "Backend changes should be tested"},
+        {"role": "reviewer", "task_template": "Review the code changes made by {name}: {summary}",
+         "reason": "Backend code should be reviewed"},
+    ],
+    "frontend": [
+        {"role": "tester", "task_template": "Test the UI changes made by {name}: {summary}",
+         "reason": "Frontend changes need testing"},
+        {"role": "reviewer", "task_template": "Review the frontend changes by {name}: {summary}",
+         "reason": "Frontend code should be reviewed"},
+    ],
+    "architect": [
+        {"role": "backend", "task_template": "Implement the architecture designed by {name}: {summary}",
+         "reason": "Architecture plans need implementation"},
+    ],
+    "security": [
+        {"role": "backend", "task_template": "Fix the security issues found by {name}: {summary}",
+         "reason": "Security findings need remediation"},
+    ],
+    "reviewer": [
+        {"role": "backend", "task_template": "Address the review feedback from {name}: {summary}",
+         "reason": "Review feedback should be addressed"},
+    ],
+    "tester": [
+        {"role": "backend", "task_template": "Fix the test failures found by {name}: {summary}",
+         "reason": "Failed tests need fixes"},
+    ],
+}
+
+def _suggest_followup(agent: Agent) -> dict | None:
+    """Suggest a follow-up agent based on what this agent did."""
+    suggestions = FOLLOWUP_SUGGESTIONS.get(agent.role, [])
+    if not suggestions:
+        return None
+    # Pick the first applicable suggestion
+    s = suggestions[0]
+    task = s["task_template"].format(name=agent.name, summary=(agent.summary or agent.task or "")[:100])
+    return {
+        "suggested_role": s["role"],
+        "suggested_task": task,
+        "reason": s["reason"],
+        "source_agent_id": agent.id,
+        "source_agent_name": agent.name,
+        "message": f'{agent.name} completed — {s["reason"]}. Suggested: spawn {s["role"]} agent.',
+    }
 
 
 def parse_agent_status(recent_lines: list[str], agent: Agent, backend_patterns: dict[str, list[str]] | None = None) -> str:
@@ -6564,6 +6616,16 @@ async def output_capture_loop(app: web.Application) -> None:
                             wf_run = manager.on_agent_complete(agent_id)
                             if wf_run:
                                 await manager.resolve_workflow_deps(wf_run, hub)
+
+                            # Suggest follow-up agents based on what this agent did
+                            suggestion = _suggest_followup(agent)
+                            if suggestion:
+                                await hub.broadcast_event(
+                                    "agent_followup_suggestion",
+                                    suggestion["message"],
+                                    agent_id, agent.name,
+                                    metadata=suggestion,
+                                )
 
                         await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
 

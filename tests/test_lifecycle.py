@@ -18,6 +18,8 @@ with patch("psutil.cpu_percent", return_value=0.0):
         STATUS_PATTERNS,
         BackendConfig,
         KNOWN_BACKENDS,
+        _suggest_followup,
+        FOLLOWUP_SUGGESTIONS,
     )
 
 
@@ -784,3 +786,70 @@ class TestContextDetection:
         manager = self._make_manager()
         result = manager._detect_context_from_output(["Regular output line"], "claude-code")
         assert result is None
+
+
+# ─────────────────────────────────────────────
+# T13: Follow-up suggestions
+# ─────────────────────────────────────────────
+
+class TestFollowupSuggestions:
+    def test_backend_suggests_tester(self, make_agent):
+        """Backend agent completion should suggest spawning a tester."""
+        agent = make_agent(role="backend", name="api-worker")
+        agent.summary = "Implemented payment API endpoints"
+        result = _suggest_followup(agent)
+        assert result is not None
+        assert result["suggested_role"] == "tester"
+        assert "api-worker" in result["message"]
+
+    def test_frontend_suggests_tester(self, make_agent):
+        """Frontend agent should suggest tester follow-up."""
+        agent = make_agent(role="frontend", name="ui-builder")
+        result = _suggest_followup(agent)
+        assert result is not None
+        assert result["suggested_role"] == "tester"
+
+    def test_architect_suggests_backend(self, make_agent):
+        """Architect agent should suggest backend implementation."""
+        agent = make_agent(role="architect", name="sys-design")
+        result = _suggest_followup(agent)
+        assert result is not None
+        assert result["suggested_role"] == "backend"
+
+    def test_security_suggests_backend(self, make_agent):
+        """Security agent should suggest backend fix follow-up."""
+        agent = make_agent(role="security", name="sec-audit")
+        result = _suggest_followup(agent)
+        assert result is not None
+        assert result["suggested_role"] == "backend"
+
+    def test_general_returns_none(self, make_agent):
+        """General role has no follow-up suggestions."""
+        agent = make_agent(role="general", name="helper")
+        result = _suggest_followup(agent)
+        assert result is None
+
+    def test_docs_returns_none(self, make_agent):
+        """Docs role has no follow-up suggestions."""
+        agent = make_agent(role="docs", name="writer")
+        result = _suggest_followup(agent)
+        assert result is None
+
+    def test_suggestion_includes_task_info(self, make_agent):
+        """Follow-up suggestion should include agent name and summary."""
+        agent = make_agent(role="backend", name="auth-api")
+        agent.summary = "Added JWT authentication"
+        agent.task = "Implement auth"
+        result = _suggest_followup(agent)
+        assert result is not None
+        assert "auth-api" in result["suggested_task"]
+        assert "JWT" in result["suggested_task"]
+
+    def test_followup_suggestions_dict_has_expected_roles(self):
+        """FOLLOWUP_SUGGESTIONS should cover main development roles."""
+        assert "backend" in FOLLOWUP_SUGGESTIONS
+        assert "frontend" in FOLLOWUP_SUGGESTIONS
+        assert "architect" in FOLLOWUP_SUGGESTIONS
+        assert "security" in FOLLOWUP_SUGGESTIONS
+        assert "reviewer" in FOLLOWUP_SUGGESTIONS
+        assert "tester" in FOLLOWUP_SUGGESTIONS
