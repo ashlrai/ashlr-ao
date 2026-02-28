@@ -4113,6 +4113,8 @@ body {
             <div><span class="metric-label">Time </span><span class="deep-stat-value" id="deepTime"></span></div>
             <div><span class="metric-label">Tokens </span><span class="deep-stat-value" id="deepTokens" title="">-</span></div>
             <div><span class="metric-label">Cost </span><span class="deep-stat-value" id="deepCost">-</span></div>
+            <div><span class="metric-label">Tools </span><span class="deep-stat-value" id="deepToolCount">-</span></div>
+            <div><span class="metric-label">Tests </span><span class="deep-stat-value" id="deepTestResult">-</span></div>
         </div>
         <div class="deep-actions">
             <button class="deep-action-btn" id="deepPauseBtn" onclick="deepPauseResume()" id="deepPauseBtnInner"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg></span> Pause</button>
@@ -6171,6 +6173,15 @@ function updateAgentCard(card, agent) {
     if (agent.output_rate) metaParts.push(`${Math.round(agent.output_rate)}l/m`);
     if (agent.estimated_cost_usd > 0.001) metaParts.push(`$${agent.estimated_cost_usd.toFixed(2)}`);
     if (agent.files_touched > 0) metaParts.push(`${agent.files_touched} files`);
+    // Tool & file ops from structured parser
+    if (agent.tool_invocations_count > 0) metaParts.push(`${agent.tool_invocations_count} tools`);
+    if (agent.file_operations_count > 0 && !agent.files_touched) metaParts.push(`${agent.file_operations_count} ops`);
+    // Test results
+    if (agent.last_test_result) {
+        const tr = agent.last_test_result;
+        if (tr.failed > 0) metaParts.push(`<span style="color:var(--danger)">${tr.passed}✓ ${tr.failed}✗</span>`);
+        else if (tr.passed > 0) metaParts.push(`<span style="color:var(--success)">${tr.passed}✓</span>`);
+    }
     // Uptime
     if (agent.created_at) {
         const elapsed = (Date.now() - new Date(agent.created_at).getTime()) / 1000;
@@ -6723,6 +6734,39 @@ function updateDeepViewHeader(agent) {
     const costEl = document.getElementById('deepCost');
     const cost = agent.estimated_cost_usd || 0;
     costEl.textContent = cost > 0 ? `$${cost.toFixed(4)}` : '-';
+
+    // Tool invocations + file ops
+    const toolCountEl = document.getElementById('deepToolCount');
+    const toolCount = (agent.tool_invocations_count || 0);
+    const fileOpsCount = (agent.file_operations_count || 0);
+    if (toolCount > 0 || fileOpsCount > 0) {
+        const parts = [];
+        if (toolCount > 0) parts.push(`${toolCount} calls`);
+        if (fileOpsCount > 0) parts.push(`${fileOpsCount} files`);
+        toolCountEl.textContent = parts.join(', ');
+        toolCountEl.style.color = 'var(--text-secondary)';
+    } else {
+        toolCountEl.textContent = '-';
+        toolCountEl.style.color = '';
+    }
+
+    // Test results
+    const testEl = document.getElementById('deepTestResult');
+    if (agent.last_test_result) {
+        const tr = agent.last_test_result;
+        if (tr.failed > 0) {
+            testEl.textContent = `${tr.passed}✓ ${tr.failed}✗`;
+            testEl.style.color = 'var(--danger)';
+        } else {
+            testEl.textContent = `${tr.passed}✓${tr.skipped ? ` ${tr.skipped}⊘` : ''}`;
+            testEl.style.color = 'var(--success)';
+        }
+        testEl.title = `Total: ${tr.total || tr.passed + tr.failed + (tr.skipped || 0)}${tr.framework ? ' (' + tr.framework + ')' : ''}`;
+    } else {
+        testEl.textContent = '-';
+        testEl.style.color = '';
+        testEl.title = '';
+    }
 
     const pauseBtn = document.getElementById('deepPauseBtn');
     pauseBtn.innerHTML = agent.status === 'paused' ? `${icon('play', 14)} Resume` : `${icon('circle-pause', 14)} Pause`;

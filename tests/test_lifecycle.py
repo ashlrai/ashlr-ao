@@ -193,6 +193,57 @@ class TestParseAgentStatusPatterns:
         status = parse_agent_status(lines, agent)
         assert status == "idle"
 
+    # ── New patterns added in status detection expansion ──
+
+    def test_searching_detected_as_reading(self, make_agent):
+        """'searching for' should trigger reading status."""
+        agent = make_agent(status="idle")
+        lines = ["Searching for relevant files in the codebase"]
+        status = parse_agent_status(lines, agent)
+        assert status == "reading"
+
+    def test_examining_detected_as_reading(self, make_agent):
+        """'examining' should trigger reading status."""
+        agent = make_agent(status="idle")
+        lines = ["Examining the test file structure"]
+        status = parse_agent_status(lines, agent)
+        assert status == "reading"
+
+    def test_docker_detected_as_working(self, make_agent):
+        """Docker commands should trigger working status."""
+        agent = make_agent(status="idle")
+        lines = ["docker build -t myapp ."]
+        status = parse_agent_status(lines, agent)
+        assert status == "working"
+
+    def test_deploy_detected_as_working(self, make_agent):
+        """Deploy operations should trigger working status."""
+        agent = make_agent(status="idle")
+        lines = ["Deploying to production"]
+        status = parse_agent_status(lines, agent)
+        assert status == "working"
+
+    def test_please_confirm_detected_as_waiting(self, make_agent):
+        """'please confirm' should trigger waiting status."""
+        agent = make_agent(status="working")
+        lines = ["Please confirm you want to proceed"]
+        status = parse_agent_status(lines, agent)
+        assert status == "waiting"
+
+    def test_waiting_for_input_detected_as_waiting(self, make_agent):
+        """'waiting for input' should trigger waiting status."""
+        agent = make_agent(status="working")
+        lines = ["Waiting for input from user"]
+        status = parse_agent_status(lines, agent)
+        assert status == "waiting"
+
+    def test_successfully_completed_detected_as_complete(self, make_agent):
+        """'Successfully completed' should trigger idle."""
+        agent = make_agent(status="working")
+        lines = ["Successfully completed the migration"]
+        status = parse_agent_status(lines, agent)
+        assert status == "idle"
+
 
 # ─────────────────────────────────────────────
 # T4: Pause/resume/restart edge cases
@@ -1736,3 +1787,75 @@ class TestCostBudget:
         # Flag should be settable
         agent._budget_warned = True
         assert agent._budget_warned is True
+
+
+class TestIntelligenceDataInToDict:
+    """Verify tool_invocations_count, file_operations_count, last_test_result in Agent.to_dict()."""
+
+    def test_empty_intelligence_data(self, make_agent):
+        """Default agent has zero counts and no test results."""
+        agent = make_agent()
+        d = agent.to_dict()
+        assert d["tool_invocations_count"] == 0
+        assert d["file_operations_count"] == 0
+        assert d["last_test_result"] is None
+
+    def test_tool_invocations_count(self, make_agent):
+        """tool_invocations_count reflects list length."""
+        agent = make_agent()
+        agent._tool_invocations.append(ToolInvocation(
+            agent_id=agent.id, tool="Read", args="file.py",
+            timestamp=time.time(), line_index=0,
+        ))
+        agent._tool_invocations.append(ToolInvocation(
+            agent_id=agent.id, tool="Edit", args="file.py",
+            timestamp=time.time(), line_index=1,
+        ))
+        d = agent.to_dict()
+        assert d["tool_invocations_count"] == 2
+
+    def test_file_operations_count(self, make_agent):
+        """file_operations_count reflects list length."""
+        agent = make_agent()
+        agent._file_operations.append(FileOperation(
+            agent_id=agent.id, file_path="/tmp/test.py",
+            operation="write", timestamp=time.time(),
+        ))
+        d = agent.to_dict()
+        assert d["file_operations_count"] == 1
+
+    def test_last_test_result(self, make_agent):
+        """last_test_result returns the most recent test result."""
+        agent = make_agent()
+        tr1 = TestResult(
+            agent_id=agent.id, passed=10, failed=0, skipped=0,
+            total=10, coverage_pct=None, framework="pytest",
+            timestamp=time.time(),
+        )
+        tr2 = TestResult(
+            agent_id=agent.id, passed=15, failed=2, skipped=1,
+            total=18, coverage_pct=85.0, framework="pytest",
+            timestamp=time.time(),
+        )
+        agent._test_results.append(tr1)
+        agent._test_results.append(tr2)
+        d = agent.to_dict()
+        assert d["last_test_result"] is not None
+        assert d["last_test_result"]["passed"] == 15
+        assert d["last_test_result"]["failed"] == 2
+        assert d["last_test_result"]["framework"] == "pytest"
+
+    def test_test_result_to_dict(self):
+        """TestResult.to_dict() includes all fields."""
+        tr = TestResult(
+            agent_id="a1b2", passed=20, failed=1, skipped=3,
+            total=24, coverage_pct=92.5, framework="jest",
+            timestamp=1000.0,
+        )
+        d = tr.to_dict()
+        assert d["passed"] == 20
+        assert d["failed"] == 1
+        assert d["skipped"] == 3
+        assert d["total"] == 24
+        assert d["coverage_pct"] == 92.5
+        assert d["framework"] == "jest"

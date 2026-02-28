@@ -132,7 +132,8 @@ def check_dependencies() -> bool:
                 ["claude", "--version"], capture_output=True, timeout=5, text=True
             )
             if result.returncode == 0:
-                version = result.stdout.strip().split('\n')[0][:80]
+                lines = result.stdout.strip().split('\n')
+                version = lines[0][:80] if lines else "unknown"
                 log.info(f"claude CLI validated: {version}")
                 return True
             else:
@@ -504,13 +505,26 @@ KNOWN_BACKENDS: dict[str, BackendConfig] = {
         status_patterns={
             "working": [r"⎿", r"╭─", r"╰─", r"Tool Use:", r"Bash:", r"\$ ",
                         r"esc to interrupt", r"Running ", r"Updated \d+ file",
-                        r"Created ", r"Wrote ", r"tokens remaining"],
+                        r"Created ", r"Wrote ", r"tokens remaining",
+                        r"Reading file", r"Editing file", r"Writing file",
+                        r"Searching for", r"Globbing", r"Grepping",
+                        r"npm (run|install|test)", r"pip install",
+                        r"pytest", r"jest", r"vitest", r"mocha",
+                        r"compiling|building|bundling",
+                        r"git (add|commit|push|pull|diff|log|status)"],
             "waiting": [r"Do you want to proceed", r"Allow once", r"Allow always",
                         r"Press Enter to retry", r"Type your response",
-                        r"waiting for your", r"What would you like"],
+                        r"waiting for your", r"What would you like",
+                        r"Approve", r"Deny", r"Skip",
+                        r"Y/n\]", r"y/N\]",
+                        r"Enter a value", r"Select an option",
+                        r"Choose (a|an|one|which)"],
             "planning": [r"Thinking\.\.\.", r"Schlepping", r"I'll start by",
-                         r"Let me analyze"],
-            "complete": [r"❯", r"Task completed", r"All done"],
+                         r"Let me analyze", r"Let me plan",
+                         r"I need to", r"First,? I('ll| will)",
+                         r"Analyzing", r"Understanding"],
+            "complete": [r"❯", r"Task completed", r"All done",
+                         r"Successfully completed", r"Finished"],
         },
         cost_input_per_1k=0.003,
         cost_output_per_1k=0.015,
@@ -2743,6 +2757,8 @@ STATUS_PATTERNS = {
         re.compile(r"(?i)(reading|loading|scanning|parsing) .+\.\w+"),
         re.compile(r"(?i)(reading|loading|scanning|parsing) (directory|folder|project|codebase)"),
         re.compile(r"(?i)exploring .+"),
+        re.compile(r"(?i)searching (for|in|through|across)"),
+        re.compile(r"(?i)(looking at|examining|inspecting|reviewing) .+"),
     ],
     "working": [
         re.compile(r"(?i)(writing|creating|editing|updating) \S+\.\w+"),
@@ -2766,12 +2782,21 @@ STATUS_PATTERNS = {
         re.compile(r"(?i)(installing|downloading|fetching|uploading)"),
         # Linting / formatting (active operations, not result messages)
         re.compile(r"(?i)(linting|formatting|running (lint|prettier|eslint|mypy|ruff))"),
+        # Docker / container operations
+        re.compile(r"(?i)(docker (build|run|pull|push|compose))"),
+        # Database operations
+        re.compile(r"(?i)(migrating|seeding|running migration)"),
+        # Deploy operations
+        re.compile(r"(?i)(deploying|pushing to|releasing)"),
     ],
     "waiting": [
         re.compile(r"(?i)(do you want|shall I|should I|would you like)"),
         re.compile(r"(?i)(yes/no|y/n|\[Y/n\]|\[y/N\])"),
         re.compile(r"(?i)proceed\?"),
         re.compile(r"(?i)\bapprove\b"),
+        re.compile(r"(?i)please (confirm|respond|reply|answer|choose|select)"),
+        re.compile(r"(?i)waiting for (input|response|confirmation|approval)"),
+        re.compile(r"(?i)enter (a |your )?(value|name|path|password|token)"),
     ],
     "error": [
         # Fatal patterns — actual crashes, not just mentions of "error" in output
@@ -5897,7 +5922,10 @@ async def get_agent_tool_invocations(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
-    limit = int(request.query.get("limit", "100"))
+    try:
+        limit = max(1, min(int(request.query.get("limit", "100")), 500))
+    except ValueError:
+        limit = 100
     return web.json_response({
         "agent_id": agent_id,
         "invocations": [t.to_dict() for t in agent._tool_invocations[-limit:]],
@@ -5912,7 +5940,10 @@ async def get_agent_file_operations(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
-    limit = int(request.query.get("limit", "100"))
+    try:
+        limit = max(1, min(int(request.query.get("limit", "100")), 500))
+    except ValueError:
+        limit = 100
     return web.json_response({
         "agent_id": agent_id,
         "operations": [f.to_dict() for f in agent._file_operations[-limit:]],
