@@ -7823,6 +7823,21 @@ async def health_check_loop(app: web.Application) -> None:
                         await hub.broadcast({"type": "agent_removed", "agent_id": agent_id, "reason": "idle_timeout"})
                         await hub.broadcast_event("agent_reaped", f"Agent {name} reaped after {int(idle_duration)}s idle", agent_id, name)
 
+                # -- Context exhaustion auto-snapshot + warning --
+                if agent.context_pct >= 0.92 and agent.status in ("working", "planning", "reading"):
+                    if not getattr(agent, '_context_exhaustion_warned', False):
+                        agent._context_exhaustion_warned = True
+                        log.warning(f"Agent {agent_id} ({agent.name}) context at {agent.context_pct:.0%} — creating snapshot")
+                        try:
+                            agent.create_snapshot(trigger="context_warning")
+                        except Exception:
+                            pass
+                        await hub.broadcast_event(
+                            "agent_context_warning",
+                            f"Agent {agent.name} context window at {agent.context_pct:.0%} — approaching limit",
+                            agent_id, agent.name,
+                        )
+
                 # -- Workflow stage stall detection --
                 if agent.workflow_run_id and agent.status == "paused":
                     pause_duration = time.monotonic() - agent.last_output_time if agent.last_output_time > 0 else 0
@@ -7847,6 +7862,30 @@ async def health_check_loop(app: web.Application) -> None:
                             )
         except Exception as e:
             log.error(f"Health check error: {e}")
+
+        # Fleet-wide cost limit check
+        try:
+            config: Config = app["config"]
+            if config.cost_budget_usd > 0 and config.cost_budget_auto_pause:
+                fleet_cost = sum(a.estimated_cost_usd for a in list(manager.agents.values()))
+                if fleet_cost >= config.cost_budget_usd:
+                    if not getattr(app, '_fleet_budget_warned', False):
+                        app['_fleet_budget_warned'] = True
+                        log.warning(f"Fleet cost ${fleet_cost:.2f} exceeds budget ${config.cost_budget_usd:.2f} — auto-pausing working agents")
+                        working = [a for a in list(manager.agents.values()) if a.status in ("working", "planning", "reading")]
+                        for a in working:
+                            try:
+                                await manager.pause(a.id)
+                                await hub.broadcast({"type": "agent_update", "agent": a.to_dict()})
+                            except Exception as pe:
+                                log.warning(f"Failed to auto-pause agent {a.id}: {pe}")
+                        await hub.broadcast_event(
+                            "fleet_budget_exceeded",
+                            f"Fleet cost ${fleet_cost:.2f} exceeds budget ${config.cost_budget_usd:.2f}. {len(working)} agents auto-paused.",
+                            None, None,
+                        )
+        except Exception as e:
+            log.error(f"Fleet budget check error: {e}")
 
         # Auto-spawn from task queue when slots are available
         try:

@@ -2137,3 +2137,32 @@ class TestStatusTimeline:
         for i in range(110):
             agent.set_status("working" if i % 2 == 0 else "planning")
         assert len(agent._status_history) <= 100
+
+
+class TestContextExhaustionWarning:
+    """Tests for context exhaustion snapshot and warning."""
+
+    def test_context_warning_flag_default(self):
+        """_context_exhaustion_warned should default to False."""
+        agent = ashlar_server.Agent(
+            id="ce01", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-ce01",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        assert not getattr(agent, '_context_exhaustion_warned', False)
+
+    def test_context_warning_creates_snapshot(self):
+        """Agent at 92%+ context should create snapshot when triggered."""
+        agent = ashlar_server.Agent(
+            id="ce02", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="High context", tmux_session="ashlar-ce02",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        agent.context_pct = 0.95
+        agent.output_lines.append("test output line")
+        snap = agent.create_snapshot(trigger="context_warning")
+        assert snap.trigger == "context_warning"
+        assert snap.context_pct == 0.95
+        assert len(agent._snapshots) == 1
