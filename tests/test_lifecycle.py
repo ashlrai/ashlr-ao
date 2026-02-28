@@ -2214,3 +2214,55 @@ class TestEfficiencyScore:
         result = ashlar_server.calculate_efficiency_score(agent)
         assert result["score"] < 0.5
         assert result["tools_per_min"] == 0
+
+
+class TestOutputBufferPagination:
+    """Tests for output buffer overflow and archive tracking."""
+
+    def test_output_deque_max_length(self):
+        """Output lines deque has a max length of 2000."""
+        agent = ashlar_server.Agent(
+            id="pg01", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-pg01",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        assert agent.output_lines.maxlen == 2000
+
+    def test_archived_lines_starts_at_zero(self):
+        """Archived lines counter starts at 0."""
+        agent = ashlar_server.Agent(
+            id="pg02", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-pg02",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        assert agent._archived_lines == 0
+
+    def test_total_output_lines_in_to_dict(self):
+        """total_output_lines is included in to_dict."""
+        agent = ashlar_server.Agent(
+            id="pg03", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-pg03",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        agent.total_output_lines = 500
+        d = agent.to_dict()
+        assert d["total_output_lines"] == 500
+
+    def test_output_overflow_tracking(self):
+        """When output exceeds deque size, _archived_lines tracks overflow."""
+        agent = ashlar_server.Agent(
+            id="pg04", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-pg04",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        # Fill beyond capacity
+        for i in range(2100):
+            agent.output_lines.append(f"line {i}")
+        assert len(agent.output_lines) == 2000
+        # First 100 lines should have been dropped by the deque
+        first_line = agent.output_lines[0]
+        assert "line 100" in first_line

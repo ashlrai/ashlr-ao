@@ -1077,6 +1077,16 @@ body {
 }
 .deep-keyword-chip.file { color: var(--accent); }
 .deep-keyword-chip.tool { color: var(--success); }
+.activity-heatmap {
+    display: flex; gap: 1px; align-items: flex-end;
+    height: 20px; margin: 4px 0; padding: 0;
+}
+.activity-heatmap:empty { display: none; }
+.hm-cell {
+    flex: 1; min-width: 3px; max-width: 12px; border-radius: 1px;
+    transition: opacity 0.2s; cursor: default;
+}
+.hm-cell:hover { opacity: 0.8; outline: 1px solid var(--text-tertiary); }
 .status-timeline-segment { height: 100%; min-width: 2px; transition: width 0.3s; }
 #taskSuggestions { margin-top: 6px; }
 .task-suggestion {
@@ -1380,6 +1390,24 @@ body {
 .jump-to-bottom:hover { background: var(--bg-elevated); color: var(--text-primary); }
 .jump-to-bottom.visible { display: block; animation: jumpPulse 2s ease-in-out infinite; }
 @keyframes jumpPulse { 0%,100% { box-shadow: 0 2px 8px rgba(0,0,0,0.3); } 50% { box-shadow: 0 2px 16px rgba(99,102,241,0.3); } }
+.load-more-indicator {
+    text-align: center;
+    padding: 8px 0;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: color var(--transition);
+    user-select: none;
+}
+.load-more-indicator:hover { color: var(--accent); }
+.load-more-indicator.loading { pointer-events: none; opacity: 0.5; }
+.load-more-indicator .lm-spinner {
+    display: inline-block; width: 10px; height: 10px;
+    border: 1.5px solid var(--text-tertiary); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    margin-right: 6px; vertical-align: middle;
+}
 
 .deep-input-bar {
     height: 54px;
@@ -3524,6 +3552,27 @@ body {
 }
 .fleet-status-bar > div { height: 100%; min-width: 2px; transition: width 0.4s; }
 @media (max-width: 768px) { .fleet-summary { gap: 10px; padding: 8px 12px; } .fleet-stat .fs-value { font-size: 14px; } }
+.conflict-banner {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; margin: 0 24px;
+    background: color-mix(in srgb, var(--danger) 12%, var(--bg-surface));
+    border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+    border-radius: 8px; font-size: 12px; color: var(--danger);
+}
+.conflict-banner-icon { display: flex; flex-shrink: 0; }
+.conflict-banner-text { flex: 1; font-family: var(--font-mono); font-size: 11px; }
+.conflict-banner-btn {
+    font-size: 10px; padding: 3px 10px; border-radius: 4px;
+    background: color-mix(in srgb, var(--danger) 20%, transparent);
+    border: 1px solid var(--danger); color: var(--danger); cursor: pointer;
+    transition: background var(--transition);
+}
+.conflict-banner-btn:hover { background: color-mix(in srgb, var(--danger) 35%, transparent); }
+.conflict-banner-dismiss {
+    background: none; border: none; color: var(--text-tertiary); cursor: pointer;
+    font-size: 16px; padding: 0 4px; line-height: 1;
+}
+.conflict-banner-dismiss:hover { color: var(--danger); }
 .search-hl { background: rgba(99,102,241,0.3); color: white; border-radius: 2px; padding: 0 1px; }
 .search-hl-current { background: rgba(249,115,22,0.7) !important; outline: 1px solid var(--orange); }
 .deep-filter-chips { display: flex; gap: 3px; margin-right: 6px; }
@@ -4101,6 +4150,12 @@ body {
         <div class="fleet-stat" id="fsHealth"><span class="fs-value">-</span><span class="fs-label">Avg Health</span></div>
         <div class="fleet-status-bar" id="fsStatusBar"></div>
     </div>
+    <div class="conflict-banner" id="conflictBanner" style="display:none">
+        <span class="conflict-banner-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span>
+        <span class="conflict-banner-text" id="conflictBannerText"></span>
+        <button class="conflict-banner-btn" onclick="showConflictSummary()">Details</button>
+        <button class="conflict-banner-dismiss" onclick="dismissConflictBanner()" title="Dismiss">&times;</button>
+    </div>
     <div class="agent-grid" id="agentGrid">
         <div class="empty-state" id="emptyState">
             <div class="empty-illustration">
@@ -4259,6 +4314,7 @@ body {
         </div>
         <div class="status-timeline-bar" id="statusTimelineBar"></div>
         <div class="deep-keywords" id="deepKeywords"></div>
+        <div class="activity-heatmap" id="activityHeatmap" title="Activity density over time"></div>
         <div class="deep-actions">
             <button class="deep-action-btn" id="deepPauseBtn" onclick="deepPauseResume()" id="deepPauseBtnInner"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></svg></span> Pause</button>
             <button class="deep-action-btn" onclick="deepCopyOutput()"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span> Copy</button>
@@ -5975,6 +6031,7 @@ function renderAgentGrid() {
     const emptyState = document.getElementById('emptyState');
     updateCommandTarget();
     updateFleetSummary();
+    updateConflictBanner();
 
     if (state.agents.size === 0) {
         if (!state.connected) {
@@ -6926,6 +6983,7 @@ function openDeepView(agentId) {
     terminal.style.wordWrap = 'break-word';
     const lines = agent._outputBuffer || [];
     if (lines.length) {
+        _addLoadMoreIndicator(terminal);
         const frag = document.createDocumentFragment();
         for (const line of lines) {
             const div = document.createElement('div');
@@ -6934,23 +6992,42 @@ function openDeepView(agentId) {
             frag.appendChild(div);
         }
         terminal.appendChild(frag);
+        // Check if there's archived output we haven't loaded
+        const ps = _getProgressiveState(agent);
+        if (ps.loadedFrom < 0) {
+            // First open — estimate: if total_output_lines > buffer, there's more
+            const totalKnown = agent.total_output_lines || lines.length;
+            if (totalKnown > lines.length) {
+                ps.total = totalKnown;
+                ps.loadedFrom = totalKnown - lines.length;
+                ps.hasMore = ps.loadedFrom > 0;
+            } else {
+                ps.loadedFrom = 0;
+                ps.total = lines.length;
+                ps.hasMore = false;
+            }
+        }
+        _updateLoadMoreIndicator(agentId);
     } else {
         terminal.innerHTML = '<span style="color:var(--text-tertiary)">Loading output...</span>';
-        // Fetch output from API when buffer is empty (e.g. after page refresh)
-        apiFetch(`/api/agents/${agentId}`).then(r => r.ok ? r.json() : null).then(data => {
-            if (!data?.output_lines?.length || state.focusedAgentId !== agentId) return;
-            agent._outputBuffer = data.output_lines;
+        // Progressive load from full-output API (includes archive)
+        loadOutputChunk(agentId, 'initial').then(() => {
+            if (state.focusedAgentId !== agentId) return;
+            const buf = agent._outputBuffer || [];
+            if (!buf.length) return;
             terminal.innerHTML = '';
+            _addLoadMoreIndicator(terminal);
             const frag = document.createDocumentFragment();
-            for (const line of data.output_lines) {
+            for (const line of buf) {
                 const div = document.createElement('div');
                 div.className = 'terminal-line';
                 div.innerHTML = ansiToHtml(line);
                 frag.appendChild(div);
             }
             terminal.appendChild(frag);
+            _updateLoadMoreIndicator(agentId);
             scrollDeepToBottom();
-        }).catch(e => console.warn('Deep view refresh failed:', e.message));
+        }).catch(e => console.warn('Deep view progressive load failed:', e.message));
     }
     // Restore saved scroll position or scroll to bottom
     if (savedScrollPos != null) {
@@ -6972,6 +7049,13 @@ function openDeepView(agentId) {
         document.getElementById('jumpToBottom').classList.toggle('visible', !isBottom);
         document.getElementById('toolbarAutoScroll').classList.toggle('active', isBottom);
         document.getElementById('followIndicator').style.display = isBottom ? '' : 'none';
+        // Progressive load: trigger when scrolling near top
+        if (terminal.scrollTop < 100 && state.focusedAgentId && !_progressiveLoading) {
+            const ag = state.agents.get(state.focusedAgentId);
+            if (ag && _getProgressiveState(ag).hasMore) {
+                loadOutputChunk(state.focusedAgentId, 'older');
+            }
+        }
     };
     terminal.addEventListener('scroll', terminal._ashlarScrollHandler);
 
@@ -7263,8 +7347,51 @@ function updateDeepViewHeader(agent) {
         }
     }
 
+    // Activity heatmap
+    updateActivityHeatmap(agent);
+
     // Error summary panel
     updateErrorSummary(agent);
+}
+
+function updateActivityHeatmap(agent) {
+    const el = document.getElementById('activityHeatmap');
+    if (!el) return;
+    // Build time buckets from output history and activity cache
+    const BUCKETS = 40;
+    const lines = agent._outputBuffer || [];
+    if (lines.length < 20) { el.innerHTML = ''; return; }
+    // Divide output into BUCKETS equal segments, count "activity" per segment
+    const segSize = Math.max(1, Math.ceil(lines.length / BUCKETS));
+    const buckets = [];
+    const errorRe = /\b(error|exception|traceback|fail(ed)?|FAIL|ERROR)\b/i;
+    const toolRe = /\b(Read|Edit|Write|Bash|Glob|Grep)\s*\(/i;
+    for (let b = 0; b < BUCKETS; b++) {
+        const start = b * segSize;
+        const end = Math.min(start + segSize, lines.length);
+        let activity = 0, errors = 0, tools = 0;
+        for (let i = start; i < end; i++) {
+            const l = lines[i] || '';
+            if (l.trim().length > 0) activity++;
+            if (errorRe.test(l)) errors++;
+            if (toolRe.test(l)) tools++;
+        }
+        buckets.push({ activity, errors, tools, lineCount: end - start });
+    }
+    const maxAct = Math.max(1, ...buckets.map(b => b.activity));
+    const cells = buckets.map((b, i) => {
+        const intensity = b.activity / maxAct;
+        const h = Math.max(2, Math.round(intensity * 18));
+        let color;
+        if (b.errors > 0) color = 'var(--danger)';
+        else if (b.tools > 2) color = 'var(--accent)';
+        else color = 'var(--success)';
+        const opacity = Math.max(0.15, intensity);
+        const lineRange = `Lines ${i * segSize + 1}-${Math.min((i + 1) * segSize, lines.length)}`;
+        const tip = `${lineRange}: ${b.activity} lines, ${b.tools} tools, ${b.errors} errors`;
+        return `<div class="hm-cell" style="height:${h}px;background:${color};opacity:${opacity}" title="${tip}"></div>`;
+    });
+    el.innerHTML = cells.join('');
 }
 
 let _newLinesSinceScroll = 0;
@@ -8283,7 +8410,37 @@ function trackConflict(data) {
         if (!state.conflicts.has(otherId)) state.conflicts.set(otherId, new Set());
         state.conflicts.get(otherId).add(filePath);
     }
+    updateConflictBanner();
     scheduleRender();
+}
+
+let _conflictBannerDismissed = false;
+
+function updateConflictBanner() {
+    const banner = document.getElementById('conflictBanner');
+    if (!banner || _conflictBannerDismissed) return;
+    // Clean up conflicts for agents that no longer exist
+    for (const [aid] of state.conflicts) {
+        if (!state.agents.has(aid)) state.conflicts.delete(aid);
+    }
+    if (state.conflicts.size === 0) { banner.style.display = 'none'; return; }
+    const totalFiles = new Set();
+    const agentNames = [];
+    state.conflicts.forEach((files, agentId) => {
+        files.forEach(f => totalFiles.add(f));
+        const agent = state.agents.get(agentId);
+        if (agent) agentNames.push(agent.name);
+    });
+    const text = `${totalFiles.size} file${totalFiles.size > 1 ? 's' : ''} in conflict across ${agentNames.length} agent${agentNames.length > 1 ? 's' : ''}: ${[...totalFiles].slice(0, 3).join(', ')}${totalFiles.size > 3 ? '...' : ''}`;
+    document.getElementById('conflictBannerText').textContent = text;
+    banner.style.display = '';
+}
+
+function dismissConflictBanner() {
+    document.getElementById('conflictBanner').style.display = 'none';
+    _conflictBannerDismissed = true;
+    // Reset after 2 minutes (in case new conflicts appear)
+    setTimeout(() => { _conflictBannerDismissed = false; }, 120000);
 }
 
 function showConflictSummary() {
@@ -12074,6 +12231,13 @@ openDeepView = function(agentId) {
                 const isBottom = terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight < 40;
                 deepAutoScroll = isBottom;
                 document.getElementById('jumpToBottom')?.classList.toggle('visible', !isBottom);
+                // Progressive load: trigger when scrolling near top
+                if (terminal.scrollTop < 200 && state.focusedAgentId && !_progressiveLoading) {
+                    const ag = state.agents.get(state.focusedAgentId);
+                    if (ag && _getProgressiveState(ag).hasMore) {
+                        loadOutputChunk(state.focusedAgentId, 'older');
+                    }
+                }
             };
             terminal.addEventListener('scroll', terminal._ashlarVScrollHandler);
         }
@@ -12096,13 +12260,14 @@ appendDeepOutput = function(lines) {
     }
 };
 
-// Reset virtual state on close
+// Reset virtual + progressive state on close
 const _origCloseDeep = closeDeepView;
 closeDeepView = function() {
     virtualTermData = [];
     _virtualSearchMatches = [];
     _filteredVirtualData = null;
     _activeOutputFilter = 'all';
+    _progressiveLoading = false;
     _origCloseDeep();
 };
 
@@ -12119,6 +12284,139 @@ window.addEventListener('resize', debounce(() => {
         renderVirtualRange(terminal);
     }
 }, 200));
+
+// ── Progressive Output Loading ──
+
+const PROGRESSIVE_CHUNK_SIZE = 500;
+let _progressiveLoading = false; // mutex to prevent concurrent loads
+
+function _getProgressiveState(agent) {
+    if (!agent._progressive) agent._progressive = { loadedFrom: -1, total: 0, hasMore: false };
+    return agent._progressive;
+}
+
+async function loadOutputChunk(agentId, direction = 'initial') {
+    if (_progressiveLoading) return;
+    const agent = state.agents.get(agentId);
+    if (!agent) return;
+    const ps = _getProgressiveState(agent);
+
+    _progressiveLoading = true;
+    const indicator = document.getElementById('loadMoreIndicator');
+
+    try {
+        let offset, limit = PROGRESSIVE_CHUNK_SIZE;
+        if (direction === 'initial') {
+            // Load latest chunk — server returns from the end
+            const resp = await apiFetch(`/api/agents/${agentId}/full-output?limit=${limit}&offset=0`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const total = data.pagination?.total || 0;
+            // We want the LAST chunk, so re-fetch with correct offset
+            if (total > limit) {
+                offset = total - limit;
+                const resp2 = await apiFetch(`/api/agents/${agentId}/full-output?limit=${limit}&offset=${offset}`);
+                if (!resp2.ok) return;
+                const data2 = await resp2.json();
+                agent._outputBuffer = data2.data || [];
+                ps.loadedFrom = offset;
+                ps.total = total;
+                ps.hasMore = offset > 0;
+            } else {
+                agent._outputBuffer = data.data || [];
+                ps.loadedFrom = 0;
+                ps.total = total;
+                ps.hasMore = false;
+            }
+        } else if (direction === 'older') {
+            if (!ps.hasMore || ps.loadedFrom <= 0) return;
+            offset = Math.max(0, ps.loadedFrom - PROGRESSIVE_CHUNK_SIZE);
+            limit = ps.loadedFrom - offset;
+            if (indicator) { indicator.classList.add('loading'); indicator.innerHTML = '<span class="lm-spinner"></span>Loading...'; }
+            const resp = await apiFetch(`/api/agents/${agentId}/full-output?limit=${limit}&offset=${offset}`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const olderLines = data.data || [];
+            if (olderLines.length > 0) {
+                agent._outputBuffer = [...olderLines, ...agent._outputBuffer];
+                ps.loadedFrom = offset;
+                ps.hasMore = offset > 0;
+                // Re-render: prepend to terminal
+                _prependOutputLines(olderLines);
+            }
+        }
+    } catch (e) {
+        console.warn('Progressive load failed:', e.message);
+    } finally {
+        _progressiveLoading = false;
+        _updateLoadMoreIndicator(agentId);
+    }
+}
+
+function _prependOutputLines(lines) {
+    const terminal = document.getElementById('deepTerminal');
+    if (!terminal) return;
+    // For virtual scroll mode, prepend to virtualTermData
+    if (virtualTermData.length > 0 && document.getElementById('vtContent')) {
+        const prevH = virtualTermData.length * virtualTermLineH;
+        virtualTermData = [...lines, ...virtualTermData];
+        renderVirtualRange(terminal);
+        // Maintain scroll position after prepend
+        terminal.scrollTop += lines.length * virtualTermLineH;
+        return;
+    }
+    // Normal DOM mode: prepend elements
+    const prevScrollH = terminal.scrollHeight;
+    const prevScrollT = terminal.scrollTop;
+    const frag = document.createDocumentFragment();
+    const loadIndicator = document.getElementById('loadMoreIndicator');
+    for (const line of lines) {
+        const div = document.createElement('div');
+        div.className = 'terminal-line';
+        div.innerHTML = ansiToHtml(line);
+        frag.appendChild(div);
+    }
+    // Insert after the load-more indicator (or at top)
+    if (loadIndicator && loadIndicator.nextSibling) {
+        terminal.insertBefore(frag, loadIndicator.nextSibling);
+    } else {
+        terminal.insertBefore(frag, terminal.firstChild);
+    }
+    // Maintain scroll position
+    const newScrollH = terminal.scrollHeight;
+    terminal.scrollTop = prevScrollT + (newScrollH - prevScrollH);
+}
+
+function _updateLoadMoreIndicator(agentId) {
+    const agent = state.agents.get(agentId);
+    if (!agent) return;
+    const ps = _getProgressiveState(agent);
+    const indicator = document.getElementById('loadMoreIndicator');
+    if (!indicator) return;
+    if (ps.hasMore) {
+        const remaining = ps.loadedFrom;
+        indicator.style.display = '';
+        indicator.classList.remove('loading');
+        indicator.innerHTML = `↑ Load ${Math.min(PROGRESSIVE_CHUNK_SIZE, remaining)} earlier lines (${remaining} remaining)`;
+    } else {
+        indicator.style.display = 'none';
+    }
+}
+
+function _addLoadMoreIndicator(terminal) {
+    let indicator = document.getElementById('loadMoreIndicator');
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'loadMoreIndicator';
+        indicator.className = 'load-more-indicator';
+        indicator.style.display = 'none';
+        indicator.onclick = () => {
+            if (state.focusedAgentId) loadOutputChunk(state.focusedAgentId, 'older');
+        };
+        terminal.insertBefore(indicator, terminal.firstChild);
+    }
+    return indicator;
+}
 
 // ── Agent Clone (B2) ──
 
