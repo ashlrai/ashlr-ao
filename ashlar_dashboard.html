@@ -111,6 +111,37 @@
     --shadow-xl: 0 24px 64px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3);
 }
 
+/* ── Light Theme ── */
+[data-theme="light"] {
+    --bg-page: #F8F9FB;
+    --bg-surface: #FFFFFF;
+    --bg-elevated: #F0F2F5;
+    --bg-overlay: #E8EBF0;
+    --bg-input: #F0F2F5;
+    --text-primary: #1A1D23;
+    --text-secondary: #5A6070;
+    --text-tertiary: #8B919E;
+    --text-disabled: #BCC1CC;
+    --border-subtle: rgba(0,0,0,0.06);
+    --border-default: rgba(0,0,0,0.12);
+    --border-strong: rgba(0,0,0,0.20);
+    --border-focus: rgba(99,102,241,0.4);
+    --accent-muted: rgba(99,102,241,0.15);
+    --accent-subtle: rgba(99,102,241,0.08);
+    --success-subtle: rgba(34,197,94,0.08);
+    --warning-subtle: rgba(234,179,8,0.08);
+    --danger-subtle: rgba(239,68,68,0.08);
+    --orange-subtle: rgba(249,115,22,0.08);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,0.10), 0 4px 12px rgba(0,0,0,0.06);
+    --shadow-xl: 0 24px 64px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.06);
+}
+[data-theme="light"] .deep-terminal,
+[data-theme="light"] .compare-pane-terminal { background: #1E1E2E; color: #CDD6F4; }
+[data-theme="light"] .top-bar { background: #FFFFFF; border-bottom-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .command-bar { background: #FFFFFF; border-top-color: rgba(0,0,0,0.08); }
+
 /* ── Z-Index Scale ──
    Cards/Grid:    0-10
    Card menus:    50
@@ -2429,6 +2460,11 @@ body {
 .bookmark-delete { cursor: pointer; color: var(--text-tertiary); font-size: 12px; }
 .bookmark-delete:hover { color: var(--danger); }
 
+/* ── Output Mark/Diff ── */
+.terminal-line.marked-new { background: rgba(99,102,241,0.06); }
+.terminal-line.mark-boundary { border-top: 1px dashed rgba(99,102,241,0.3); position: relative; }
+.terminal-line.mark-boundary::before { content: '⚑ marked'; position: absolute; top: -10px; right: 8px; font-size: 9px; color: var(--accent); font-family: var(--font-mono); opacity: 0.6; }
+
 .deep-scratchpad-panel {
     flex: 1;
     overflow-y: auto;
@@ -3707,6 +3743,7 @@ body {
         </div>
     </div>
     <button class="btn-extensions" onclick="toggleExtensionsPanel()" title="Extensions (⌘E)" aria-label="Extensions"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.39 4.39a2.12 2.12 0 0 1 3 3l-1.64 1.64"/><path d="M13.5 7.5 6.75 14.25a2.12 2.12 0 0 0 3 3l6.75-6.75"/><path d="M10 15.5a5 5 0 0 1-7-7l2-2"/><path d="M14 8.5a5 5 0 0 1 7 7l-2 2"/></svg></button>
+    <button class="btn-extensions" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme" id="themeToggleBtn"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
     <button class="btn-new-agent" onclick="openSpawnDialog()">
         <span>+</span> New Agent
     </button>
@@ -3921,6 +3958,7 @@ body {
         <button class="terminal-toolbar-btn" onclick="exportTerminalTxt()">⬇ Export .txt</button>
         <button class="terminal-toolbar-btn" onclick="clearTerminalDisplay()">⌫ Clear</button>
         <button class="terminal-toolbar-btn" onclick="toggleBookmarksPanel()" id="toolbarBookmarks">★ Bookmarks</button>
+        <button class="terminal-toolbar-btn" onclick="markOutputPosition()" id="toolbarMark" title="Mark current position to track new output">⚑ Mark</button>
         <div class="toolbar-spacer"></div>
         <div class="follow-indicator" id="followIndicator" style="display:none">FOLLOWING</div>
     </div>
@@ -6166,6 +6204,17 @@ function openDeepView(agentId) {
     document.getElementById('followIndicator').style.display = '';
     document.getElementById('toolbarLineWrap').classList.remove('active');
 
+    // Update mark button state for this agent
+    const markBtn = document.getElementById('toolbarMark');
+    const markLine = getOutputMarkLine(agentId);
+    if (markLine >= 0) {
+        markBtn.classList.add('active');
+        markBtn.textContent = `⚑ Marked (${markLine})`;
+    } else {
+        markBtn.classList.remove('active');
+        markBtn.textContent = '⚑ Mark';
+    }
+
     const terminal = document.getElementById('deepTerminal');
     // Defensive: clean up scroll handler from previous agent before reuse
     if (terminal._ashlarScrollHandler) {
@@ -6612,6 +6661,38 @@ function jumpToBookmarkLine(lineNum) {
     const totalLines = agent ? (agent.output_lines || []).length : 1;
     const ratio = Math.min(1, lineNum / Math.max(1, totalLines));
     terminal.scrollTop = ratio * totalHeight;
+}
+
+// ── Output Mark/Diff ──
+const _outputMarks = new Map(); // agentId -> line count at mark time
+
+function markOutputPosition() {
+    if (!state.focusedAgentId) return;
+    // Toggle: if already marked, clear it
+    if (_outputMarks.has(state.focusedAgentId)) {
+        clearOutputMark();
+        return;
+    }
+    const agent = state.agents.get(state.focusedAgentId);
+    if (!agent) return;
+    const lineCount = (agent.output_lines || []).length;
+    _outputMarks.set(state.focusedAgentId, lineCount);
+    const btn = document.getElementById('toolbarMark');
+    btn.classList.add('active');
+    btn.textContent = `⚑ Marked (${lineCount})`;
+    showToast(`Marked at line ${lineCount} — new output will be highlighted`, 'info');
+}
+
+function getOutputMarkLine(agentId) {
+    return _outputMarks.get(agentId) || -1;
+}
+
+function clearOutputMark() {
+    if (!state.focusedAgentId) return;
+    _outputMarks.delete(state.focusedAgentId);
+    const btn = document.getElementById('toolbarMark');
+    btn.classList.remove('active');
+    btn.textContent = '⚑ Mark';
 }
 
 async function deepKill() {
@@ -8785,6 +8866,35 @@ setInterval(() => {
     updateTabTitle();
 }, 5000);
 
+// ── Theme Toggle ──
+
+function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('ashlar_theme', next);
+    // Update icon
+    const btn = document.getElementById('themeToggleBtn');
+    if (next === 'light') {
+        btn.innerHTML = '<svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+    } else {
+        btn.innerHTML = '<svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>';
+    }
+}
+
+// Restore saved theme on load
+(function() {
+    const saved = localStorage.getItem('ashlar_theme');
+    if (saved === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        setTimeout(() => {
+            const btn = document.getElementById('themeToggleBtn');
+            if (btn) btn.innerHTML = '<svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+        }, 0);
+    }
+})();
+
 // ── Settings Panel ──
 
 function openSettings() {
@@ -10259,10 +10369,12 @@ function renderVirtualRange(terminal) {
     document.getElementById('vtSpacer').style.height = (firstVisible * virtualTermLineH) + 'px';
     document.getElementById('vtSpacerBottom').style.height = ((virtualTermData.length - 1 - lastVisible) * virtualTermLineH) + 'px';
     const content = document.getElementById('vtContent');
+    const markLine = state.focusedAgentId ? getOutputMarkLine(state.focusedAgentId) : -1;
     const frag = document.createDocumentFragment();
     for (let i = firstVisible; i <= lastVisible; i++) {
         const div = document.createElement('div');
-        div.className = 'terminal-line';
+        div.className = 'terminal-line' + (markLine >= 0 && i >= markLine ? ' marked-new' : '');
+        if (markLine >= 0 && i === markLine) div.className += ' mark-boundary';
         div.innerHTML = ansiToHtml(virtualTermData[i]);
         frag.appendChild(div);
     }
