@@ -2166,3 +2166,51 @@ class TestContextExhaustionWarning:
         assert snap.trigger == "context_warning"
         assert snap.context_pct == 0.95
         assert len(agent._snapshots) == 1
+
+
+class TestEfficiencyScore:
+    """Tests for calculate_efficiency_score."""
+
+    def test_returns_dict_with_required_keys(self):
+        agent = ashlar_server.Agent(
+            id="ef01", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-ef01",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        agent._spawn_time = time.monotonic() - 60  # 1 min uptime
+        result = ashlar_server.calculate_efficiency_score(agent)
+        assert isinstance(result, dict)
+        assert "score" in result
+        assert "tools_per_min" in result
+        assert "files_per_min" in result
+        assert "error_rate" in result
+        assert "lines_per_min" in result
+        assert "context_efficiency" in result
+        assert 0.0 <= result["score"] <= 1.0
+
+    def test_score_in_to_dict(self):
+        agent = ashlar_server.Agent(
+            id="ef02", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-ef02",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        agent._spawn_time = time.monotonic() - 120
+        d = agent.to_dict()
+        assert "efficiency" in d
+        assert isinstance(d["efficiency"], dict)
+        assert "score" in d["efficiency"]
+
+    def test_new_agent_has_low_score(self):
+        """Agent with no tools or files should have a low efficiency score."""
+        agent = ashlar_server.Agent(
+            id="ef03", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-ef03",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        agent._spawn_time = time.monotonic() - 300
+        result = ashlar_server.calculate_efficiency_score(agent)
+        assert result["score"] < 0.5
+        assert result["tools_per_min"] == 0

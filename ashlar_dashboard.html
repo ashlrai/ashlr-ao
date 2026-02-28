@@ -3475,6 +3475,57 @@ body {
 .deep-search-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .deep-log-filter { background: var(--bg-surface); border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: 4px; padding: 2px 6px; font-size: 12px; margin-right: 4px; outline: none; }
 .deep-log-filter:focus { border-color: var(--accent); }
+.deep-error-summary {
+    background: color-mix(in srgb, var(--danger) 8%, var(--bg-surface));
+    border: 1px solid color-mix(in srgb, var(--danger) 20%, transparent);
+    border-radius: 6px; margin: 0 0 4px 0; overflow: hidden;
+}
+.error-summary-header {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    cursor: pointer; font-size: 11px; font-weight: 600; color: var(--danger);
+    user-select: none;
+}
+.error-summary-header:hover { background: rgba(239,68,68,0.05); }
+.error-summary-badge {
+    background: var(--danger); color: white; font-size: 10px; font-weight: 700;
+    padding: 1px 6px; border-radius: 8px; min-width: 18px; text-align: center;
+    font-family: var(--font-mono);
+}
+.error-summary-toggle { margin-left: auto; font-size: 10px; transition: transform 0.2s; }
+.error-summary-toggle.expanded { transform: rotate(90deg); }
+.error-summary-list {
+    max-height: 120px; overflow-y: auto; padding: 4px 10px 8px;
+    border-top: 1px solid color-mix(in srgb, var(--danger) 15%, transparent);
+}
+.error-summary-line {
+    font-family: var(--font-mono); font-size: 10px; color: var(--danger);
+    padding: 2px 0; cursor: pointer; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; opacity: 0.85;
+}
+.error-summary-line:hover { opacity: 1; text-decoration: underline; }
+.fleet-summary {
+    display: flex; align-items: center; gap: 16px; padding: 10px 24px;
+    border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap;
+}
+.fleet-stat {
+    display: flex; flex-direction: column; align-items: center; min-width: 60px;
+}
+.fleet-stat .fs-value {
+    font-size: 18px; font-weight: 700; color: var(--text-primary);
+    font-family: var(--font-mono); letter-spacing: -0.5px;
+}
+.fleet-stat .fs-label {
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-tertiary); font-weight: 600; margin-top: 1px;
+}
+.fleet-status-bar {
+    flex: 1; min-width: 80px; height: 6px; border-radius: 3px;
+    background: var(--bg-overlay); overflow: hidden; display: flex;
+}
+.fleet-status-bar > div { height: 100%; min-width: 2px; transition: width 0.4s; }
+@media (max-width: 768px) { .fleet-summary { gap: 10px; padding: 8px 12px; } .fleet-stat .fs-value { font-size: 14px; } }
+.search-hl { background: rgba(99,102,241,0.3); color: white; border-radius: 2px; padding: 0 1px; }
+.search-hl-current { background: rgba(249,115,22,0.7) !important; outline: 1px solid var(--orange); }
 .deep-filter-chips { display: flex; gap: 3px; margin-right: 6px; }
 .deep-filter-chip {
     font-size: 10px; font-family: var(--font-mono); padding: 2px 7px; border-radius: 4px;
@@ -4041,6 +4092,15 @@ body {
         </tr></thead>
         <tbody id="agentTableBody"></tbody>
     </table>
+    <div class="fleet-summary" id="fleetSummary" style="display:none">
+        <div class="fleet-stat" id="fsAgents"><span class="fs-value">0</span><span class="fs-label">Agents</span></div>
+        <div class="fleet-stat" id="fsWorking"><span class="fs-value">0</span><span class="fs-label">Working</span></div>
+        <div class="fleet-stat" id="fsWaiting"><span class="fs-value">0</span><span class="fs-label">Waiting</span></div>
+        <div class="fleet-stat" id="fsCost"><span class="fs-value">$0</span><span class="fs-label">Cost</span></div>
+        <div class="fleet-stat" id="fsTokens"><span class="fs-value">0</span><span class="fs-label">Tokens</span></div>
+        <div class="fleet-stat" id="fsHealth"><span class="fs-value">-</span><span class="fs-label">Avg Health</span></div>
+        <div class="fleet-status-bar" id="fsStatusBar"></div>
+    </div>
     <div class="agent-grid" id="agentGrid">
         <div class="empty-state" id="emptyState">
             <div class="empty-illustration">
@@ -4189,6 +4249,7 @@ body {
             <div class="deep-context-stat"><span class="metric-label">Context </span><span class="deep-stat-value" id="deepContext"></span><div class="deep-context-bar"><div class="deep-context-bar-fill" id="deepContextFill"></div></div></div>
             <div><span class="metric-label">Memory </span><span class="deep-stat-value" id="deepMemory"></span></div>
             <div><span class="metric-label">Health </span><span class="deep-stat-value" id="deepHealth"></span></div>
+            <div><span class="metric-label">Efficiency </span><span class="deep-stat-value" id="deepEfficiency" title="">-</span></div>
             <div><span class="metric-label">Time </span><span class="deep-stat-value" id="deepTime"></span></div>
             <div><span class="metric-label">Tokens </span><span class="deep-stat-value" id="deepTokens" title="">-</span></div>
             <div><span class="metric-label">Cost </span><span class="deep-stat-value" id="deepCost">-</span></div>
@@ -4229,6 +4290,14 @@ body {
         <button class="deep-tab" id="deepTabNotes" onclick="switchDeepTab('notes')">Notes</button>
         <button class="deep-tab" id="deepTabSnapshots" onclick="switchDeepTab('snapshots')">Snapshots</button>
         <button class="deep-tab" id="deepTabScratchpad" onclick="switchDeepTab('scratchpad')">Scratchpad</button>
+    </div>
+    <div class="deep-error-summary" id="deepErrorSummary" style="display:none">
+        <div class="error-summary-header" onclick="toggleErrorSummary()">
+            <span class="error-summary-badge" id="errorSummaryCount">0</span>
+            <span>Errors detected</span>
+            <span class="error-summary-toggle" id="errorSummaryToggle">▸</span>
+        </div>
+        <div class="error-summary-list" id="errorSummaryList" style="display:none"></div>
     </div>
     <div class="deep-terminal-wrap">
         <div class="deep-terminal" id="deepTerminal"></div>
@@ -5857,10 +5926,55 @@ function updateFleetStatus() {
 const cardElements = new Map();
 let cardStaggerCount = 0;
 
+function updateFleetSummary() {
+    const el = document.getElementById('fleetSummary');
+    if (!el) return;
+    const agents = [...state.agents.values()];
+    if (agents.length === 0) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    const working = agents.filter(a => ['working', 'planning', 'reading'].includes(a.status)).length;
+    const waiting = agents.filter(a => a.needs_input || a.status === 'waiting').length;
+    const errored = agents.filter(a => a.status === 'error').length;
+    const idle = agents.filter(a => ['idle', 'paused', 'complete'].includes(a.status)).length;
+    const totalCost = agents.reduce((s, a) => s + (a.estimated_cost_usd || 0), 0);
+    const totalTokens = agents.reduce((s, a) => s + (a.tokens_input || 0) + (a.tokens_output || 0), 0);
+    const healthScores = agents.filter(a => a.health_score > 0).map(a => a.health_score);
+    const avgHealth = healthScores.length ? healthScores.reduce((s, h) => s + h, 0) / healthScores.length : 0;
+
+    document.querySelector('#fsAgents .fs-value').textContent = agents.length;
+    const workingEl = document.querySelector('#fsWorking .fs-value');
+    workingEl.textContent = working;
+    workingEl.style.color = working > 0 ? 'var(--accent)' : 'var(--text-tertiary)';
+    const waitingEl = document.querySelector('#fsWaiting .fs-value');
+    waitingEl.textContent = waiting;
+    waitingEl.style.color = waiting > 0 ? 'var(--orange)' : 'var(--text-tertiary)';
+    document.querySelector('#fsCost .fs-value').textContent = totalCost > 0 ? `$${totalCost.toFixed(3)}` : '$0';
+    const tokStr = totalTokens > 1000000 ? `${(totalTokens / 1000000).toFixed(1)}M` : totalTokens > 1000 ? `${(totalTokens / 1000).toFixed(1)}K` : `${totalTokens}`;
+    document.querySelector('#fsTokens .fs-value').textContent = tokStr;
+    const hEl = document.querySelector('#fsHealth .fs-value');
+    hEl.textContent = `${Math.round(avgHealth * 100)}%`;
+    hEl.style.color = avgHealth >= 0.8 ? 'var(--success)' : avgHealth >= 0.6 ? 'var(--warning)' : 'var(--danger)';
+
+    // Status distribution bar
+    const total = agents.length;
+    const bar = document.getElementById('fsStatusBar');
+    const segments = [
+        { count: working, color: 'var(--accent)' },
+        { count: waiting, color: 'var(--orange)' },
+        { count: errored, color: 'var(--danger)' },
+        { count: idle, color: 'var(--text-disabled)' },
+    ].filter(s => s.count > 0);
+    bar.innerHTML = segments.map(s => {
+        const pct = Math.max(2, (s.count / total) * 100);
+        return `<div style="width:${pct}%;background:${s.color}"></div>`;
+    }).join('');
+}
+
 function renderAgentGrid() {
     const grid = document.getElementById('agentGrid');
     const emptyState = document.getElementById('emptyState');
     updateCommandTarget();
+    updateFleetSummary();
 
     if (state.agents.size === 0) {
         if (!state.connected) {
@@ -6941,6 +7055,19 @@ function updateDeepViewHeader(agent) {
     healthEl.textContent = `${hsPct}%`;
     healthEl.style.color = hs >= 0.8 ? 'var(--success)' : hs >= 0.6 ? 'var(--warning)' : 'var(--danger)';
 
+    // Efficiency score
+    const effEl = document.getElementById('deepEfficiency');
+    if (effEl && agent.efficiency) {
+        const eff = agent.efficiency;
+        const effPct = Math.round(eff.score * 100);
+        effEl.textContent = `${effPct}%`;
+        effEl.style.color = eff.score >= 0.7 ? 'var(--success)' : eff.score >= 0.4 ? 'var(--warning)' : 'var(--danger)';
+        const parts = [`${eff.tools_per_min} tools/min`, `${eff.files_per_min} files/min`, `${eff.lines_per_min} lines/min`];
+        if (eff.error_rate > 0) parts.push(`${(eff.error_rate * 100).toFixed(1)}% error rate`);
+        parts.push(`Context efficiency: ${Math.round(eff.context_efficiency * 100)}%`);
+        effEl.title = parts.join(' · ');
+    }
+
     if (agent.created_at) {
         const secs = Math.round((Date.now() - new Date(agent.created_at).getTime()) / 1000);
         const m = Math.floor(secs / 60), s = secs % 60;
@@ -7135,6 +7262,9 @@ function updateDeepViewHeader(agent) {
             deepPromptBar.style.display = 'none';
         }
     }
+
+    // Error summary panel
+    updateErrorSummary(agent);
 }
 
 let _newLinesSinceScroll = 0;
@@ -7455,6 +7585,63 @@ async function deepExportJSON() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showToast('Exported as JSON', 'success');
+}
+
+// ── Error Summary ──
+const _errorRe = /\b(error|exception|traceback|fatal|fail(ed)?|panic|FAIL|ERROR|❌|✗)\b/i;
+
+function updateErrorSummary(agent) {
+    const panel = document.getElementById('deepErrorSummary');
+    if (!panel || !agent) return;
+    const lines = agent._outputBuffer || agent.output_lines || [];
+    const ansiRe = /\x1b\[[0-9;]*m/g;
+    const errorLines = [];
+    for (let i = 0; i < lines.length; i++) {
+        const plain = lines[i].replace(ansiRe, '').trim();
+        if (plain && _errorRe.test(plain)) {
+            errorLines.push({ text: plain.slice(0, 200), lineIdx: i });
+        }
+    }
+    if (errorLines.length === 0) {
+        panel.style.display = 'none';
+        return;
+    }
+    panel.style.display = '';
+    document.getElementById('errorSummaryCount').textContent = errorLines.length;
+    const list = document.getElementById('errorSummaryList');
+    // Only update if count changed
+    if (list.dataset.count !== String(errorLines.length)) {
+        list.dataset.count = String(errorLines.length);
+        list.innerHTML = errorLines.slice(-20).map(e =>
+            `<div class="error-summary-line" title="Line ${e.lineIdx + 1}" onclick="scrollToOutputLine(${e.lineIdx})">${escapeHtml(e.text)}</div>`
+        ).join('');
+    }
+}
+
+function toggleErrorSummary() {
+    const list = document.getElementById('errorSummaryList');
+    const toggle = document.getElementById('errorSummaryToggle');
+    const isOpen = list.style.display !== 'none';
+    list.style.display = isOpen ? 'none' : '';
+    toggle.classList.toggle('expanded', !isOpen);
+}
+
+function scrollToOutputLine(lineIdx) {
+    const terminal = document.getElementById('deepTerminal');
+    if (!terminal) return;
+    // Virtual scroll mode
+    if (virtualTermData.length > 0 && document.getElementById('vtContent')) {
+        terminal.scrollTop = lineIdx * (virtualTermLineH || 18) - terminal.clientHeight / 3;
+        renderVirtualRange(terminal);
+    } else {
+        // Normal mode
+        const lines = terminal.querySelectorAll('.terminal-line');
+        if (lineIdx < lines.length) {
+            lines[lineIdx].scrollIntoView({ block: 'center' });
+            lines[lineIdx].style.background = 'rgba(239,68,68,0.15)';
+            setTimeout(() => { lines[lineIdx].style.background = ''; }, 2000);
+        }
+    }
 }
 
 // ── Bookmarks ──
@@ -7874,7 +8061,7 @@ function deepSearch() {
             if (match.index > lastIdx) frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
             const mark = document.createElement('mark');
             mark.className = 'search-hl';
-            mark.style.cssText = 'background:rgba(99,102,241,0.4);color:white;border-radius:2px';
+            mark.style.cssText = '';
             mark.textContent = match[0];
             frag.appendChild(mark);
             lastIdx = regex.lastIndex;
@@ -7894,7 +8081,10 @@ function deepSearch() {
         countEl.style.color = 'var(--danger)';
     }
 
-    if (deepSearchIdx >= 0) deepSearchMatches[0].scrollIntoView({ block: 'center' });
+    if (deepSearchIdx >= 0) {
+        deepSearchMatches[0].scrollIntoView({ block: 'center' });
+        deepSearchMatches[0].classList.add('search-hl-current');
+    }
 }
 
 function _virtualSearchScrollTo(terminal, matchIdx) {
@@ -7925,7 +8115,7 @@ function _virtualSearchScrollTo(terminal, matchIdx) {
                 range.setEnd(textNode, Math.min(offset + m.length, textNode.textContent.length));
                 const mark = document.createElement('mark');
                 mark.className = 'search-hl';
-                mark.style.cssText = 'background:rgba(99,102,241,0.4);color:white;border-radius:2px';
+                mark.style.cssText = '';
                 try {
                     range.surroundContents(mark);
                     mark.scrollIntoView({ block: 'center' });
@@ -7949,6 +8139,16 @@ function clearSearchHighlights() {
     terminal.normalize();
 }
 
+function _updateCurrentSearchHighlight() {
+    // Remove current class from all, add to current
+    const terminal = document.getElementById('deepTerminal');
+    terminal.querySelectorAll('.search-hl-current').forEach(m => m.classList.remove('search-hl-current'));
+    if (_virtualSearchMatches.length === 0 && deepSearchMatches[deepSearchIdx]) {
+        deepSearchMatches[deepSearchIdx].classList.add('search-hl-current');
+    }
+    document.getElementById('deepSearchCount').textContent = `${deepSearchIdx + 1} of ${deepSearchMatches.length}`;
+}
+
 function deepSearchNext() {
     if (deepSearchMatches.length === 0) return;
     deepSearchIdx = (deepSearchIdx + 1) % deepSearchMatches.length;
@@ -7957,7 +8157,7 @@ function deepSearchNext() {
     } else if (deepSearchMatches[deepSearchIdx]?.scrollIntoView) {
         deepSearchMatches[deepSearchIdx].scrollIntoView({ block: 'center' });
     }
-    document.getElementById('deepSearchCount').textContent = `${deepSearchIdx + 1} of ${deepSearchMatches.length}`;
+    _updateCurrentSearchHighlight();
 }
 
 function deepSearchPrev() {
@@ -7968,7 +8168,7 @@ function deepSearchPrev() {
     } else if (deepSearchMatches[deepSearchIdx]?.scrollIntoView) {
         deepSearchMatches[deepSearchIdx].scrollIntoView({ block: 'center' });
     }
-    document.getElementById('deepSearchCount').textContent = `${deepSearchIdx + 1} of ${deepSearchMatches.length}`;
+    _updateCurrentSearchHighlight();
 }
 
 function handleDeepSearchKey(e) {

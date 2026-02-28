@@ -1081,6 +1081,7 @@ class Agent:
             "max_restarts": self.max_restarts,
             "restarted_at": self.restarted_at,
             "health_score": round(self.health_score, 3),
+            "efficiency": calculate_efficiency_score(self),
             "error_count": self.error_count,
             "time_to_first_output": round(self.time_to_first_output, 2),
             "total_output_lines": self.total_output_lines,
@@ -3827,6 +3828,56 @@ def calculate_health_score(agent: Agent, memory_limit_mb: int = 2048) -> float:
         memory_factor * 0.20
     )
     return round(min(1.0, max(0.0, score)), 3)
+
+
+def calculate_efficiency_score(agent: Agent) -> dict:
+    """Calculate efficiency metrics: tools/min, error rate, context efficiency, productivity.
+
+    Returns a dict with individual metrics and a composite score (0.0-1.0).
+    """
+    now = time.monotonic()
+    uptime_min = max(0.1, (now - agent._spawn_time) / 60) if agent._spawn_time > 0 else 0.1
+
+    # Tools per minute (higher = more productive)
+    tool_count = len(agent._tool_invocations) if hasattr(agent, '_tool_invocations') else 0
+    tools_per_min = round(tool_count / uptime_min, 2)
+    # Normalize: 0-2 tools/min = low, 2-8 = good, 8+ = great
+    tool_score = min(1.0, tools_per_min / 6.0) if tools_per_min > 0 else 0.0
+
+    # File operations per minute
+    file_count = len(agent._file_operations) if hasattr(agent, '_file_operations') else 0
+    files_per_min = round(file_count / uptime_min, 2)
+
+    # Error rate (lower = better)
+    error_rate = agent.error_count / max(1, tool_count + file_count) if (tool_count + file_count) > 0 else 0.0
+    error_score = max(0.0, 1.0 - error_rate * 5.0)
+
+    # Context efficiency: how much work done per context used
+    ctx_used = max(0.01, agent.context_pct)
+    ctx_score = min(1.0, (tool_count + file_count) / (ctx_used * 100)) if ctx_used > 0.01 else 0.5
+
+    # Output productivity: meaningful output lines per minute
+    total_lines = agent.total_output_lines or len(list(agent.output_lines))
+    lines_per_min = round(total_lines / uptime_min, 1)
+
+    # Composite score
+    composite = round(
+        tool_score * 0.35 +
+        error_score * 0.30 +
+        ctx_score * 0.20 +
+        min(1.0, lines_per_min / 50) * 0.15,
+        3
+    )
+
+    return {
+        "score": min(1.0, max(0.0, composite)),
+        "tools_per_min": tools_per_min,
+        "files_per_min": files_per_min,
+        "error_rate": round(error_rate, 3),
+        "lines_per_min": lines_per_min,
+        "context_efficiency": round(ctx_score, 3),
+        "uptime_min": round(uptime_min, 1),
+    }
 
 
 # ─────────────────────────────────────────────
