@@ -4245,6 +4245,8 @@ body {
             <div class="settings-row"><span class="settings-label">Health critical threshold</span><input class="settings-input" id="setHealthCritical" type="number" min="0.01" max="1.0" step="0.01"></div>
             <div class="settings-row"><span class="settings-label">Stall timeout (minutes)</span><input class="settings-input" id="setStallTimeout" type="number" min="1" max="60" step="1"></div>
             <div class="settings-row"><span class="settings-label">Hung timeout (minutes)</span><input class="settings-input" id="setHungTimeout" type="number" min="1" max="120" step="1"></div>
+            <div class="settings-row"><span class="settings-label">Cost budget per agent ($)</span><input class="settings-input" id="setCostBudget" type="number" min="0" max="100" step="0.10" title="0 = no limit"></div>
+            <div class="settings-row"><span class="settings-label">Auto-pause at budget limit</span><div class="settings-toggle" id="setCostAutoPause" onclick="this.classList.toggle('active')"></div></div>
         </div>
         <div class="settings-section">
             <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Display</div>
@@ -4364,24 +4366,36 @@ body {
 <div class="cheatsheet-overlay" id="cheatsheetOverlay" onclick="if(event.target===this)closeCheatsheet()">
     <div class="cheatsheet">
         <h3>Keyboard Shortcuts</h3>
+        <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:4px">Navigation</div>
         <div class="cheatsheet-row"><span class="desc">Command palette</span><span class="keys"><span class="kbd">⌘K</span> or <span class="kbd">/</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Spawn agent</span><span class="keys"><span class="kbd">⌘N</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Focus agent by position</span><span class="keys"><span class="kbd">1</span>–<span class="kbd">9</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Navigate card grid</span><span class="keys"><span class="kbd">←</span><span class="kbd">→</span><span class="kbd">↑</span><span class="kbd">↓</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Open focused card</span><span class="keys"><span class="kbd">Enter</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Back / close</span><span class="keys"><span class="kbd">Esc</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Cycle agents</span><span class="keys"><span class="kbd">Tab</span> / <span class="kbd">⇧Tab</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Settings</span><span class="keys"><span class="kbd">⌘,</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Show this cheatsheet</span><span class="keys"><span class="kbd">?</span></span></div>
+        <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin:8px 0 4px">Agent Actions</div>
         <div class="cheatsheet-row"><span class="desc">Approve first waiting</span><span class="keys"><span class="kbd">⌘⇧A</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Pause/resume focused</span><span class="keys"><span class="kbd">⌘⇧P</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Kill focused</span><span class="keys"><span class="kbd">⌘⇧K</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Restart focused</span><span class="keys"><span class="kbd">⌘⇧R</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Bulk select mode</span><span class="keys"><span class="kbd">⌘⇧S</span></span></div>
-        <div class="cheatsheet-row"><span class="desc">Search all agents</span><span class="keys"><span class="kbd">⌘⇧F</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Select all visible</span><span class="keys"><span class="kbd">⌘A</span></span></div>
+        <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin:8px 0 4px">Interaction Sheet</div>
+        <div class="cheatsheet-row"><span class="desc">Approve / Yes</span><span class="keys"><span class="kbd">A</span> or <span class="kbd">Y</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Reject / No</span><span class="keys"><span class="kbd">R</span> or <span class="kbd">N</span></span></div>
+        <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin:8px 0 4px">Deep View &amp; Search</div>
         <div class="cheatsheet-row"><span class="desc">Search in terminal</span><span class="keys"><span class="kbd">⌘F</span></span></div>
-        <div class="cheatsheet-row"><span class="desc">Cycle agents</span><span class="keys"><span class="kbd">Tab</span> / <span class="kbd">⇧Tab</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Search all agents</span><span class="keys"><span class="kbd">⌘⇧F</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Activity timeline</span><span class="keys"><span class="kbd">⌘T</span></span></div>
-        <div class="cheatsheet-row"><span class="desc">Spawn (in dialog)</span><span class="keys"><span class="kbd">⌘↵</span></span></div>
+        <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin:8px 0 4px">Spawn Dialog</div>
+        <div class="cheatsheet-row"><span class="desc">Spawn agent</span><span class="keys"><span class="kbd">⌘↵</span></span></div>
         <div class="cheatsheet-row"><span class="desc">Navigate roles</span><span class="keys"><span class="kbd">←</span><span class="kbd">→</span></span></div>
-        <div class="cheatsheet-row"><span class="desc">Settings</span><span class="keys"><span class="kbd">⌘,</span></span></div>
-        <div class="cheatsheet-row"><span class="desc">Show this cheatsheet</span><span class="keys"><span class="kbd">?</span></span></div>
+        <div style="font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin:8px 0 4px">Voice &amp; Other</div>
         <div class="cheatsheet-row"><span class="desc">Push-to-talk</span><span class="keys">Hold <span class="kbd">Space</span></span></div>
+        <div class="cheatsheet-row"><span class="desc">Extensions</span><span class="keys"><span class="kbd">⌘E</span></span></div>
     </div>
 </div>
 
@@ -5813,6 +5827,15 @@ function updateAgentCard(card, agent) {
     if (ctxWarn) {
         ctxWarn.className = 'context-warn-icon' + (remainPct <= 20 ? ' visible' : '');
     }
+    // Context warning toasts (only fire once per threshold per agent)
+    if (!card._ctxWarned80 && remainPct <= 20 && remainPct > 10) {
+        card._ctxWarned80 = true;
+        showToast(`${agent.name}: Context at ${usedPct}% — consider compacting or restarting`, 'warning');
+    }
+    if (!card._ctxWarned90 && remainPct <= 10) {
+        card._ctxWarned90 = true;
+        showToast(`${agent.name}: Context nearly full (${usedPct}%) — restart recommended`, 'error');
+    }
 
     // Message badge
     const msgBadge = card.querySelector('.card-message-badge');
@@ -5930,7 +5953,14 @@ function updateAgentCard(card, agent) {
             costBadge.title = `Health: ${hp}%`;
         } else if (agent.estimated_cost_usd > 0) {
             const cost = agent.estimated_cost_usd;
-            costBadge.textContent = cost >= 1 ? `$${cost.toFixed(2)}` : `$${cost.toFixed(3)}`;
+            const budget = state.config.cost_budget_usd || 0;
+            if (budget > 0) {
+                const budgetPct = Math.min(100, Math.round((cost / budget) * 100));
+                costBadge.textContent = `$${cost.toFixed(2)} / $${budget.toFixed(2)}`;
+                costBadge.style.color = budgetPct >= 90 ? 'var(--danger)' : budgetPct >= 70 ? 'var(--orange)' : '';
+            } else {
+                costBadge.textContent = cost >= 1 ? `$${cost.toFixed(2)}` : `$${cost.toFixed(3)}`;
+            }
             costBadge.style.display = '';
             costBadge.style.color = '';
         } else {
@@ -11552,6 +11582,8 @@ openSettings = function() {
     document.getElementById('setHealthCritical').value = cfg.health_critical_threshold ?? 0.1;
     document.getElementById('setStallTimeout').value = cfg.stall_timeout_minutes ?? 5;
     document.getElementById('setHungTimeout').value = cfg.hung_timeout_minutes ?? 10;
+    document.getElementById('setCostBudget').value = cfg.cost_budget_usd ?? 0;
+    document.getElementById('setCostAutoPause').classList.toggle('active', !!cfg.cost_budget_auto_pause);
 };
 
 // Settings: include alert thresholds in save
@@ -11574,6 +11606,8 @@ saveSettings = async function() {
             health_critical_threshold: parseFloat(document.getElementById('setHealthCritical').value),
             stall_timeout_minutes: parseInt(document.getElementById('setStallTimeout').value),
             hung_timeout_minutes: parseInt(document.getElementById('setHungTimeout').value),
+            cost_budget_usd: parseFloat(document.getElementById('setCostBudget').value) || 0,
+            cost_budget_auto_pause: document.getElementById('setCostAutoPause').classList.contains('active'),
         };
 
         // Validate

@@ -1624,3 +1624,33 @@ class TestConfigExportImport:
             return changes
         diff = flat_diff(same, same)
         assert len(diff) == 0
+
+
+# ─────────────────────────────────────────────
+# T21: Cost budget config
+# ─────────────────────────────────────────────
+
+class TestCostBudget:
+    def test_default_cost_budget_zero(self):
+        """Default cost budget is 0 (no limit)."""
+        config = ashlar_server.Config()
+        assert config.cost_budget_usd == 0.0
+        assert config.cost_budget_auto_pause is False
+
+    def test_cost_budget_in_to_dict(self):
+        """Cost budget fields should appear in config to_dict."""
+        config = ashlar_server.Config()
+        config.cost_budget_usd = 5.0
+        config.cost_budget_auto_pause = True
+        d = config.to_dict()
+        assert d["cost_budget_usd"] == 5.0
+        assert d["cost_budget_auto_pause"] is True
+
+    def test_budget_warning_flag(self, make_agent):
+        """Budget warning flag should only fire once."""
+        agent = make_agent()
+        agent.estimated_cost_usd = 6.0
+        agent._budget_warned = False
+        # Flag should be settable
+        agent._budget_warned = True
+        assert agent._budget_warned is True

@@ -243,6 +243,9 @@ class Config:
     intelligence_model: str = "claude-sonnet-4-20250514"
     intelligence_summary_interval: float = 15.0
     intelligence_meta_interval: float = 30.0
+    # Cost budget
+    cost_budget_usd: float = 0.0  # 0 = no limit
+    cost_budget_auto_pause: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -268,6 +271,8 @@ class Config:
             "hung_timeout_minutes": self.hung_timeout_minutes,
             "intelligence_enabled": self.intelligence_enabled,
             "intelligence_model": self.intelligence_model,
+            "cost_budget_usd": self.cost_budget_usd,
+            "cost_budget_auto_pause": self.cost_budget_auto_pause,
         }
 
 
@@ -428,6 +433,8 @@ def load_config(has_claude: bool = True) -> Config:
         intelligence_model=intel.get("model", "claude-sonnet-4-20250514"),
         intelligence_summary_interval=intel.get("summary_interval_sec", 15.0),
         intelligence_meta_interval=intel.get("meta_interval_sec", 30.0),
+        cost_budget_usd=float(raw.get("cost_budget_usd", 0)),
+        cost_budget_auto_pause=bool(raw.get("cost_budget_auto_pause", False)),
     )
 
 
@@ -2255,6 +2262,14 @@ class AgentManager:
                 (agent.tokens_input / 1000) * bc.cost_input_per_1k +
                 (agent.tokens_output / 1000) * bc.cost_output_per_1k
             )
+
+        # Cost budget check
+        budget = self.config.cost_budget_usd
+        if budget > 0 and agent.estimated_cost_usd >= budget:
+            if not getattr(agent, '_budget_warned', False):
+                agent._budget_warned = True
+                log.warning("Agent %s exceeded cost budget ($%.2f / $%.2f)",
+                            agent.name, agent.estimated_cost_usd, budget)
 
         return new_lines
 
@@ -5292,6 +5307,8 @@ async def put_config(request: web.Request) -> web.Response:
         "health_critical_threshold": lambda v: isinstance(v, (int, float)) and 0.0 < v <= 1.0,
         "stall_timeout_minutes": lambda v: isinstance(v, int) and 1 <= v <= 60,
         "hung_timeout_minutes": lambda v: isinstance(v, int) and 1 <= v <= 120,
+        "cost_budget_usd": lambda v: isinstance(v, (int, float)) and v >= 0,
+        "cost_budget_auto_pause": lambda v: isinstance(v, bool),
     }
 
     # Clamp max_restarts to [1, 10] range
@@ -5322,6 +5339,8 @@ async def put_config(request: web.Request) -> web.Response:
         "health_critical_threshold": "health_critical_threshold",
         "stall_timeout_minutes": "stall_timeout_minutes",
         "hung_timeout_minutes": "hung_timeout_minutes",
+        "cost_budget_usd": "cost_budget_usd",
+        "cost_budget_auto_pause": "cost_budget_auto_pause",
     }
 
     for key, value in data.items():
