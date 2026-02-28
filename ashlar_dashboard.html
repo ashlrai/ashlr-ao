@@ -3903,6 +3903,20 @@ body {
 .split-pane-terminal .terminal-line { padding-left: 0; }
 .collab-legend-item { display: flex; align-items: center; gap: 4px; }
 .collab-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+/* ── Clipboard Watcher Toast ── */
+.clipboard-toast { position: fixed; bottom: 80px; right: 20px; background: var(--bg-elevated); border: 1px solid var(--border-default); border-radius: var(--radius-md); padding: 12px 16px; display: flex; align-items: center; gap: 10px; z-index: 1100; box-shadow: var(--shadow-lg); animation: slideInRight 0.3s var(--ease-out); max-width: 400px; }
+.clipboard-toast-text { font-size: 12px; color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+.clipboard-toast-actions { display: flex; gap: 6px; flex-shrink: 0; }
+@keyframes slideInRight { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+/* ── Preset Manager ── */
+.preset-list { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+.preset-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bg-page); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 12px; }
+.preset-item-name { font-weight: 600; color: var(--text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preset-item-role { font-size: 10px; color: var(--text-tertiary); padding: 1px 6px; background: var(--bg-elevated); border-radius: 4px; }
+.preset-item-actions { display: flex; gap: 4px; }
+.preset-item-actions button { padding: 2px 6px; font-size: 10px; border: 1px solid var(--border-subtle); border-radius: 4px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.preset-item-actions button:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.preset-item-actions button.danger:hover { background: var(--danger-subtle); color: var(--danger); border-color: var(--danger); }
 /* ── Fleet Analytics Panel ── */
 .analytics-panel { background: var(--bg-surface); width: 90vw; max-width: 900px; max-height: 85vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); overflow: hidden; }
 .analytics-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
@@ -5713,6 +5727,14 @@ body {
             <div class="settings-section-title"><span class="settings-section-icon">${icon('activity', 16)}</span> Server Health</div>
             <div id="serverHealthStats" style="font-family:var(--font-mono);font-size:11px;color:var(--text-secondary);line-height:1.8">
                 <span style="color:var(--text-tertiary)">Loading...</span>
+            </div>
+        </div>
+        <div class="settings-section">
+            <div class="settings-section-title"><span class="settings-section-icon">${icon('layers', 16)}</span> Spawn Presets</div>
+            <div class="preset-list" id="settingsPresetList"><span style="color:var(--text-tertiary);font-size:11px">Loading presets...</span></div>
+            <div style="margin-top:8px;display:flex;gap:6px">
+                <button class="btn btn-secondary btn-sm" onclick="createPresetFromSettings()">+ New Preset</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadSettingsPresets()">Refresh</button>
             </div>
         </div>
         <div class="settings-section">
@@ -18381,6 +18403,157 @@ if (_origToggleErrorSummary) {
     toggleErrorSummary = function() {
         _realToggleErrorSummary();
         renderGroupedErrors();
+    };
+}
+
+// ── Clipboard Watcher ──
+let _clipboardLastText = '';
+let _clipboardWatcherTimer = null;
+let _clipboardToastEl = null;
+function startClipboardWatcher() {
+    if (_clipboardWatcherTimer) return;
+    _clipboardWatcherTimer = setInterval(async () => {
+        try {
+            if (!document.hasFocus()) return;
+            const text = await navigator.clipboard.readText();
+            if (!text || text === _clipboardLastText || text.length < 3 || text.length > 10000) return;
+            _clipboardLastText = text;
+            // Only show if deep view is open and agent is waiting
+            if (!state.focusedAgentId) return;
+            const agent = state.agents.get(state.focusedAgentId);
+            if (!agent || agent.status !== 'waiting') return;
+            showClipboardToast(text, state.focusedAgentId);
+        } catch { /* clipboard permission denied — stop watching */ clearInterval(_clipboardWatcherTimer); _clipboardWatcherTimer = null; }
+    }, 2000);
+}
+function showClipboardToast(text, agentId) {
+    dismissClipboardToast();
+    const el = document.createElement('div');
+    el.className = 'clipboard-toast';
+    const preview = text.length > 60 ? text.substring(0, 60) + '...' : text;
+    el.innerHTML = `
+        <span style="font-size:14px">${icon('clipboard', 16)}</span>
+        <span class="clipboard-toast-text" title="${text.replace(/"/g, '&quot;').substring(0, 200)}">${preview.replace(/</g, '&lt;')}</span>
+        <div class="clipboard-toast-actions">
+            <button class="btn btn-primary btn-sm" style="font-size:10px;padding:3px 10px" onclick="pasteClipboardToAgent('${agentId}')">Paste to Agent</button>
+            <button class="btn btn-secondary btn-sm" style="font-size:10px;padding:3px 6px" onclick="dismissClipboardToast()">✕</button>
+        </div>
+    `;
+    document.body.appendChild(el);
+    _clipboardToastEl = el;
+    setTimeout(() => dismissClipboardToast(), 8000);
+}
+function dismissClipboardToast() {
+    if (_clipboardToastEl) { _clipboardToastEl.remove(); _clipboardToastEl = null; }
+}
+async function pasteClipboardToAgent(agentId) {
+    dismissClipboardToast();
+    if (!_clipboardLastText) return;
+    try {
+        await apiFetch(`/api/agents/${agentId}/send`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ message: _clipboardLastText }) });
+        showToast('Clipboard content sent to agent', 'success');
+    } catch { showToast('Failed to send clipboard content', 'error'); }
+}
+// Start clipboard watcher when deep view opens — requires user interaction first for permissions
+document.addEventListener('click', () => { if (!_clipboardWatcherTimer) startClipboardWatcher(); }, { once: true });
+
+// ── Preset Management (Settings) ──
+async function loadSettingsPresets() {
+    const list = document.getElementById('settingsPresetList');
+    if (!list) return;
+    try {
+        const res = await apiFetch('/api/presets');
+        if (!res.ok) throw new Error();
+        const presets = await res.json();
+        if (!presets.length) {
+            list.innerHTML = '<span style="color:var(--text-tertiary);font-size:11px">No presets saved yet</span>';
+            return;
+        }
+        list.innerHTML = presets.map(p => `
+            <div class="preset-item">
+                <span class="preset-item-role">${p.role || 'general'}</span>
+                <span class="preset-item-name">${(p.name || 'Unnamed').replace(/</g, '&lt;')}</span>
+                <span style="font-size:10px;color:var(--text-tertiary)">${(p.task || '').substring(0, 40).replace(/</g, '&lt;')}</span>
+                <div class="preset-item-actions">
+                    <button onclick="spawnFromPreset('${p.id}')">Spawn</button>
+                    <button onclick="editPreset('${p.id}')">Edit</button>
+                    <button class="danger" onclick="deletePreset('${p.id}')">Delete</button>
+                </div>
+            </div>
+        `).join('');
+    } catch { list.innerHTML = '<span style="color:var(--danger);font-size:11px">Failed to load presets</span>'; }
+}
+
+async function createPresetFromSettings() {
+    const name = prompt('Preset name:');
+    if (!name) return;
+    const role = document.getElementById('setDefaultRole')?.value || 'general';
+    const task = prompt('Default task for this preset:') || '';
+    const dir = document.getElementById('setDefaultDir')?.value || '';
+    try {
+        const res = await apiFetch('/api/presets', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name, role, task, working_dir: dir })
+        });
+        if (res.ok) { showToast('Preset created', 'success'); loadSettingsPresets(); }
+        else showToast('Failed to create preset', 'error');
+    } catch { showToast('Failed to create preset', 'error'); }
+}
+
+async function deletePreset(id) {
+    if (!confirm('Delete this preset?')) return;
+    try {
+        const res = await apiFetch(`/api/presets/${id}`, { method: 'DELETE' });
+        if (res.ok) { showToast('Preset deleted', 'success'); loadSettingsPresets(); }
+        else showToast('Failed to delete preset', 'error');
+    } catch { showToast('Failed to delete preset', 'error'); }
+}
+
+async function editPreset(id) {
+    try {
+        const res = await apiFetch('/api/presets');
+        if (!res.ok) return;
+        const presets = await res.json();
+        const preset = presets.find(p => p.id === id);
+        if (!preset) return;
+        const name = prompt('Preset name:', preset.name);
+        if (!name) return;
+        const task = prompt('Default task:', preset.task || '');
+        const role = prompt('Role (frontend/backend/tester/etc):', preset.role || 'general');
+        const body = { ...preset, name, task, role };
+        const upd = await apiFetch(`/api/presets/${id}`, {
+            method: 'PUT', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        if (upd.ok) { showToast('Preset updated', 'success'); loadSettingsPresets(); }
+    } catch { showToast('Failed to edit preset', 'error'); }
+}
+
+async function spawnFromPreset(id) {
+    try {
+        const res = await apiFetch('/api/presets');
+        if (!res.ok) return;
+        const presets = await res.json();
+        const preset = presets.find(p => p.id === id);
+        if (!preset) return;
+        closeSettings();
+        openSpawnDialog();
+        if (preset.name) document.getElementById('spawnName').value = preset.name;
+        if (preset.task) document.getElementById('spawnTask').value = preset.task;
+        if (preset.working_dir) document.getElementById('spawnDir').value = preset.working_dir;
+        if (preset.role) {
+            document.querySelectorAll('#roleGrid .role-option').forEach(o => o.classList.toggle('selected', o.dataset.role === preset.role));
+            state.selectedRole = preset.role;
+        }
+    } catch { showToast('Failed to load preset', 'error'); }
+}
+
+// Load presets when settings opens
+const _origOpenSettings = typeof openSettings === 'function' ? openSettings : null;
+if (_origOpenSettings) {
+    openSettings = function() {
+        _origOpenSettings();
+        loadSettingsPresets();
     };
 }
 
