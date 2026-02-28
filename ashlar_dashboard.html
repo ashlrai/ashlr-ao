@@ -4890,6 +4890,61 @@ body {
     border: 1px solid var(--border-default); border-radius: var(--radius-sm);
     color: var(--text-secondary); outline: none;
 }
+
+/* ── Smart Error Grouping ── */
+.error-group {
+    display: flex; align-items: flex-start; gap: 8px; padding: 6px 10px;
+    border-bottom: 1px solid var(--border-subtle); font-size: 11px;
+}
+.error-group:last-child { border-bottom: none; }
+.error-group-count {
+    min-width: 24px; height: 18px; border-radius: 9px;
+    background: var(--danger); color: white; font-size: 9px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.error-group-msg { color: var(--text-secondary); font-family: var(--font-mono); flex: 1; word-break: break-word; }
+.error-group-lines { font-size: 9px; color: var(--text-tertiary); min-width: 80px; text-align: right; }
+
+/* ── Role Filter Chips ── */
+.role-filter-chips { display: flex; gap: 3px; flex-wrap: wrap; }
+.role-filter-chip {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--border-default); background: transparent;
+    color: var(--text-tertiary); font-family: var(--font-sans); transition: all 0.15s;
+}
+.role-filter-chip:hover { border-color: var(--text-secondary); color: var(--text-secondary); }
+.role-filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+.role-filter-chip .rfc-count { font-size: 8px; opacity: 0.7; margin-left: 2px; }
+
+/* ── Card Last Command Tooltip ── */
+.card-cmd-tooltip {
+    display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    margin-bottom: 6px; background: var(--bg-elevated); border: 1px solid var(--border-default);
+    border-radius: var(--radius-md); padding: 8px 10px; z-index: 100;
+    box-shadow: var(--shadow-lg); min-width: 220px; max-width: 320px;
+}
+.card-cmd-tooltip.active { display: block; }
+.cmd-tooltip-row {
+    display: flex; gap: 6px; padding: 2px 0; font-size: 10px;
+    font-family: var(--font-mono); color: var(--text-secondary);
+}
+.cmd-tooltip-tool { color: var(--accent); min-width: 36px; font-weight: 600; }
+.cmd-tooltip-path { color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Output Progress Bar ── */
+.deep-progress-bar-wrap {
+    display: none; height: 3px; background: var(--bg-surface);
+    border-radius: 2px; overflow: hidden; margin-top: 4px;
+}
+.deep-progress-bar-wrap.active { display: block; }
+.deep-progress-bar-fill {
+    height: 100%; background: var(--accent); border-radius: 2px;
+    transition: width 0.3s ease;
+}
+.card-detected-progress {
+    font-size: 9px; font-family: var(--font-mono); color: var(--accent);
+    margin-top: 2px;
+}
 </style>
 </head>
 <body>
@@ -5009,6 +5064,7 @@ body {
             <button class="status-chip" data-status="planning" onclick="setStatusFilter('planning')">Planning <span class="status-chip-count" id="chipCountPlanning">0</span></button>
             <button class="status-chip" data-status="idle" onclick="setStatusFilter('idle')">Idle <span class="status-chip-count" id="chipCountIdle">0</span></button>
         </div>
+        <div class="role-filter-chips" id="roleFilterChips"></div>
         <button class="bulk-select-btn" id="bulkSelectBtn" onclick="toggleBulkMode()" title="Select agents (⌘⇧S)"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Select</button>
         <select class="eventlog-filter-select" id="cardSortSelect" onchange="setCardSort(this.value)" title="Sort cards" style="font-size:11px;padding:3px 6px">
             <option value="priority">Priority</option>
@@ -5240,6 +5296,7 @@ body {
             <div><span class="metric-label">Cost </span><span class="deep-stat-value" id="deepCost">-</span></div>
             <div><span class="metric-label">Tools </span><span class="deep-stat-value" id="deepToolCount">-</span></div>
             <span class="deep-lang-badge" id="deepLangBadge" style="display:none"></span>
+            <div class="deep-progress-bar-wrap" id="deepProgressBar"><div class="deep-progress-bar-fill" id="deepProgressFill"></div></div>
             <div><span class="metric-label">Tests </span><span class="deep-stat-value" id="deepTestResult">-</span></div>
             <div><span class="metric-label">Chars </span><span class="deep-stat-value" id="deepCharCount">-</span></div>
             <div><span class="metric-label">Words </span><span class="deep-stat-value" id="deepWordCount">-</span></div>
@@ -18103,6 +18160,229 @@ openDeepView = function(agentId) {
     _focusMode = false;
     document.getElementById('deepView')?.classList.remove('focus-mode');
 };
+
+// ═══════════════════════════════════════════════════════════════════
+// ── Smart Error Grouping ──
+// ═══════════════════════════════════════════════════════════════════
+function groupErrors(agent) {
+    const lines = agent._outputBuffer || agent.output_lines || [];
+    const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+    const errorRe = /\b(error|exception|traceback|FAILED|ERROR|panic|fatal)\b/i;
+    const groups = new Map();
+    for (let i = 0; i < lines.length; i++) {
+        const clean = lines[i].replace(ansiRe, '').trim();
+        if (!errorRe.test(clean)) continue;
+        // Normalize: strip line numbers and paths for grouping
+        const key = clean.replace(/\d+/g, 'N').replace(/["'].*?["']/g, '"..."').substring(0, 100);
+        if (!groups.has(key)) groups.set(key, { msg: clean.substring(0, 120), lines: [], count: 0 });
+        const g = groups.get(key);
+        g.count++;
+        if (g.lines.length < 3) g.lines.push(i + 1);
+    }
+    return [...groups.values()].sort((a, b) => b.count - a.count);
+}
+
+function renderGroupedErrors() {
+    const list = document.getElementById('errorSummaryList');
+    if (!list || !state.focusedAgentId) return;
+    const agent = state.agents.get(state.focusedAgentId);
+    if (!agent) return;
+    const groups = groupErrors(agent);
+    if (groups.length === 0) { list.innerHTML = '<div style="padding:8px;font-size:11px;color:var(--text-tertiary)">No errors</div>'; return; }
+    list.innerHTML = groups.slice(0, 20).map(g =>
+        `<div class="error-group">
+            <span class="error-group-count">${g.count}</span>
+            <span class="error-group-msg">${escapeHtml(g.msg)}</span>
+            <span class="error-group-lines">L${g.lines.join(', ')}</span>
+        </div>`
+    ).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ── Role Filter Chips ──
+// ═══════════════════════════════════════════════════════════════════
+let _roleFilter = 'all';
+
+function updateRoleFilterChips() {
+    const container = document.getElementById('roleFilterChips');
+    if (!container) return;
+    const roleCounts = {};
+    for (const [, agent] of state.agents) {
+        if (state.selectedProjectId && agent.project_id !== state.selectedProjectId) continue;
+        const role = agent.role || 'general';
+        roleCounts[role] = (roleCounts[role] || 0) + 1;
+    }
+    const roles = Object.entries(roleCounts).sort((a, b) => b[1] - a[1]);
+    if (roles.length <= 1) { container.innerHTML = ''; return; }
+    let html = `<button class="role-filter-chip ${_roleFilter === 'all' ? 'active' : ''}" onclick="setRoleFilter('all')">All</button>`;
+    for (const [role, count] of roles) {
+        html += `<button class="role-filter-chip ${_roleFilter === role ? 'active' : ''}" onclick="setRoleFilter('${role}')">${role}<span class="rfc-count">${count}</span></button>`;
+    }
+    container.innerHTML = html;
+}
+
+function setRoleFilter(role) {
+    _roleFilter = role;
+    updateRoleFilterChips();
+    filterAgentGrid(document.getElementById('gridSearch')?.value || '');
+}
+
+// Patch filterAgentGrid to include role filter
+const _origFilterAgentGrid = filterAgentGrid;
+filterAgentGrid = function(query) {
+    _origFilterAgentGrid(query);
+    if (_roleFilter !== 'all') {
+        const grid = document.getElementById('agentGrid');
+        grid.querySelectorAll('.agent-card').forEach(card => {
+            const agentId = card.dataset.agentId;
+            const agent = state.agents.get(agentId);
+            if (agent && agent.role !== _roleFilter) {
+                card.style.display = 'none';
+            }
+        });
+    }
+};
+
+// Wire role chips into render
+const _origScheduleRender2 = scheduleRender;
+scheduleRender = function() {
+    _origScheduleRender2();
+    setTimeout(updateRoleFilterChips, 0);
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// ── URL Hash Line Linking ──
+// ═══════════════════════════════════════════════════════════════════
+function handleHashLink() {
+    const hash = window.location.hash;
+    if (!hash) return;
+    const params = new URLSearchParams(hash.substring(1));
+    const agentId = params.get('agent');
+    const line = parseInt(params.get('line'));
+    if (!agentId) return;
+    // Wait for sync to have agents, then open deep view
+    const tryOpen = () => {
+        if (state.agents.has(agentId)) {
+            openDeepView(agentId);
+            if (line >= 0) {
+                setTimeout(() => goToLine(line + 1), 500);
+            }
+            window.location.hash = '';
+        } else {
+            setTimeout(tryOpen, 500);
+        }
+    };
+    setTimeout(tryOpen, 1000);
+}
+
+function copyLineLink(lineIdx) {
+    if (!state.focusedAgentId) return;
+    const url = `${window.location.origin}${window.location.pathname}#agent=${state.focusedAgentId}&line=${lineIdx}`;
+    navigator.clipboard.writeText(url);
+    showToast('Line link copied', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ── Progress Bar Extraction ──
+// ═══════════════════════════════════════════════════════════════════
+function extractProgress(agent) {
+    const lines = agent._outputBuffer || agent.output_lines || [];
+    const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+    // Scan last 20 lines for progress indicators
+    for (let i = lines.length - 1; i >= Math.max(0, lines.length - 20); i--) {
+        const clean = lines[i].replace(ansiRe, '');
+        // Percentage: 75%, 75.2%
+        const pctMatch = clean.match(/(\d{1,3}(?:\.\d+)?)\s*%/);
+        if (pctMatch) {
+            const pct = parseFloat(pctMatch[1]);
+            if (pct >= 0 && pct <= 100) return pct;
+        }
+        // Fraction: 14/20, 14 of 20
+        const fracMatch = clean.match(/(\d+)\s*(?:\/|of)\s*(\d+)/);
+        if (fracMatch) {
+            const num = parseInt(fracMatch[1]);
+            const den = parseInt(fracMatch[2]);
+            if (den > 0 && num <= den) return (num / den) * 100;
+        }
+    }
+    return null;
+}
+
+function updateProgressBar() {
+    const wrap = document.getElementById('deepProgressBar');
+    const fill = document.getElementById('deepProgressFill');
+    if (!wrap || !fill || !state.focusedAgentId) return;
+    const agent = state.agents.get(state.focusedAgentId);
+    if (!agent) { wrap.classList.remove('active'); return; }
+    const pct = extractProgress(agent);
+    if (pct !== null) {
+        wrap.classList.add('active');
+        fill.style.width = `${pct}%`;
+    } else {
+        wrap.classList.remove('active');
+    }
+}
+
+// Wire progress into deep view header update
+const _origUpdateDeepViewHeader2 = updateDeepViewHeader;
+updateDeepViewHeader = function(agent) {
+    _origUpdateDeepViewHeader2(agent);
+    updateProgressBar();
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// ── Last Command Tooltip on Card Hover ──
+// ═══════════════════════════════════════════════════════════════════
+function getLastCommands(agent, count) {
+    const lines = agent._outputBuffer || agent.output_lines || [];
+    const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+    const toolRe = /\b(Read|Edit|Write|Bash|Grep|Glob)\s*\(\s*["']?([^"'\s)]{1,80})/;
+    const cmds = [];
+    for (let i = lines.length - 1; i >= 0 && cmds.length < count; i--) {
+        const clean = lines[i].replace(ansiRe, '');
+        const m = clean.match(toolRe);
+        if (m) cmds.push({ tool: m[1], path: m[2] });
+    }
+    return cmds;
+}
+
+// Add hover tooltip functionality to agent cards
+document.getElementById('agentGrid')?.addEventListener('mouseover', (e) => {
+    const card = e.target.closest('.agent-card');
+    if (!card || card._tooltipShown) return;
+    const agentId = card.dataset.agentId;
+    const agent = state.agents.get(agentId);
+    if (!agent) return;
+    const cmds = getLastCommands(agent, 3);
+    if (cmds.length === 0) return;
+    card._tooltipShown = true;
+    const tooltip = document.createElement('div');
+    tooltip.className = 'card-cmd-tooltip active';
+    tooltip.innerHTML = cmds.map(c =>
+        `<div class="cmd-tooltip-row"><span class="cmd-tooltip-tool">${c.tool}</span><span class="cmd-tooltip-path">${escapeHtml(c.path)}</span></div>`
+    ).join('');
+    card.style.position = 'relative';
+    card.appendChild(tooltip);
+    const cleanup = () => {
+        tooltip.remove();
+        card._tooltipShown = false;
+        card.removeEventListener('mouseleave', cleanup);
+    };
+    card.addEventListener('mouseleave', cleanup);
+});
+
+// Handle URL hash on load
+handleHashLink();
+
+// Wire error grouping into error summary
+const _origToggleErrorSummary = typeof toggleErrorSummary === 'function' ? toggleErrorSummary : null;
+if (_origToggleErrorSummary) {
+    const _realToggleErrorSummary = toggleErrorSummary;
+    toggleErrorSummary = function() {
+        _realToggleErrorSummary();
+        renderGroupedErrors();
+    };
+}
 
 const EMPTY_STATE_HTML = document.getElementById('emptyState').innerHTML;
 socket.connect();
