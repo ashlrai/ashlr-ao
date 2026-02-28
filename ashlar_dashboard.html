@@ -751,6 +751,16 @@ body {
     margin-bottom: 8px;
     min-height: 32px;
 }
+.card-last-action {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+    opacity: 0.7;
+}
 
 .card-input-section { display: none; margin-bottom: 4px; }
 .card-input-row {
@@ -2849,6 +2859,10 @@ body {
 /* ── Code Block Syntax Highlighting ── */
 .terminal-line.code-fence { color: var(--text-tertiary); }
 .terminal-line.code-block { background: rgba(10,15,26,0.6); border-left: 2px solid rgba(99,102,241,0.25); padding-left: 12px; margin-left: -2px; }
+.terminal-line.hl-error { background: rgba(239,68,68,0.08); border-left: 2px solid rgba(239,68,68,0.4); padding-left: 12px; margin-left: -2px; }
+.terminal-line.hl-success { background: rgba(34,197,94,0.06); border-left: 2px solid rgba(34,197,94,0.3); padding-left: 12px; margin-left: -2px; }
+.terminal-line.hl-warning { background: rgba(234,179,8,0.06); border-left: 2px solid rgba(234,179,8,0.3); padding-left: 12px; margin-left: -2px; }
+.terminal-line.hl-git { background: rgba(139,92,246,0.06); border-left: 2px solid rgba(139,92,246,0.3); padding-left: 12px; margin-left: -2px; }
 .sh-kw { color: #C084FC; }       /* keywords: if, else, for, return, function, class, import, def, const, let, var */
 .sh-str { color: #4ADE80; }      /* strings */
 .sh-num { color: #F59E0B; }      /* numbers */
@@ -3988,6 +4002,13 @@ body {
     background: rgba(255,255,255,0.04);
     padding: 1px 5px;
     border-radius: 3px;
+    letter-spacing: 0.3px;
+}
+.card-line-count {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    padding: 1px 5px;
     letter-spacing: 0.3px;
 }
 
@@ -5916,7 +5937,18 @@ function classifyTerminalLine(line, agentId) {
         return { html: highlighted, className: 'terminal-line code-block' };
     }
 
-    return { html: ansiToHtml(line), className: 'terminal-line' };
+    // Auto-highlight important lines
+    let cls = 'terminal-line';
+    if (/\b(error|exception|traceback|FAIL(ED)?|ERROR|panic|fatal)\b/i.test(stripped)) {
+        cls += ' hl-error';
+    } else if (/\b(passed|success(fully)?|✓|✔|PASS|All \d+ tests? passed)\b/i.test(stripped)) {
+        cls += ' hl-success';
+    } else if (/\b(warn(ing)?|deprecat|WARN|caution)\b/i.test(stripped)) {
+        cls += ' hl-warning';
+    } else if (/\bgit (commit|push|merge)|committed|→ [a-f0-9]{7,}/i.test(stripped)) {
+        cls += ' hl-git';
+    }
+    return { html: ansiToHtml(line), className: cls };
 }
 
 // Lightweight regex-based syntax highlighter
@@ -7007,6 +7039,7 @@ function createAgentCard(agent) {
         </div>
         <div class="card-dir" onclick="event.stopPropagation();copyWorkingDir('${agent.id}')" title="Click to copy path"></div>
         <div class="card-summary"></div>
+        <div class="card-last-action" style="display:none"></div>
         <div class="card-input-section">
             <div class="card-input-row">
                 <div class="card-input-prompt"></div>
@@ -7023,6 +7056,7 @@ function createAgentCard(agent) {
         <div class="card-footer">
             <span class="status-badge"></span>
             <span class="card-cost-badge" style="display:none"></span>
+            <span class="card-line-count" style="display:none" title="Total output lines"></span>
             <span class="card-meta"></span>
         </div>
         <div class="card-hover-actions" onclick="event.stopPropagation()">
@@ -7125,6 +7159,30 @@ function applyCardReorder(fromId, toId) {
     scheduleRender();
 }
 
+function detectLastAction(agent) {
+    const lines = agent._outputBuffer || agent.output_lines || [];
+    if (lines.length === 0) return null;
+    const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+    // Scan last 20 lines for action patterns
+    const recent = lines.slice(-20);
+    for (let i = recent.length - 1; i >= 0; i--) {
+        const l = recent[i].replace(ansiRe, '').trim();
+        if (!l) continue;
+        let m;
+        if ((m = l.match(/\bEdit\("([^"]+)"\)/))) return `Edited ${m[1].split('/').pop()}`;
+        if ((m = l.match(/\bWrite\("([^"]+)"\)/))) return `Wrote ${m[1].split('/').pop()}`;
+        if ((m = l.match(/\bRead\("([^"]+)"\)/))) return `Reading ${m[1].split('/').pop()}`;
+        if ((m = l.match(/\bBash\("([^"]{0,40})"\)/))) return `Running: ${m[1]}`;
+        if ((m = l.match(/\bGrep\("([^"]+)"\)/))) return `Searching: ${m[1].slice(0, 30)}`;
+        if ((m = l.match(/\bGlob\("([^"]+)"\)/))) return `Finding: ${m[1].slice(0, 30)}`;
+        if (/\bgit commit/i.test(l)) return 'Git commit';
+        if (/\bgit push/i.test(l)) return 'Git push';
+        if (/\d+ passed/i.test(l)) { const p = l.match(/(\d+) passed/i); return `Tests: ${p[1]} passed`; }
+        if (/\b(error|exception|FAIL)\b/i.test(l)) return 'Error detected';
+    }
+    return null;
+}
+
 function updateAgentCard(card, agent) {
     const prevStatus = card.dataset.status;
     if (prevStatus && prevStatus !== agent.status) {
@@ -7151,6 +7209,18 @@ function updateAgentCard(card, agent) {
     card.querySelector('.card-summary').textContent = (agent.status === 'error' && agent.error_message)
         ? agent.error_message
         : (agent.summary || agent.task || 'Starting...');
+
+    // Last action indicator
+    const lastActionEl = card.querySelector('.card-last-action');
+    if (lastActionEl) {
+        const lastAction = detectLastAction(agent);
+        if (lastAction) {
+            lastActionEl.textContent = lastAction;
+            lastActionEl.style.display = '';
+        } else {
+            lastActionEl.style.display = 'none';
+        }
+    }
 
     // Project badge
     const projBadge = card.querySelector('.card-project-badge');
@@ -7445,6 +7515,18 @@ function updateAgentCard(card, agent) {
             costBadge.style.color = '';
         } else {
             costBadge.style.display = 'none';
+        }
+    }
+
+    // Line count badge
+    const lineCountBadge = card.querySelector('.card-line-count');
+    if (lineCountBadge) {
+        const totalLines = agent.total_output_lines || (agent._outputBuffer || []).length;
+        if (totalLines > 0) {
+            lineCountBadge.textContent = totalLines >= 1000 ? `${(totalLines / 1000).toFixed(1)}k ln` : `${totalLines} ln`;
+            lineCountBadge.style.display = '';
+        } else {
+            lineCountBadge.style.display = 'none';
         }
     }
 
