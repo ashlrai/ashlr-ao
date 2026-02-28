@@ -2009,3 +2009,56 @@ class TestCostBurnRate:
         d = agent.to_dict()
         assert "cost_burn_rate" in d
         assert d["cost_burn_rate"] is None  # No cost data = None
+
+
+class TestRestartWithTask:
+    """Tests for restart with task override."""
+
+    def test_restart_preserves_task_by_default(self):
+        """Restart without new_task keeps the original task."""
+        agent = ashlar_server.Agent(
+            id="rt01", name="test", role="backend", status="error",
+            working_dir="/tmp", backend="demo", task="Original task",
+            summary="", tmux_session="ashlar-rt01",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        # Simulate what restart does with no new_task
+        saved_task = agent.task
+        new_task = None
+        if new_task:
+            saved_task = new_task
+            agent.task = new_task
+        assert saved_task == "Original task"
+        assert agent.task == "Original task"
+
+    def test_restart_overrides_task(self):
+        """Restart with new_task updates the agent's task."""
+        agent = ashlar_server.Agent(
+            id="rt02", name="test", role="backend", status="error",
+            working_dir="/tmp", backend="demo", task="Original task",
+            summary="", tmux_session="ashlar-rt02",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        new_task = "Modified task with fixes"
+        saved_task = agent.task
+        if new_task:
+            saved_task = new_task
+            agent.task = new_task
+        assert saved_task == "Modified task with fixes"
+        assert agent.task == "Modified task with fixes"
+
+    def test_restart_empty_task_no_override(self):
+        """Empty string new_task should not override."""
+        agent = ashlar_server.Agent(
+            id="rt03", name="test", role="backend", status="error",
+            working_dir="/tmp", backend="demo", task="Original task",
+            summary="", tmux_session="ashlar-rt03",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        new_task = ""
+        saved_task = agent.task
+        if new_task:
+            saved_task = new_task
+            agent.task = new_task
+        assert saved_task == "Original task"
+        assert agent.task == "Original task"

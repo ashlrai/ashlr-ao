@@ -4046,6 +4046,13 @@ body {
             <button class="btn btn-secondary btn-sm" onclick="applyTemplate('refactor')" style="font-size:11px;padding:4px 10px">Refactor</button>
         </div>
 
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border-subtle)">
+            <span style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;width:100%;margin-bottom:2px">Fleet Presets</span>
+            <button class="btn btn-ghost btn-sm" onclick="spawnFleetPreset('fullstack')" style="font-size:10px;padding:3px 8px;border:1px solid var(--border-subtle)">Full Stack (3)</button>
+            <button class="btn btn-ghost btn-sm" onclick="spawnFleetPreset('review')" style="font-size:10px;padding:3px 8px;border:1px solid var(--border-subtle)">Review Team (2)</button>
+            <button class="btn btn-ghost btn-sm" onclick="spawnFleetPreset('quality')" style="font-size:10px;padding:3px 8px;border:1px solid var(--border-subtle)">Quality Check (3)</button>
+        </div>
+
         <div class="preset-selector">
             <select id="spawnPresetSelect" onchange="loadPreset(this.value)">
                 <option value="">From preset...</option>
@@ -4151,6 +4158,7 @@ body {
             <button class="deep-action-btn" onclick="deepRegenSummary()" title="AI Summary"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg> AI</button>
             <button class="deep-action-btn" onclick="openDeepMessaging()" title="Send to another agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span> Msg</button>
             <button class="deep-action-btn" onclick="deepRestart()" title="Restart agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></span> Restart</button>
+            <button class="deep-action-btn" onclick="deepRetry()" title="Retry with modified task"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></span> Retry</button>
             <button class="deep-action-btn" onclick="openHandoff()" title="Handoff to another agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></span> Handoff</button>
             <button class="deep-action-btn" onclick="deepExportOutput()" title="Download output log"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></span> Export</button>
             <button class="deep-action-btn" onclick="deepCopyMarkdown()" title="Copy output as markdown"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span> Copy MD</button>
@@ -5917,6 +5925,7 @@ function createAgentCard(agent) {
             <div class="card-menu-item" onclick="event.stopPropagation();togglePin('${agent.id}')">${icon('pin', 14)} Pin/Unpin</div>
             <div class="card-menu-item" onclick="event.stopPropagation();openCompare('${agent.id}')">${icon('columns', 14)} Compare</div>
             <div class="card-menu-item" onclick="event.stopPropagation();restartAgent('${agent.id}')">${icon('refresh-cw', 14)} Restart</div>
+            <div class="card-menu-item" onclick="event.stopPropagation();retryWithTask('${agent.id}')">${icon('rotate-ccw', 14)} Retry with Changes</div>
             <div class="card-menu-item danger" onclick="event.stopPropagation();killAgent('${agent.id}')">${icon('x', 14)} Kill</div>
         </div>
     `;
@@ -6474,6 +6483,15 @@ const FLEET_PRESETS = {
             { role: 'architect', name: 'refactor', task: 'Review the codebase for refactoring opportunities. Improve code organization and reduce tech debt.' },
         ],
     },
+    'quality': {
+        label: 'Quality Check',
+        description: 'Tester + Reviewer + Security',
+        agents: [
+            { role: 'tester', name: 'tests', task: 'Write comprehensive tests covering edge cases, error scenarios, and integration points.' },
+            { role: 'reviewer', name: 'review', task: 'Review all code for bugs, logic errors, naming issues, and adherence to conventions.' },
+            { role: 'security', name: 'security', task: 'Audit the codebase for security vulnerabilities, injection risks, and auth issues.' },
+        ],
+    },
 };
 
 const SPAWN_TEMPLATES = {
@@ -6525,6 +6543,13 @@ async function spawnFleet(presetKey) {
     }
     showToast(`Fleet "${preset.label}": ${spawned}/${preset.agents.length} agents spawned`, spawned === preset.agents.length ? 'success' : 'warning');
     closeSpawnDialog();
+}
+
+function spawnFleetPreset(shortKey) {
+    const keyMap = { fullstack: 'full-stack', review: 'review-team', quality: 'quality' };
+    const presetKey = keyMap[shortKey] || shortKey;
+    closeSpawnDialog();
+    spawnFleet(presetKey);
 }
 
 async function queueFromSpawnDialog() {
@@ -6642,6 +6667,7 @@ function openDeepView(agentId) {
 
     document.getElementById('deepView').classList.add('active');
     updateDeepViewHeader(agent);
+    startDeepTimeTimer();
 
     // Reset toolbar state (scroll position restore may override these)
     document.getElementById('toolbarAutoScroll').classList.toggle('active', savedScrollPos == null);
@@ -6959,7 +6985,32 @@ function scrollDeepToBottom() {
     jumpBtn.classList.remove('visible');
 }
 
+let _deepTimeTimer = null;
+
+function startDeepTimeTimer() {
+    stopDeepTimeTimer();
+    _deepTimeTimer = setInterval(() => {
+        if (!state.focusedAgentId || state.view !== 'deep') { stopDeepTimeTimer(); return; }
+        const agent = state.agents.get(state.focusedAgentId);
+        if (!agent?.created_at) return;
+        const secs = Math.round((Date.now() - new Date(agent.created_at).getTime()) / 1000);
+        const el = document.getElementById('deepTime');
+        if (el) {
+            if (secs >= 3600) {
+                el.textContent = `${Math.floor(secs / 3600)}h ${Math.floor((secs % 3600) / 60)}m`;
+            } else {
+                el.textContent = `${Math.floor(secs / 60)}m ${secs % 60}s`;
+            }
+        }
+    }, 1000);
+}
+
+function stopDeepTimeTimer() {
+    if (_deepTimeTimer) { clearInterval(_deepTimeTimer); _deepTimeTimer = null; }
+}
+
 function closeDeepView() {
+    stopDeepTimeTimer();
     const terminal = document.getElementById('deepTerminal');
     // Save scroll position for this agent
     if (state.focusedAgentId && terminal) {
@@ -7308,9 +7359,40 @@ async function restartAgent(id) {
     }
 }
 
+async function retryWithTask(id) {
+    const agent = state.agents.get(id);
+    if (!agent) return;
+    if (activeMenu) { activeMenu.classList.remove('active'); activeMenu = null; }
+    const currentTask = agent.task || '';
+    const newTask = prompt('Modify the task (or leave unchanged to retry as-is):', currentTask);
+    if (newTask === null) return; // cancelled
+    const taskChanged = newTask.trim() && newTask.trim() !== currentTask;
+    try {
+        const opts = { method: 'POST' };
+        if (taskChanged) {
+            opts.headers = { 'Content-Type': 'application/json' };
+            opts.body = JSON.stringify({ task: newTask.trim() });
+        }
+        const res = await apiFetch(`/api/agents/${id}/restart`, opts);
+        const data = await res.json();
+        if (res.ok) {
+            showToast(taskChanged ? 'Retrying with modified task' : 'Retrying agent', 'success');
+        } else {
+            showToast(data.error || 'Retry failed', 'error');
+        }
+    } catch (e) {
+        showToast('Failed to retry agent', 'error');
+    }
+}
+
 function deepRestart() {
     if (!state.focusedAgentId) return;
     restartAgent(state.focusedAgentId);
+}
+
+function deepRetry() {
+    if (!state.focusedAgentId) return;
+    retryWithTask(state.focusedAgentId);
 }
 
 // ── Deep View Search ──

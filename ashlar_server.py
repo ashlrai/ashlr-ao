@@ -2050,8 +2050,9 @@ class AgentManager:
         log.info(f"Resumed agent {agent_id}")
         return True
 
-    async def restart(self, agent_id: str) -> bool:
+    async def restart(self, agent_id: str, new_task: str | None = None) -> bool:
         """Restart an agent by killing its tmux session and re-spawning with same config.
+        If new_task is provided, overrides the agent's task for the restart.
         Updates agent fields in-place on success; sets error on failure without deleting."""
         agent = self.agents.get(agent_id)
         if not agent:
@@ -2076,6 +2077,11 @@ class AgentManager:
             saved_tools = agent.tools_allowed
             saved_system_prompt = agent.system_prompt
             saved_plan_mode = agent.plan_mode
+
+            # Apply task override if provided
+            if new_task:
+                saved_task = new_task
+                agent.task = new_task
 
             # Kill the old tmux session
             old_tmux_session = agent.tmux_session
@@ -5124,18 +5130,30 @@ async def restart_agent(request: web.Request) -> web.Response:
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
 
+    # Optional task override for retry-with-changes
+    new_task: str | None = None
+    if request.content_type and "json" in request.content_type:
+        try:
+            body = await request.json()
+            new_task = body.get("task") if isinstance(body, dict) else None
+            if new_task and not isinstance(new_task, str):
+                return web.json_response({"error": "task must be a string"}, status=400)
+            if new_task and len(new_task) > 5000:
+                return web.json_response({"error": "task too long (max 5000 chars)"}, status=400)
+        except Exception:
+            pass
+
     try:
-        success = await manager.restart(agent_id)
+        success = await manager.restart(agent_id, new_task=new_task)
         if success:
             restarted = manager.agents.get(agent_id)
             if restarted:
                 await hub.broadcast({"type": "agent_update", "agent": restarted.to_dict()})
-                await hub.broadcast_event(
-                    "agent_restarted",
-                    f"Agent {restarted.name} manually restarted (attempt {restarted.restart_count})",
-                    agent_id, restarted.name,
-                )
-                return web.json_response({"status": "restarted", "restart_count": restarted.restart_count})
+                msg = f"Agent {restarted.name} manually restarted (attempt {restarted.restart_count})"
+                if new_task:
+                    msg += " with modified task"
+                await hub.broadcast_event("agent_restarted", msg, agent_id, restarted.name)
+                return web.json_response({"status": "restarted", "restart_count": restarted.restart_count, "task_modified": bool(new_task)})
         return web.json_response({"error": "Restart failed"}, status=500)
     except Exception as e:
         log.error(f"Restart endpoint error for {agent_id}: {e}")
