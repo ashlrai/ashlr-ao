@@ -798,6 +798,36 @@ body {
     gap: 8px;
 }
 
+.card-hover-actions {
+    display: flex;
+    gap: 4px;
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s, transform 0.15s;
+    z-index: 2;
+}
+.agent-card:hover .card-hover-actions { opacity: 1; transform: translateY(0); }
+.card-hover-btn {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    padding: 0;
+}
+.card-hover-btn:hover { background: var(--bg-elevated); border-color: var(--accent); color: var(--accent); }
+.card-hover-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+@media (max-width: 768px) { .card-hover-actions { display: none; } }
+
 .status-badge {
     font-family: var(--font-mono);
     font-size: 9px;
@@ -3121,6 +3151,15 @@ body {
     .card-info-row .card-data-badge { display: none; }
     .agent-grid { grid-template-columns: 1fr; padding: 8px; }
     .deep-actions { flex-wrap: wrap; }
+    .command-bar { padding: 8px 12px; }
+    .command-bar input { font-size: 16px; } /* Prevent iOS zoom */
+    .grid-toolbar { flex-wrap: wrap; padding: 8px 12px; gap: 6px; }
+    .grid-toolbar .btn { font-size: 10px; padding: 4px 8px; }
+    .interaction-sheet { max-width: 100vw; margin: 0; border-radius: 16px 16px 0 0; }
+    .attention-queue-overlay { width: 100vw; }
+    .modal-overlay .conflicts-panel,
+    .modal-overlay .eventlog-panel,
+    .gsearch-panel { width: 100vw; max-width: 100vw; border-radius: 0; max-height: 100vh; }
 }
 @media (pointer: coarse) {
     .card-menu-btn, .btn, .role-option, .wf-list-item, .notification-item,
@@ -5755,6 +5794,13 @@ function createAgentCard(agent) {
             <span class="status-badge"></span>
             <span class="card-cost-badge" style="display:none"></span>
             <span class="card-meta"></span>
+        </div>
+        <div class="card-hover-actions" onclick="event.stopPropagation()">
+            <button class="card-hover-btn" onclick="pauseResumeAgent('${agent.id}')" title="Pause/Resume">${icon('pause', 12)}</button>
+            <button class="card-hover-btn" onclick="restartAgent('${agent.id}')" title="Restart">${icon('refresh-cw', 12)}</button>
+            <button class="card-hover-btn" onclick="togglePin('${agent.id}')" title="Pin">${icon('pin', 12)}</button>
+            <button class="card-hover-btn" onclick="cloneAgent('${agent.id}')" title="Clone">${icon('copy', 12)}</button>
+            <button class="card-hover-btn danger" onclick="killAgent('${agent.id}')" title="Kill">${icon('x', 12)}</button>
         </div>
         <div class="card-menu" id="menu-${agent.id}">
             <div class="card-menu-item" onclick="event.stopPropagation();openDeepView('${agent.id}')">${icon('terminal', 14)} View Terminal</div>
