@@ -2610,7 +2610,7 @@ body {
 .progress-bar-fill.phase-implementing { background: linear-gradient(90deg, #22C55E, #4ADE80); }
 .progress-bar-fill.phase-testing { background: linear-gradient(90deg, #06B6D4, #22D3EE); }
 .progress-bar-fill.phase-complete { background: linear-gradient(90deg, #10B981, #34D399); }
-
+.card-progress-text { font-size: 9px; font-family: var(--font-mono); color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 /* Status badge waiting pulse */
 .status-badge.waiting {
     animation: badge-pulse 2s ease-in-out infinite;
@@ -3875,6 +3875,13 @@ body {
 .gsearch-result-context { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
 .gsearch-result-match { font-size: 12px; color: var(--text-primary); font-family: var(--font-mono); line-height: 1.5; white-space: pre-wrap; word-break: break-all; background: rgba(99,102,241,0.1); padding: 2px 0; border-radius: 2px; }
 .gsearch-result-match mark { background: rgba(234,179,8,0.3); color: var(--text-primary); border-radius: 2px; padding: 0 1px; }
+.gsearch-agent-group { border-bottom: 1px solid var(--border-default); }
+.gsearch-group-header { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--bg-elevated); cursor: pointer; position: sticky; top: 0; z-index: 1; }
+.gsearch-group-header:hover { background: var(--bg-overlay); }
+.gsearch-group-name { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.gsearch-group-count { font-size: 10px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.gsearch-group-results.collapsed { display: none; }
+.gsearch-agent-group .gsearch-result { padding-left: 36px; }
 .gsearch-empty { text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 13px; }
 .gsearch-status { padding: 8px 20px; font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); border-top: 1px solid var(--border-subtle); text-align: center; }
 
@@ -7228,6 +7235,7 @@ function createAgentCard(agent) {
             </div>
         </div>
         <div class="progress-bar" role="progressbar" aria-label="Task progress"><div class="progress-bar-fill"></div></div>
+        <div class="card-progress-text" style="display:none"></div>
         <canvas class="card-sparkline" width="160" height="20"></canvas>
         <canvas class="card-health-sparkline" width="80" height="14"></canvas>
         <div class="context-bar-row"><div class="context-bar" role="progressbar" aria-label="Context window usage"><div class="context-bar-fill"></div></div><span class="context-pct-label low">0%</span><span class="context-warn-icon" title="High context usage">&#9888;</span><span class="context-text"></span></div>
@@ -7359,6 +7367,38 @@ function detectLastAction(agent) {
         if (/\bgit push/i.test(l)) return 'Git push';
         if (/\d+ passed/i.test(l)) { const p = l.match(/(\d+) passed/i); return `Tests: ${p[1]} passed`; }
         if (/\b(error|exception|FAIL)\b/i.test(l)) return 'Error detected';
+    }
+    return null;
+}
+
+function detectProgressText(agent) {
+    const lines = agent._outputBuffer || agent.output_lines || [];
+    if (lines.length === 0) return null;
+    const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+    const recent = lines.slice(-30);
+    for (let i = recent.length - 1; i >= 0; i--) {
+        const l = recent[i].replace(ansiRe, '').trim();
+        if (!l) continue;
+        let m;
+        // "X of Y" pattern (files, steps, items)
+        if ((m = l.match(/(\d+)\s+(?:of|\/)\s+(\d+)\s+(files?|steps?|items?|tests?|tasks?|modules?)/i))) {
+            return `${m[1]}/${m[2]} ${m[3]}`;
+        }
+        // "step N/M" or "N/M complete"
+        if ((m = l.match(/(?:step\s+)?(\d+)\s*\/\s*(\d+)(?:\s+(?:complete|done|finished|processed))?/i))) {
+            const n = parseInt(m[1]), total = parseInt(m[2]);
+            if (total > 1 && total <= 1000 && n <= total) return `${n}/${total}`;
+        }
+        // Percentage: "45%" or "45.2%"
+        if ((m = l.match(/(\d{1,3}(?:\.\d)?)%\s*(?:complete|done|progress)?/i))) {
+            const pct = parseFloat(m[1]);
+            if (pct >= 0 && pct <= 100) return `${Math.round(pct)}% complete`;
+        }
+        // Test results: "X passed, Y failed"
+        if ((m = l.match(/(\d+)\s+passed(?:,\s*(\d+)\s+failed)?/i))) {
+            const passed = m[1], failed = m[2];
+            return failed ? `${passed} passed, ${failed} failed` : `${passed} passed`;
+        }
     }
     return null;
 }
@@ -7516,6 +7556,18 @@ function updateAgentCard(card, agent) {
     const phaseMap = { planning: 'phase-planning', reading: 'phase-reading', implementing: 'phase-implementing', working: 'phase-implementing', testing: 'phase-testing', idle: 'phase-complete', complete: 'phase-complete' };
     const phase = agent.phase || agent.status;
     progFill.className = 'progress-bar-fill ' + (phaseMap[phase] || '');
+
+    // Progress text from output parsing
+    const progTextEl = card.querySelector('.card-progress-text');
+    if (progTextEl) {
+        const progText = detectProgressText(agent);
+        if (progText) {
+            progTextEl.textContent = progText;
+            progTextEl.style.display = '';
+        } else {
+            progTextEl.style.display = 'none';
+        }
+    }
 
     // Context bar — shows % remaining (like Claude Code)
     const usedPct = Math.round((agent.context_pct || 0) * 100);
@@ -14337,22 +14389,38 @@ async function runGlobalSearch() {
             return;
         }
 
-        let html = '';
+        // Group results by agent
+        const grouped = new Map();
         for (const r of results) {
-            const highlightedLine = highlightMatch(escapeHtml(r.line), query, useRegex, caseSensitive);
-            html += `<div class="gsearch-result" onclick="closeGlobalSearch();openDeepView('${r.agent_id}')">`;
-            html += `<div class="gsearch-result-header">`;
-            html += `<span class="gsearch-result-agent">${escapeHtml(r.agent_name)}</span>`;
-            html += `<span class="gsearch-result-line-num">line ${r.line_index + 1}</span>`;
+            const key = r.agent_id;
+            if (!grouped.has(key)) grouped.set(key, { name: r.agent_name, id: r.agent_id, results: [] });
+            grouped.get(key).results.push(r);
+        }
+
+        let html = '';
+        for (const [agentId, group] of grouped) {
+            const agent = state.agents.get(agentId);
+            const roleColor = agent?.role_color || ROLE_INFO[agent?.role]?.color || '#64748B';
+            html += `<div class="gsearch-agent-group">`;
+            html += `<div class="gsearch-group-header" onclick="this.nextElementSibling.classList.toggle('collapsed')">`;
+            html += `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${roleColor};flex-shrink:0"></span>`;
+            html += `<span class="gsearch-group-name">${escapeHtml(group.name)}</span>`;
+            html += `<span class="gsearch-group-count">${group.results.length} match${group.results.length !== 1 ? 'es' : ''}</span>`;
+            html += `<span style="margin-left:auto;font-size:10px;color:var(--text-tertiary)">▾</span>`;
             html += `</div>`;
-            if (r.context_before) {
-                html += `<div class="gsearch-result-context">${escapeHtml(r.context_before)}</div>`;
+            html += `<div class="gsearch-group-results">`;
+            for (const r of group.results) {
+                const highlightedLine = highlightMatch(escapeHtml(r.line), query, useRegex, caseSensitive);
+                html += `<div class="gsearch-result" onclick="closeGlobalSearch();openDeepView('${r.agent_id}')">`;
+                html += `<div class="gsearch-result-header">`;
+                html += `<span class="gsearch-result-line-num">line ${r.line_index + 1}</span>`;
+                html += `</div>`;
+                if (r.context_before) html += `<div class="gsearch-result-context">${escapeHtml(r.context_before)}</div>`;
+                html += `<div class="gsearch-result-match">${highlightedLine}</div>`;
+                if (r.context_after) html += `<div class="gsearch-result-context">${escapeHtml(r.context_after)}</div>`;
+                html += `</div>`;
             }
-            html += `<div class="gsearch-result-match">${highlightedLine}</div>`;
-            if (r.context_after) {
-                html += `<div class="gsearch-result-context">${escapeHtml(r.context_after)}</div>`;
-            }
-            html += `</div>`;
+            html += `</div></div>`;
         }
         body.innerHTML = html;
 
