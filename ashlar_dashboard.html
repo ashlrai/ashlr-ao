@@ -3156,6 +3156,13 @@ body {
 
 /* ── Pipeline Graph ── */
 .pipeline-panel { background: var(--bg-surface); width: 700px; max-height: 80vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+.compare-panel { background: var(--bg-surface); width: 95vw; max-width: 1400px; height: 80vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); overflow: hidden; }
+.compare-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
+.compare-body { display: flex; flex: 1; overflow: hidden; }
+.compare-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.compare-pane + .compare-pane { border-left: 1px solid var(--border-subtle); }
+.compare-pane-header { padding: 8px 12px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; background: var(--bg-elevated); }
+.compare-pane-terminal { flex: 1; overflow-y: auto; padding: 8px 12px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; background: var(--bg-page); }
 .pipeline-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); }
 .pipeline-status { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .pipeline-graph { overflow: auto; flex: 1; padding: 24px; }
@@ -4271,6 +4278,31 @@ body {
     </div>
 </div>
 
+<!-- ── Compare View ── -->
+<div class="modal-overlay" id="compareOverlay" onclick="if(event.target===this)closeCompare()">
+    <div class="compare-panel">
+        <div class="compare-header">
+            <h3 style="margin:0;font-weight:700;letter-spacing:-0.02em">Compare Agents</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+                <select class="form-input" id="compareLeftSelect" style="width:140px;padding:4px 8px;font-size:12px" onchange="refreshCompare()"></select>
+                <span style="color:var(--text-tertiary)">vs</span>
+                <select class="form-input" id="compareRightSelect" style="width:140px;padding:4px 8px;font-size:12px" onchange="refreshCompare()"></select>
+                <button class="btn btn-secondary btn-sm" onclick="closeCompare()">Close</button>
+            </div>
+        </div>
+        <div class="compare-body">
+            <div class="compare-pane">
+                <div class="compare-pane-header" id="compareLeftHeader"></div>
+                <div class="compare-pane-terminal" id="compareLeftTerminal"></div>
+            </div>
+            <div class="compare-pane">
+                <div class="compare-pane-header" id="compareRightHeader"></div>
+                <div class="compare-pane-terminal" id="compareRightTerminal"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ── Handoff Modal ── -->
 <div class="handoff-overlay" id="handoffOverlay" onclick="if(event.target===this)closeHandoff()">
     <div class="handoff-modal">
@@ -5375,6 +5407,7 @@ function createAgentCard(agent) {
             <div class="card-menu-item" onclick="event.stopPropagation();pauseResumeAgent('${agent.id}')">${icon('pause', 14)} Pause/Resume</div>
             <div class="card-menu-item" onclick="event.stopPropagation();cloneAgent('${agent.id}')">${icon('copy', 14)} Clone</div>
             <div class="card-menu-item" onclick="event.stopPropagation();togglePin('${agent.id}')">${icon('pin', 14)} Pin/Unpin</div>
+            <div class="card-menu-item" onclick="event.stopPropagation();openCompare('${agent.id}')">${icon('columns', 14)} Compare</div>
             <div class="card-menu-item" onclick="event.stopPropagation();restartAgent('${agent.id}')">${icon('refresh-cw', 14)} Restart</div>
             <div class="card-menu-item danger" onclick="event.stopPropagation();killAgent('${agent.id}')">${icon('x', 14)} Kill</div>
         </div>
@@ -6773,6 +6806,7 @@ const PALETTE_ACTIONS = [
     { icon: 'users', label: 'Spawn Full Stack Team', shortcut: '', action: () => { closePalette(); spawnFleet('full-stack'); } },
     { icon: 'shield', label: 'Spawn Review Team', shortcut: '', action: () => { closePalette(); spawnFleet('review-team'); } },
     { icon: 'layers', label: 'Spawn Build & Test', shortcut: '', action: () => { closePalette(); spawnFleet('build-and-test'); } },
+    { icon: 'columns', label: 'Compare two agents', shortcut: '', action: () => { closePalette(); openCompare(); } },
 ];
 
 function openPalette() {
@@ -7149,6 +7183,7 @@ document.addEventListener('keydown', (e) => {
         if (document.getElementById('attentionQueueOverlay').classList.contains('active')) { closeAttentionQueue(); return; }
         if (document.getElementById('interactionOverlay').classList.contains('active')) { closeInteraction(); return; }
         if (document.getElementById('timelineOverlay').classList.contains('active')) { closeTimeline(); return; }
+        if (document.getElementById('compareOverlay').classList.contains('active')) { closeCompare(); return; }
         if (document.getElementById('pipelineOverlay').classList.contains('active')) { closePipeline(); return; }
         if (document.getElementById('handoffOverlay').classList.contains('active')) { closeHandoff(); return; }
         return;
@@ -9492,6 +9527,58 @@ async function refreshTimeline() {
     } catch (e) {
         list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">Failed to load events</div>';
     }
+}
+
+// ── Compare View ──
+
+let compareRefreshTimer = null;
+
+function openCompare(leftId, rightId) {
+    const agents = [...state.agents.entries()];
+    if (agents.length < 2) { showToast('Need at least 2 agents to compare', 'warning'); return; }
+    const leftSel = document.getElementById('compareLeftSelect');
+    const rightSel = document.getElementById('compareRightSelect');
+    leftSel.innerHTML = '';
+    rightSel.innerHTML = '';
+    agents.forEach(([id, a]) => {
+        leftSel.innerHTML += `<option value="${id}">${escapeHtml(a.name)}</option>`;
+        rightSel.innerHTML += `<option value="${id}">${escapeHtml(a.name)}</option>`;
+    });
+    leftSel.value = leftId || agents[0][0];
+    rightSel.value = rightId || (agents.length > 1 ? agents[1][0] : agents[0][0]);
+    document.getElementById('compareOverlay').classList.add('active');
+    refreshCompare();
+    compareRefreshTimer = setInterval(refreshCompare, 2000);
+}
+
+function closeCompare() {
+    document.getElementById('compareOverlay').classList.remove('active');
+    if (compareRefreshTimer) { clearInterval(compareRefreshTimer); compareRefreshTimer = null; }
+}
+
+function refreshCompare() {
+    const leftId = document.getElementById('compareLeftSelect').value;
+    const rightId = document.getElementById('compareRightSelect').value;
+    renderComparePane(leftId, 'compareLeftHeader', 'compareLeftTerminal');
+    renderComparePane(rightId, 'compareRightHeader', 'compareRightTerminal');
+}
+
+function renderComparePane(agentId, headerElId, termElId) {
+    const agent = state.agents.get(agentId);
+    const header = document.getElementById(headerElId);
+    const term = document.getElementById(termElId);
+    if (!agent) {
+        header.innerHTML = '<span style="color:var(--text-tertiary)">No agent</span>';
+        term.innerHTML = '';
+        return;
+    }
+    const info = ROLE_INFO[agent.role] || ROLE_INFO.general;
+    header.innerHTML = `${roleIcon(agent.role, 16)}<span style="font-weight:600">${escapeHtml(agent.name)}</span><span class="status-badge" style="font-size:9px">${agent.status}</span><span style="color:var(--text-tertiary);font-size:11px;margin-left:auto">${info.name}</span>`;
+    const lines = agent.output_lines || [];
+    const tail = lines.slice(-80);
+    const shouldScroll = term.scrollTop + term.clientHeight >= term.scrollHeight - 50;
+    term.innerHTML = tail.map(l => ansiToHtml(escapeHtml(l))).join('\n');
+    if (shouldScroll) term.scrollTop = term.scrollHeight;
 }
 
 function switchTimelineTab(tab) {
