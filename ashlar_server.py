@@ -4000,6 +4000,17 @@ class Database:
                 updated_at TEXT NOT NULL,
                 UNIQUE(project_id, key)
             );
+
+            CREATE TABLE IF NOT EXISTS output_bookmarks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id TEXT NOT NULL,
+                line_index INTEGER NOT NULL,
+                line_text TEXT DEFAULT '',
+                annotation TEXT DEFAULT '',
+                color TEXT DEFAULT 'accent',
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_bookmarks_agent ON output_bookmarks(agent_id);
         """)
         await self._db.commit()
 
@@ -4570,6 +4581,41 @@ class Database:
     async def delete_scratchpad(self, project_id: str, key: str) -> bool:
         async with self._db.execute(
             "DELETE FROM scratchpad WHERE project_id = ? AND key = ?", (project_id, key)
+        ) as cur:
+            await self._db.commit()
+            return cur.rowcount > 0
+
+
+    # ── Bookmarks ──
+
+    async def get_bookmarks(self, agent_id: str) -> list[dict]:
+        if not self._db:
+            return []
+        try:
+            async with self._db.execute(
+                "SELECT * FROM output_bookmarks WHERE agent_id = ? ORDER BY line_index",
+                (agent_id,),
+            ) as cur:
+                return [dict(r) for r in await cur.fetchall()]
+        except Exception:
+            return []
+
+    async def add_bookmark(self, agent_id: str, line_index: int, line_text: str, annotation: str = "", color: str = "accent") -> int:
+        if not self._db:
+            return -1
+        now = datetime.now(timezone.utc).isoformat()
+        async with self._db.execute(
+            "INSERT INTO output_bookmarks (agent_id, line_index, line_text, annotation, color, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (agent_id, line_index, line_text[:500], annotation[:200], color, now),
+        ) as cur:
+            await self._db.commit()
+            return cur.lastrowid or -1
+
+    async def delete_bookmark(self, bookmark_id: int) -> bool:
+        if not self._db:
+            return False
+        async with self._db.execute(
+            "DELETE FROM output_bookmarks WHERE id = ?", (bookmark_id,)
         ) as cur:
             await self._db.commit()
             return cur.rowcount > 0
@@ -5212,6 +5258,7 @@ async def update_agent_tags(request: web.Request) -> web.Response:
 async def add_agent_bookmark(request: web.Request) -> web.Response:
     """POST /api/agents/{id}/bookmarks — add a bookmark to agent output."""
     manager: AgentManager = request.app["agent_manager"]
+    db: Database = request.app["db"]
     agent_id = request.match_info["id"]
     agent = manager.agents.get(agent_id)
     if not agent:
@@ -5223,18 +5270,26 @@ async def add_agent_bookmark(request: web.Request) -> web.Response:
     line_idx = data.get("line", 0)
     text = data.get("text", "")
     label = data.get("label", "")
+    color = data.get("color", "accent")
     if not isinstance(line_idx, int) or not isinstance(text, str):
         return web.json_response({"error": "Invalid bookmark data"}, status=400)
     if len(agent.bookmarks) >= 100:
         return web.json_response({"error": "Maximum 100 bookmarks per agent"}, status=400)
+    bm_id = uuid.uuid4().hex[:6]
     bookmark = {
-        "id": uuid.uuid4().hex[:6],
+        "id": bm_id,
         "line": line_idx,
         "text": text[:200],
         "label": label[:100] if label else "",
+        "color": color,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     agent.bookmarks.append(bookmark)
+    # Persist to SQLite
+    try:
+        await db.add_bookmark(agent_id, line_idx, text[:200], label[:100], color)
+    except Exception:
+        pass  # In-memory bookmark still works
     return web.json_response({"status": "added", "bookmark": bookmark})
 
 
@@ -5254,12 +5309,28 @@ async def delete_agent_bookmark(request: web.Request) -> web.Response:
 
 
 async def list_agent_bookmarks(request: web.Request) -> web.Response:
-    """GET /api/agents/{id}/bookmarks — list agent bookmarks."""
+    """GET /api/agents/{id}/bookmarks — list agent bookmarks (memory + SQLite)."""
     manager: AgentManager = request.app["agent_manager"]
+    db: Database = request.app["db"]
     agent_id = request.match_info["id"]
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    # If in-memory is empty, try to load from SQLite
+    if not agent.bookmarks:
+        try:
+            saved = await db.get_bookmarks(agent_id)
+            for bm in saved:
+                agent.bookmarks.append({
+                    "id": str(bm.get("id", "")),
+                    "line": bm.get("line_index", 0),
+                    "text": bm.get("line_text", ""),
+                    "label": bm.get("annotation", ""),
+                    "color": bm.get("color", "accent"),
+                    "created_at": bm.get("created_at", ""),
+                })
+        except Exception:
+            pass
     return web.json_response({"bookmarks": agent.bookmarks})
 
 
@@ -6790,6 +6861,51 @@ async def delete_scratchpad_entry(request: web.Request) -> web.Response:
     if success:
         return web.json_response({"status": "deleted"})
     return web.json_response({"error": "Entry not found"}, status=404)
+
+
+# ── Bookmark endpoints ──
+
+
+async def get_bookmarks(request: web.Request) -> web.Response:
+    """GET /api/agents/{id}/bookmarks — list bookmarks for an agent."""
+    if r := _check_rate(request, cost=1):
+        return r
+    db: Database = request.app["db"]
+    agent_id = request.match_info["id"]
+    bookmarks = await db.get_bookmarks(agent_id)
+    return web.json_response(bookmarks)
+
+
+async def add_bookmark(request: web.Request) -> web.Response:
+    """POST /api/agents/{id}/bookmarks — add a bookmark to agent output."""
+    if r := _check_rate(request, cost=1):
+        return r
+    db: Database = request.app["db"]
+    agent_id = request.match_info["id"]
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+    line_index = data.get("line_index")
+    if line_index is None or not isinstance(line_index, int):
+        return web.json_response({"error": "line_index (int) required"}, status=400)
+    line_text = data.get("line_text", "")
+    annotation = data.get("annotation", "")
+    color = data.get("color", "accent")
+    bm_id = await db.add_bookmark(agent_id, line_index, str(line_text), str(annotation), str(color))
+    return web.json_response({"id": bm_id, "agent_id": agent_id, "line_index": line_index}, status=201)
+
+
+async def delete_bookmark(request: web.Request) -> web.Response:
+    """DELETE /api/bookmarks/{id} — delete a bookmark."""
+    if r := _check_rate(request, cost=1):
+        return r
+    db: Database = request.app["db"]
+    bm_id = int(request.match_info["id"])
+    success = await db.delete_bookmark(bm_id)
+    if success:
+        return web.json_response({"status": "deleted"})
+    return web.json_response({"error": "Bookmark not found"}, status=404)
 
 
 # ── Config Import/Export endpoints ──
@@ -8328,6 +8444,8 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/scratchpad", get_scratchpad)
     app.router.add_put("/api/scratchpad", upsert_scratchpad)
     app.router.add_delete("/api/scratchpad/{key}", delete_scratchpad_entry)
+
+    # Note: bookmark routes already registered at lines above (add_agent_bookmark, delete_agent_bookmark, list_agent_bookmarks)
 
     # REST API — Config Import/Export
     app.router.add_get("/api/config/export", export_config)

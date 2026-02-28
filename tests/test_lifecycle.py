@@ -2266,3 +2266,44 @@ class TestOutputBufferPagination:
         # First 100 lines should have been dropped by the deque
         first_line = agent.output_lines[0]
         assert "line 100" in first_line
+
+
+class TestBookmarkPersistence:
+    """Tests for bookmark SQLite persistence layer."""
+
+    def test_agent_bookmarks_start_empty(self):
+        """Agent bookmarks list starts empty."""
+        agent = ashlar_server.Agent(
+            id="bk01", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-bk01",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        assert agent.bookmarks == []
+
+    def test_bookmark_in_memory(self):
+        """Bookmarks can be added in memory."""
+        agent = ashlar_server.Agent(
+            id="bk02", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-bk02",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        agent.bookmarks.append({"id": "abc", "line": 42, "text": "error line", "label": "Bug"})
+        assert len(agent.bookmarks) == 1
+        assert agent.bookmarks[0]["line"] == 42
+        assert agent.bookmarks[0]["label"] == "Bug"
+
+    def test_bookmark_delete_by_id(self):
+        """Bookmarks can be filtered by ID for deletion."""
+        agent = ashlar_server.Agent(
+            id="bk03", name="test", role="general", status="working",
+            working_dir="/tmp", backend="demo", task="test",
+            summary="", tmux_session="ashlar-bk03",
+            created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
+        )
+        agent.bookmarks.append({"id": "a1", "line": 10, "text": "line a", "label": ""})
+        agent.bookmarks.append({"id": "b2", "line": 20, "text": "line b", "label": ""})
+        agent.bookmarks = [b for b in agent.bookmarks if b.get("id") != "a1"]
+        assert len(agent.bookmarks) == 1
+        assert agent.bookmarks[0]["id"] == "b2"

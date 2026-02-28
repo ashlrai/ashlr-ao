@@ -11616,6 +11616,59 @@ function renderAnalytics(data) {
         html += `</div></div>`;
     }
 
+    // Efficiency leaderboard (active agents)
+    const agentEntries = [...state.agents.values()]
+        .filter(a => a.efficiency?.score > 0)
+        .sort((a, b) => (b.efficiency?.score || 0) - (a.efficiency?.score || 0))
+        .slice(0, 8);
+    if (agentEntries.length > 0) {
+        html += `<div class="analytics-section"><div class="analytics-section-title">Efficiency Leaderboard</div><div class="analytics-bar-chart">`;
+        for (const agent of agentEntries) {
+            const score = agent.efficiency.score;
+            const pct = Math.max(2, score * 100);
+            const barColor = score >= 0.7 ? 'var(--success)' : score >= 0.4 ? 'var(--orange)' : 'var(--danger)';
+            const details = `${agent.efficiency.tools_per_min} tools/min, ${agent.efficiency.error_rate * 100}% errors`;
+            html += `<div class="analytics-bar-row"><div class="analytics-bar-label" title="${escapeHtml(details)}">${escapeHtml(agent.name)}</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${pct}%;background:${barColor}"></div></div><div class="analytics-bar-count">${(score * 100).toFixed(0)}%</div></div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    // Session activity sparkline (using active agents' output histories)
+    const allOutputHistories = [...state.agents.values()]
+        .filter(a => a._outputHistory?.length > 0)
+        .map(a => a._outputHistory);
+    if (allOutputHistories.length > 0) {
+        const maxLen = Math.max(...allOutputHistories.map(h => h.length));
+        const combined = new Array(maxLen).fill(0);
+        for (const hist of allOutputHistories) {
+            for (let i = 0; i < hist.length; i++) {
+                combined[maxLen - hist.length + i] += hist[i];
+            }
+        }
+        const maxVal = Math.max(1, ...combined);
+        const barWidth = Math.max(2, Math.floor(300 / combined.length));
+        html += `<div class="analytics-section"><div class="analytics-section-title">Fleet Output Rate (last ${combined.length} intervals)</div>`;
+        html += `<div style="display:flex;align-items:flex-end;gap:1px;height:40px;margin-top:8px">`;
+        for (let i = 0; i < combined.length; i++) {
+            const h = Math.max(1, Math.round((combined[i] / maxVal) * 36));
+            const opacity = Math.max(0.2, combined[i] / maxVal);
+            html += `<div style="width:${barWidth}px;height:${h}px;background:var(--accent);opacity:${opacity};border-radius:1px" title="${combined[i]} lines"></div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    // File conflict summary
+    if (state.conflicts.size > 0) {
+        html += `<div class="analytics-section"><div class="analytics-section-title" style="color:var(--danger)">Active File Conflicts</div><div style="font-family:var(--font-mono);font-size:11px;color:var(--text-secondary)">`;
+        state.conflicts.forEach((files, agentId) => {
+            const agent = state.agents.get(agentId);
+            if (agent) {
+                html += `<div style="margin-bottom:4px"><span style="color:${ROLE_INFO[agent.role]?.color || 'var(--text-primary)'}">${escapeHtml(agent.name)}</span>: ${[...files].map(f => `<span style="color:var(--danger)">${escapeHtml(f.split('/').pop())}</span>`).join(', ')}</div>`;
+            }
+        });
+        html += `</div></div>`;
+    }
+
     body.innerHTML = html;
 }
 
