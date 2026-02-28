@@ -6507,6 +6507,75 @@ async def get_history_item(request: web.Request) -> web.Response:
     return web.json_response(item)
 
 
+# ── File Conflicts endpoint ──
+
+async def list_conflicts(request: web.Request) -> web.Response:
+    """GET /api/conflicts — current file conflicts between active agents."""
+    manager: AgentManager = request.app["agent_manager"]
+    conflicts: list[dict] = []
+    seen: set[tuple] = set()
+    for file_path, agent_ops in manager.file_activity.items():
+        writers = [(aid, op) for aid, op in agent_ops.items()
+                   if op == "write" and aid in manager.agents
+                   and manager.agents[aid].status in ("working", "planning", "reading")]
+        if len(writers) < 2:
+            continue
+        for i, (a1, _) in enumerate(writers):
+            for a2, _ in writers[i + 1:]:
+                key = tuple(sorted([a1, a2])) + (file_path,)
+                if key in seen:
+                    continue
+                seen.add(key)
+                ag1, ag2 = manager.agents[a1], manager.agents[a2]
+                conflicts.append({
+                    "file_path": file_path,
+                    "agents": [
+                        {"id": a1, "name": ag1.name, "role": ag1.role, "status": ag1.status},
+                        {"id": a2, "name": ag2.name, "role": ag2.role, "status": ag2.status},
+                    ],
+                    "severity": "conflict",
+                })
+    # Also include read-write overlaps as warnings
+    for file_path, agent_ops in manager.file_activity.items():
+        writers = [aid for aid, op in agent_ops.items()
+                   if op == "write" and aid in manager.agents
+                   and manager.agents[aid].status in ("working", "planning", "reading")]
+        readers = [aid for aid, op in agent_ops.items()
+                   if op == "read" and aid in manager.agents
+                   and manager.agents[aid].status in ("working", "planning", "reading")]
+        for w in writers:
+            for r in readers:
+                key = tuple(sorted([w, r])) + (file_path,)
+                if key in seen:
+                    continue
+                seen.add(key)
+                ag_w, ag_r = manager.agents[w], manager.agents[r]
+                conflicts.append({
+                    "file_path": file_path,
+                    "agents": [
+                        {"id": w, "name": ag_w.name, "role": ag_w.role, "status": ag_w.status},
+                        {"id": r, "name": ag_r.name, "role": ag_r.role, "status": ag_r.status},
+                    ],
+                    "severity": "warning",
+                })
+    # Sort: conflicts first, then warnings
+    conflicts.sort(key=lambda c: (0 if c["severity"] == "conflict" else 1, c["file_path"]))
+    # File activity summary
+    active_files = {}
+    for fp, ops in manager.file_activity.items():
+        active_agents = [aid for aid in ops if aid in manager.agents]
+        if active_agents:
+            active_files[fp] = {
+                "operations": {aid: ops[aid] for aid in active_agents},
+                "agent_count": len(active_agents),
+            }
+    return web.json_response({
+        "conflicts": conflicts,
+        "total": len(conflicts),
+        "active_files": dict(sorted(active_files.items(), key=lambda x: -x[1]["agent_count"])[:50]),
+    })
+
+
 # ── Activity Events endpoint ──
 
 async def list_events(request: web.Request) -> web.Response:
@@ -7544,6 +7613,7 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/history", list_history)
     app.router.add_get("/api/history/{id}", get_history_item)
     app.router.add_get("/api/events", list_events)
+    app.router.add_get("/api/conflicts", list_conflicts)
 
     # REST API — Presets
     app.router.add_get("/api/presets", list_presets)

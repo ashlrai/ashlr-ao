@@ -3239,6 +3239,54 @@ body {
 .analytics-dist-name { color: var(--text-secondary); text-transform: capitalize; }
 .analytics-dist-val { font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
 
+/* ── Conflict Resolution Panel ── */
+.conflicts-panel { background: var(--bg-surface); width: 90vw; max-width: 700px; max-height: 80vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); overflow: hidden; }
+.conflicts-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
+.conflicts-body { overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.conflict-card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.conflict-card.severity-conflict { border-left: 3px solid var(--danger); }
+.conflict-card.severity-warning { border-left: 3px solid var(--orange); }
+.conflict-file { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); font-weight: 600; word-break: break-all; }
+.conflict-agents { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.conflict-agent-chip { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-page); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 3px 8px; font-size: 11px; color: var(--text-secondary); cursor: pointer; transition: var(--transition); }
+.conflict-agent-chip:hover { border-color: var(--accent); color: var(--accent); }
+.conflict-severity { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; font-family: var(--font-mono); }
+.conflict-severity.conflict { color: var(--danger); }
+.conflict-severity.warning { color: var(--orange); }
+.conflict-actions { display: flex; gap: 6px; margin-top: 4px; }
+.conflict-action-btn { background: var(--bg-page); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 600; cursor: pointer; transition: var(--transition); font-family: var(--font-sans); }
+.conflict-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+.conflict-action-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+.conflict-empty { text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 13px; }
+.conflict-file-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.conflict-file-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; background: var(--bg-page); border-radius: 4px; font-size: 11px; font-family: var(--font-mono); }
+.conflict-file-item-path { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.conflict-file-item-count { color: var(--text-tertiary); font-weight: 600; flex-shrink: 0; margin-left: 8px; }
+
+/* ── Event Log Panel ── */
+.eventlog-panel { background: var(--bg-surface); width: 90vw; max-width: 800px; max-height: 85vh; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 32px 80px rgba(0,0,0,0.6); animation: modalScaleIn 0.2s cubic-bezier(0.22, 1, 0.36, 1); overflow: hidden; }
+.eventlog-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; }
+.eventlog-filters { display: flex; gap: 8px; padding: 10px 20px; border-bottom: 1px solid var(--border-subtle); flex-shrink: 0; align-items: center; flex-wrap: wrap; }
+.eventlog-filter-input { background: var(--bg-input); border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: 6px; padding: 4px 10px; font-size: 12px; outline: none; font-family: var(--font-mono); }
+.eventlog-filter-input:focus { border-color: var(--accent); }
+.eventlog-filter-select { background: var(--bg-input); border: 1px solid var(--border-subtle); color: var(--text-primary); border-radius: 6px; padding: 4px 8px; font-size: 12px; outline: none; }
+.eventlog-body { overflow-y: auto; padding: 0; flex: 1; }
+.eventlog-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 20px; border-bottom: 1px solid var(--border-subtle); font-size: 12px; transition: background 0.15s; }
+.eventlog-row:hover { background: var(--bg-elevated); }
+.eventlog-time { color: var(--text-tertiary); font-family: var(--font-mono); font-size: 11px; flex-shrink: 0; width: 70px; }
+.eventlog-type { font-family: var(--font-mono); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.eventlog-type.agent { background: var(--accent-subtle); color: var(--accent); }
+.eventlog-type.system { background: var(--success-subtle); color: #22c55e; }
+.eventlog-type.error { background: var(--danger-subtle); color: var(--danger); }
+.eventlog-type.warning { background: var(--warning-subtle); color: #eab308; }
+.eventlog-agent { color: var(--text-secondary); font-weight: 600; flex-shrink: 0; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eventlog-message { color: var(--text-primary); flex: 1; line-height: 1.4; }
+.eventlog-pagination { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 10px; border-top: 1px solid var(--border-subtle); flex-shrink: 0; }
+.eventlog-page-btn { background: var(--bg-elevated); border: 1px solid var(--border-subtle); color: var(--text-secondary); padding: 4px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: var(--transition); }
+.eventlog-page-btn:hover { border-color: var(--accent); color: var(--accent); }
+.eventlog-page-btn:disabled { opacity: 0.3; cursor: default; }
+.eventlog-empty { text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 13px; }
+
 .pipeline-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); }
 .pipeline-status { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .pipeline-graph { overflow: auto; flex: 1; padding: 24px; }
@@ -3784,6 +3832,8 @@ body {
         </div>
         <button class="btn btn-secondary btn-sm" onclick="openTimeline()" title="Activity Timeline (Cmd+T)"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/><path d="m16 12 5 3-5 3v-6Z"/></svg> Timeline</button>
         <button class="btn btn-secondary btn-sm" onclick="openAnalytics()" title="Fleet Analytics"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> Analytics</button>
+        <button class="btn btn-secondary btn-sm" onclick="openConflicts()" title="File Conflicts"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg> Conflicts</button>
+        <button class="btn btn-secondary btn-sm" onclick="openEventLog()" title="Event Log"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Events</button>
     </div>
     <table class="agent-table" id="agentTable">
         <thead><tr>
@@ -4427,6 +4477,59 @@ body {
         </div>
         <div class="analytics-body" id="analyticsBody">
             <div style="text-align:center;color:var(--text-tertiary);padding:40px">Loading analytics...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Conflict Resolution Panel ── -->
+<div class="modal-overlay" id="conflictsOverlay" onclick="if(event.target===this)closeConflicts()">
+    <div class="conflicts-panel">
+        <div class="conflicts-header">
+            <h3 style="margin:0;font-weight:700;letter-spacing:-0.02em">File Conflicts</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn-secondary btn-sm" onclick="loadConflicts()" title="Refresh">Refresh</button>
+                <button class="btn btn-secondary btn-sm" onclick="closeConflicts()">Close</button>
+            </div>
+        </div>
+        <div class="conflicts-body" id="conflictsBody">
+            <div class="conflict-empty">Loading conflicts...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Event Log Panel ── -->
+<div class="modal-overlay" id="eventlogOverlay" onclick="if(event.target===this)closeEventLog()">
+    <div class="eventlog-panel">
+        <div class="eventlog-header">
+            <h3 style="margin:0;font-weight:700;letter-spacing:-0.02em">Event Log</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+                <button class="btn btn-secondary btn-sm" onclick="loadEventLog()">Refresh</button>
+                <button class="btn btn-secondary btn-sm" onclick="closeEventLog()">Close</button>
+            </div>
+        </div>
+        <div class="eventlog-filters">
+            <select class="eventlog-filter-select" id="eventlogTypeFilter" onchange="loadEventLog()">
+                <option value="">All Types</option>
+                <option value="agent_spawned">Spawned</option>
+                <option value="agent_killed">Killed</option>
+                <option value="agent_status_changed">Status Change</option>
+                <option value="agent_needs_input">Needs Input</option>
+                <option value="agent_error">Error</option>
+                <option value="file_conflict">Conflict</option>
+                <option value="agent_handoff">Handoff</option>
+                <option value="workflow_started">Workflow</option>
+                <option value="bg_task_crash">Task Crash</option>
+            </select>
+            <input class="eventlog-filter-input" id="eventlogAgentFilter" placeholder="Agent ID..." style="width:80px" onchange="loadEventLog()">
+            <span style="font-size:11px;color:var(--text-tertiary)" id="eventlogCount">0 events</span>
+        </div>
+        <div class="eventlog-body" id="eventlogBody">
+            <div class="eventlog-empty">Loading events...</div>
+        </div>
+        <div class="eventlog-pagination">
+            <button class="eventlog-page-btn" id="eventlogPrev" onclick="eventlogPage(-1)" disabled>Previous</button>
+            <span style="font-size:11px;color:var(--text-tertiary)" id="eventlogPageInfo">Page 1</span>
+            <button class="eventlog-page-btn" id="eventlogNext" onclick="eventlogPage(1)">Next</button>
         </div>
     </div>
 </div>
@@ -5827,6 +5930,10 @@ function updateAgentCard(card, agent) {
     const meta = card.querySelector('.card-meta');
     const metaParts = [];
     if (agent.restart_count > 0) metaParts.push(`↻${agent.restart_count}`);
+    if (agent.model) {
+        const shortModel = agent.model.replace(/^claude-/, '').replace(/-\d{8}$/, '').replace(/^grok-/, 'grok ');
+        metaParts.push(shortModel);
+    }
     if (agent.memory_mb) metaParts.push(`${Math.round(agent.memory_mb)}MB`);
     if (agent.output_rate) metaParts.push(`${Math.round(agent.output_rate)}l/m`);
     if (agent.estimated_cost_usd > 0.001) metaParts.push(`$${agent.estimated_cost_usd.toFixed(2)}`);
@@ -7524,6 +7631,8 @@ document.addEventListener('keydown', (e) => {
         if (document.getElementById('timelineOverlay').classList.contains('active')) { closeTimeline(); return; }
         if (document.getElementById('compareOverlay').classList.contains('active')) { closeCompare(); return; }
         if (document.getElementById('analyticsOverlay').classList.contains('active')) { closeAnalytics(); return; }
+        if (document.getElementById('conflictsOverlay').classList.contains('active')) { closeConflicts(); return; }
+        if (document.getElementById('eventlogOverlay').classList.contains('active')) { closeEventLog(); return; }
         if (document.getElementById('pipelineOverlay').classList.contains('active')) { closePipeline(); return; }
         if (document.getElementById('handoffOverlay').classList.contains('active')) { closeHandoff(); return; }
         return;
@@ -9975,9 +10084,10 @@ async function loadAnalytics() {
     const body = document.getElementById('analyticsBody');
     body.innerHTML = '<div style="text-align:center;color:var(--text-tertiary);padding:40px">Loading analytics...</div>';
     try {
-        const res = await apiFetch('/api/analytics');
-        if (!res) throw new Error('No data');
-        renderAnalytics(res);
+        const resp = await apiFetch('/api/analytics');
+        if (!resp.ok) throw new Error('Failed');
+        const data = await resp.json();
+        renderAnalytics(data);
     } catch (e) {
         body.innerHTML = `<div style="text-align:center;color:var(--text-tertiary);padding:40px">Failed to load analytics</div>`;
     }
@@ -10059,6 +10169,176 @@ function renderAnalytics(data) {
     body.innerHTML = html;
 }
 
+
+// ── Conflict Resolution Panel ──
+
+function openConflicts() {
+    document.getElementById('conflictsOverlay').classList.add('active');
+    loadConflicts();
+}
+
+function closeConflicts() {
+    document.getElementById('conflictsOverlay').classList.remove('active');
+}
+
+async function loadConflicts() {
+    const body = document.getElementById('conflictsBody');
+    body.innerHTML = '<div class="conflict-empty">Loading...</div>';
+    try {
+        const resp = await apiFetch('/api/conflicts');
+        if (!resp.ok) throw new Error('Failed');
+        const data = await resp.json();
+        renderConflicts(data);
+    } catch (e) {
+        body.innerHTML = '<div class="conflict-empty">Failed to load conflicts</div>';
+    }
+}
+
+function renderConflicts(data) {
+    const body = document.getElementById('conflictsBody');
+    const conflicts = data.conflicts || [];
+    const activeFiles = data.active_files || {};
+
+    if (conflicts.length === 0 && Object.keys(activeFiles).length === 0) {
+        body.innerHTML = '<div class="conflict-empty">No file conflicts detected. All agents are working on separate files.</div>';
+        return;
+    }
+
+    let html = '';
+
+    // Active conflicts
+    if (conflicts.length > 0) {
+        html += `<div style="font-size:12px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.8px;font-family:var(--font-mono);margin-bottom:4px">${conflicts.length} Active Conflict${conflicts.length !== 1 ? 's' : ''}</div>`;
+        for (const c of conflicts) {
+            const shortPath = c.file_path.split('/').slice(-3).join('/');
+            html += `<div class="conflict-card severity-${c.severity}">`;
+            html += `<div style="display:flex;justify-content:space-between;align-items:center">`;
+            html += `<div class="conflict-file" title="${escapeHtml(c.file_path)}">${escapeHtml(shortPath)}</div>`;
+            html += `<span class="conflict-severity ${c.severity}">${c.severity}</span>`;
+            html += `</div>`;
+            html += `<div class="conflict-agents">`;
+            for (const agent of c.agents) {
+                const info = ROLE_INFO[agent.role] || ROLE_INFO.general;
+                html += `<div class="conflict-agent-chip" onclick="closeConflicts();openDeepView('${agent.id}')" title="View agent">`;
+                html += `${icon(info.icon, 12)} ${escapeHtml(agent.name)} <span style="color:var(--text-tertiary)">(${agent.status})</span>`;
+                html += `</div>`;
+            }
+            html += `</div>`;
+            html += `<div class="conflict-actions">`;
+            for (const agent of c.agents) {
+                html += `<button class="conflict-action-btn danger" onclick="pauseAgent('${agent.id}')">Pause ${escapeHtml(agent.name)}</button>`;
+            }
+            html += `</div>`;
+            html += `</div>`;
+        }
+    }
+
+    // File activity summary
+    const multiAgentFiles = Object.entries(activeFiles).filter(([_, info]) => info.agent_count > 1);
+    if (multiAgentFiles.length > 0) {
+        html += `<div style="font-size:12px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.8px;font-family:var(--font-mono);margin-top:16px;margin-bottom:4px">Shared Files (${multiAgentFiles.length})</div>`;
+        html += `<div class="conflict-file-list">`;
+        for (const [fp, info] of multiAgentFiles.slice(0, 20)) {
+            const shortPath = fp.split('/').slice(-3).join('/');
+            const ops = Object.entries(info.operations).map(([aid, op]) => {
+                const agent = state.agents.get(aid);
+                return agent ? `${agent.name}: ${op}` : `${aid}: ${op}`;
+            }).join(', ');
+            html += `<div class="conflict-file-item"><span class="conflict-file-item-path" title="${escapeHtml(fp)}&#10;${escapeHtml(ops)}">${escapeHtml(shortPath)}</span><span class="conflict-file-item-count">${info.agent_count} agents</span></div>`;
+        }
+        html += `</div>`;
+    }
+
+    body.innerHTML = html;
+}
+
+// ── Event Log Panel ──
+
+let _eventlogOffset = 0;
+const _eventlogLimit = 50;
+
+function openEventLog() {
+    document.getElementById('eventlogOverlay').classList.add('active');
+    _eventlogOffset = 0;
+    loadEventLog();
+}
+
+function closeEventLog() {
+    document.getElementById('eventlogOverlay').classList.remove('active');
+}
+
+function eventlogPage(dir) {
+    _eventlogOffset = Math.max(0, _eventlogOffset + dir * _eventlogLimit);
+    loadEventLog();
+}
+
+async function loadEventLog() {
+    const body = document.getElementById('eventlogBody');
+    body.innerHTML = '<div class="eventlog-empty">Loading events...</div>';
+    const typeFilter = document.getElementById('eventlogTypeFilter').value;
+    const agentFilter = document.getElementById('eventlogAgentFilter').value.trim();
+    let url = `/api/events?limit=${_eventlogLimit}&offset=${_eventlogOffset}`;
+    if (typeFilter) url += `&event_type=${encodeURIComponent(typeFilter)}`;
+    if (agentFilter) url += `&agent_id=${encodeURIComponent(agentFilter)}`;
+    try {
+        const resp = await apiFetch(url);
+        if (!resp.ok) throw new Error('Failed');
+        const data = await resp.json();
+        renderEventLog(data);
+    } catch (e) {
+        body.innerHTML = '<div class="eventlog-empty">Failed to load events</div>';
+    }
+}
+
+function renderEventLog(data) {
+    const body = document.getElementById('eventlogBody');
+    const events = data.data || [];
+    const pagination = data.pagination || {};
+    const total = pagination.total || 0;
+
+    document.getElementById('eventlogCount').textContent = `${total} event${total !== 1 ? 's' : ''}`;
+
+    if (events.length === 0) {
+        body.innerHTML = '<div class="eventlog-empty">No events found matching your filters.</div>';
+        document.getElementById('eventlogPrev').disabled = true;
+        document.getElementById('eventlogNext').disabled = true;
+        document.getElementById('eventlogPageInfo').textContent = 'Page 0';
+        return;
+    }
+
+    const currentPage = Math.floor(_eventlogOffset / _eventlogLimit) + 1;
+    const totalPages = Math.ceil(total / _eventlogLimit);
+    document.getElementById('eventlogPrev').disabled = _eventlogOffset === 0;
+    document.getElementById('eventlogNext').disabled = _eventlogOffset + _eventlogLimit >= total;
+    document.getElementById('eventlogPageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+
+    // Categorize event types
+    const typeCategory = (type) => {
+        if (type.includes('error') || type.includes('crash')) return 'error';
+        if (type.includes('conflict') || type.includes('stale') || type.includes('warning')) return 'warning';
+        if (type.includes('agent')) return 'agent';
+        return 'system';
+    };
+
+    let html = '';
+    for (const evt of events) {
+        const ts = evt.timestamp ? new Date(evt.timestamp) : new Date();
+        const timeStr = ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const cat = typeCategory(evt.event_type || '');
+        const shortType = (evt.event_type || 'unknown').replace('agent_', '').replace('workflow_', 'wf:');
+        const agentName = evt.agent_name || evt.agent_id || '';
+        const message = evt.message || '';
+        html += `<div class="eventlog-row">`;
+        html += `<span class="eventlog-time">${timeStr}</span>`;
+        html += `<span class="eventlog-type ${cat}">${escapeHtml(shortType)}</span>`;
+        if (agentName) {
+            html += `<span class="eventlog-agent" title="${escapeHtml(agentName)}">${escapeHtml(agentName)}</span>`;
+        }
+        html += `<span class="eventlog-message">${escapeHtml(message)}</span>`;
+        html += `</div>`;
+    }
+    body.innerHTML = html;
+}
 
 async function loadSessionHistory() {
     const list = document.getElementById('historyList');
@@ -11111,6 +11391,8 @@ PALETTE_ACTIONS.push(
     { icon: 'clipboard', label: 'Activity Timeline', shortcut: '⌘T', action: () => { closePalette(); openTimeline(); } },
     { icon: 'git-merge', label: 'Pipeline Graph', shortcut: '', action: () => { closePalette(); openPipeline(); } },
     { icon: 'bar-chart-3', label: 'Fleet Analytics', shortcut: '', action: () => { closePalette(); openAnalytics(); }, section: 'view' },
+    { icon: 'alert-triangle', label: 'File Conflicts', shortcut: '', action: () => { closePalette(); openConflicts(); }, section: 'view' },
+    { icon: 'file-text', label: 'Event Log', shortcut: '', action: () => { closePalette(); openEventLog(); }, section: 'view' },
     { icon: 'table', label: 'Toggle Table View', shortcut: '', action: () => { closePalette(); setViewMode(state.viewMode === 'table' ? 'grid' : 'table'); }, section: 'view' },
     { icon: 'save', label: 'Manage Presets', shortcut: '', action: () => { closePalette(); openSettings(); }, section: 'config' },
     { icon: 'file-text', label: 'View Scratchpad', shortcut: '', action: () => { closePalette(); if (state.focusedAgentId) { switchDeepTab('scratchpad'); } else { showToast('Open an agent first to view its scratchpad', 'info'); } }, section: 'view' },

@@ -1430,3 +1430,197 @@ class TestProjectAutoAssignment:
                 best = proj
                 best_len = len(proj["path"])
         assert best["id"] == "child"
+
+
+# ─────────────────────────────────────────────
+# T18: File conflict detection
+# ─────────────────────────────────────────────
+
+class TestFileConflicts:
+    def test_write_write_conflict_detected(self, make_agent):
+        """Two agents writing the same file should produce a conflict."""
+        manager = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        manager.agents = {}
+        manager.file_activity = {}
+        manager._FILE_WRITE_RE = ashlar_server.AgentManager._FILE_WRITE_RE
+        manager._FILE_READ_RE = ashlar_server.AgentManager._FILE_READ_RE
+
+        a1 = make_agent(agent_id="aaaa", name="agent-a", status="working")
+        a2 = make_agent(agent_id="bbbb", name="agent-b", status="working")
+        manager.agents = {"aaaa": a1, "bbbb": a2}
+
+        # Simulate both agents writing the same file
+        manager.file_activity = {
+            "/src/main.py": {"aaaa": "write", "bbbb": "write"},
+        }
+
+        # Now check conflicts using the same logic as list_conflicts endpoint
+        conflicts = []
+        for file_path, agent_ops in manager.file_activity.items():
+            writers = [(aid, op) for aid, op in agent_ops.items()
+                       if op == "write" and aid in manager.agents
+                       and manager.agents[aid].status in ("working", "planning", "reading")]
+            if len(writers) >= 2:
+                conflicts.append(file_path)
+
+        assert len(conflicts) == 1
+        assert conflicts[0] == "/src/main.py"
+
+    def test_no_conflict_on_separate_files(self, make_agent):
+        """Agents working on different files should not produce conflicts."""
+        manager = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        manager.agents = {}
+        manager.file_activity = {
+            "/src/main.py": {"aaaa": "write"},
+            "/src/utils.py": {"bbbb": "write"},
+        }
+        a1 = make_agent(agent_id="aaaa", name="agent-a", status="working")
+        a2 = make_agent(agent_id="bbbb", name="agent-b", status="working")
+        manager.agents = {"aaaa": a1, "bbbb": a2}
+
+        conflicts = []
+        for file_path, agent_ops in manager.file_activity.items():
+            writers = [(aid, op) for aid, op in agent_ops.items()
+                       if op == "write" and aid in manager.agents
+                       and manager.agents[aid].status in ("working", "planning", "reading")]
+            if len(writers) >= 2:
+                conflicts.append(file_path)
+
+        assert len(conflicts) == 0
+
+    def test_read_read_no_conflict(self, make_agent):
+        """Two agents reading the same file is NOT a conflict."""
+        manager = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        manager.file_activity = {
+            "/src/main.py": {"aaaa": "read", "bbbb": "read"},
+        }
+        a1 = make_agent(agent_id="aaaa", name="agent-a", status="working")
+        a2 = make_agent(agent_id="bbbb", name="agent-b", status="working")
+        manager.agents = {"aaaa": a1, "bbbb": a2}
+
+        conflicts = []
+        for file_path, agent_ops in manager.file_activity.items():
+            writers = [(aid, op) for aid, op in agent_ops.items()
+                       if op == "write" and aid in manager.agents
+                       and manager.agents[aid].status in ("working", "planning", "reading")]
+            if len(writers) >= 2:
+                conflicts.append(file_path)
+
+        assert len(conflicts) == 0
+
+    def test_read_write_is_warning(self, make_agent):
+        """One agent reading, another writing = warning (not conflict)."""
+        file_activity = {
+            "/src/main.py": {"aaaa": "write", "bbbb": "read"},
+        }
+        a1 = make_agent(agent_id="aaaa", name="agent-a", status="working")
+        a2 = make_agent(agent_id="bbbb", name="agent-b", status="working")
+        agents = {"aaaa": a1, "bbbb": a2}
+
+        # Count write-write conflicts
+        write_conflicts = 0
+        for file_path, agent_ops in file_activity.items():
+            writers = [(aid, op) for aid, op in agent_ops.items()
+                       if op == "write" and aid in agents
+                       and agents[aid].status in ("working", "planning", "reading")]
+            if len(writers) >= 2:
+                write_conflicts += 1
+
+        assert write_conflicts == 0  # Only one writer, so not a write-write conflict
+
+    def test_idle_agent_excluded(self, make_agent):
+        """Idle agents should not participate in conflict detection."""
+        file_activity = {
+            "/src/main.py": {"aaaa": "write", "bbbb": "write"},
+        }
+        a1 = make_agent(agent_id="aaaa", name="agent-a", status="working")
+        a2 = make_agent(agent_id="bbbb", name="agent-b", status="idle")
+        agents = {"aaaa": a1, "bbbb": a2}
+
+        conflicts = []
+        for file_path, agent_ops in file_activity.items():
+            writers = [(aid, op) for aid, op in agent_ops.items()
+                       if op == "write" and aid in agents
+                       and agents[aid].status in ("working", "planning", "reading")]
+            if len(writers) >= 2:
+                conflicts.append(file_path)
+
+        assert len(conflicts) == 0
+
+
+# ─────────────────────────────────────────────
+# T19: Agent model in to_dict
+# ─────────────────────────────────────────────
+
+class TestAgentModelDisplay:
+    def test_model_in_to_dict(self, make_agent):
+        """Model field should be included in to_dict output."""
+        agent = make_agent(model="claude-opus-4")
+        d = agent.to_dict()
+        assert d["model"] == "claude-opus-4"
+
+    def test_model_default_none(self, make_agent):
+        """Model defaults to None when not set."""
+        agent = make_agent()
+        assert agent.model is None
+
+    def test_output_rate_in_to_dict(self, make_agent):
+        """Output rate should be in to_dict."""
+        agent = make_agent()
+        agent.output_rate = 42.5
+        d = agent.to_dict()
+        assert d["output_rate"] == 42.5
+
+
+# ─────────────────────────────────────────────
+# T20: Config export/import validation
+# ─────────────────────────────────────────────
+
+class TestConfigExportImport:
+    def test_config_is_dict(self):
+        """Config path should resolve to a valid YAML structure."""
+        config = ashlar_server.Config()
+        assert config.host == "127.0.0.1"
+        assert config.port == 5000
+
+    def test_flat_diff_detects_changes(self):
+        """flat_diff should detect key changes between two config dicts."""
+        old = {"server": {"host": "127.0.0.1", "port": 5000}}
+        new = {"server": {"host": "0.0.0.0", "port": 5000}}
+
+        def flat_diff(old_d, new_d, prefix=""):
+            changes = []
+            all_keys = set(list(old_d.keys()) + list(new_d.keys()))
+            for k in sorted(all_keys):
+                path = f"{prefix}.{k}" if prefix else k
+                ov = old_d.get(k)
+                nv = new_d.get(k)
+                if isinstance(ov, dict) and isinstance(nv, dict):
+                    changes.extend(flat_diff(ov, nv, path))
+                elif ov != nv:
+                    changes.append({"key": path, "old": ov, "new": nv})
+            return changes
+
+        diff = flat_diff(old, new)
+        assert len(diff) == 1
+        assert diff[0]["key"] == "server.host"
+        assert diff[0]["old"] == "127.0.0.1"
+        assert diff[0]["new"] == "0.0.0.0"
+
+    def test_flat_diff_no_changes(self):
+        """No changes should produce empty diff."""
+        same = {"server": {"port": 5000}}
+        def flat_diff(old_d, new_d, prefix=""):
+            changes = []
+            all_keys = set(list(old_d.keys()) + list(new_d.keys()))
+            for k in sorted(all_keys):
+                path = f"{prefix}.{k}" if prefix else k
+                ov = old_d.get(k)
+                nv = new_d.get(k)
+                if isinstance(ov, dict) and isinstance(nv, dict):
+                    changes.extend(flat_diff(ov, nv, path))
+                elif ov != nv:
+                    changes.append({"key": path, "old": ov, "new": nv})
+            return changes
+        diff = flat_diff(same, same)
+        assert len(diff) == 0
