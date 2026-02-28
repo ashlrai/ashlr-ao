@@ -951,6 +951,30 @@ body {
 .card-menu-item.danger:hover { background: var(--danger-subtle); }
 .card-menu-item.danger:active { background: var(--danger); color: white; }
 
+/* ── Context Menu (Right-Click) ── */
+.context-menu {
+    position: fixed; z-index: 1000;
+    background: rgba(13,21,32,0.95); backdrop-filter: blur(20px);
+    border: 1px solid var(--border-strong); border-radius: var(--radius-md);
+    padding: 4px; min-width: 180px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.2);
+    display: none; animation: ctxFadeIn 0.1s ease-out;
+}
+.context-menu.active { display: block; }
+.context-menu-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px; border-radius: var(--radius-sm);
+    font-size: 12px; cursor: pointer; color: var(--text-secondary);
+    transition: all 0.1s;
+}
+.context-menu-item:hover { background: var(--bg-surface); color: var(--text-primary); }
+.context-menu-item:active { background: var(--accent-subtle); }
+.context-menu-item.danger { color: var(--danger); }
+.context-menu-item.danger:hover { background: var(--danger-subtle); }
+.context-menu-sep { height: 1px; background: var(--border-subtle); margin: 4px 8px; }
+.context-menu-shortcut { margin-left: auto; font-size: 10px; color: var(--text-tertiary); font-family: var(--font-mono); }
+@keyframes ctxFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
 /* ── Spawn Dialog (Modal) ── */
 
 .modal-overlay {
@@ -2669,6 +2693,18 @@ body {
 }
 .output-minimap:hover { opacity: 0.85; }
 .deep-terminal-wrap { position: relative; }
+
+/* ── Line Numbers + Linking ── */
+.terminal-line { position: relative; padding-left: 48px; }
+.terminal-line-num {
+    position: absolute; left: 0; top: 0; width: 40px;
+    text-align: right; color: var(--text-disabled); font-size: 10px;
+    padding-right: 8px; user-select: none; cursor: pointer;
+    line-height: inherit; opacity: 0.5; transition: opacity 0.15s;
+}
+.terminal-line:hover .terminal-line-num { opacity: 1; color: var(--text-tertiary); }
+.terminal-line.line-linked { background: rgba(99,102,241,0.12); }
+.terminal-line.line-linked .terminal-line-num { color: var(--accent); opacity: 1; }
 
 .deep-scratchpad-panel {
     flex: 1;
@@ -4621,6 +4657,9 @@ body {
 <!-- ── ARIA Live Region for screen readers ── -->
 <div id="liveRegion" aria-live="polite" class="sr-only"></div>
 
+<!-- ── Context Menu ── -->
+<div class="context-menu" id="contextMenu"></div>
+
 <!-- ── History Panel ── -->
 <div class="history-overlay" id="historyOverlay" onclick="if(event.target===this)closeHistory()">
     <div class="history-panel">
@@ -5686,6 +5725,54 @@ function highlightSyntax(html, lang) {
     return html;
 }
 
+// ── Line-Level Linking ──
+
+function addLineNumber(div, lineIdx, agentId) {
+    const num = document.createElement('span');
+    num.className = 'terminal-line-num';
+    num.textContent = lineIdx + 1;
+    num.title = `Line ${lineIdx + 1} — Click to copy link`;
+    num.onclick = (e) => {
+        e.stopPropagation();
+        const hash = `#agent-${agentId}-line-${lineIdx + 1}`;
+        const url = window.location.origin + window.location.pathname + hash;
+        navigator.clipboard.writeText(url).then(() => {
+            showToast(`Copied link to line ${lineIdx + 1}`, 'success');
+        });
+        // Highlight the linked line
+        div.classList.add('line-linked');
+        setTimeout(() => div.classList.remove('line-linked'), 2000);
+        history.replaceState(null, '', hash);
+    };
+    div.prepend(num);
+    div.dataset.lineIdx = lineIdx;
+}
+
+function handleHashFragment() {
+    const hash = window.location.hash;
+    if (!hash) return;
+    const match = hash.match(/^#agent-(\w+)-line-(\d+)$/);
+    if (!match) return;
+    const agentId = match[1];
+    const lineNum = parseInt(match[2]);
+    // Open deep view for this agent and scroll to line
+    const agent = state.agents.get(agentId);
+    if (!agent) return;
+    openDeepView(agentId);
+    // Wait for render then scroll
+    setTimeout(() => {
+        const terminal = document.getElementById('deepTerminal');
+        if (!terminal) return;
+        const lines = terminal.querySelectorAll('.terminal-line');
+        const targetIdx = lineNum - 1;
+        if (targetIdx >= 0 && targetIdx < lines.length) {
+            lines[targetIdx].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            lines[targetIdx].classList.add('line-linked');
+            setTimeout(() => lines[targetIdx].classList.remove('line-linked'), 3000);
+        }
+    }, 500);
+}
+
 // ── Output Minimap ──
 
 let _minimapTimer = null;
@@ -6132,6 +6219,11 @@ async function handleSync(data) {
             showToast(`Connected — ${parts.join(', ')}`, waiting > 0 || errored > 0 ? 'warning' : 'success');
         }
     }
+
+    // Handle hash fragment linking after sync
+    if (window.location.hash.startsWith('#agent-')) {
+        setTimeout(handleHashFragment, 300);
+    }
 }
 
 let _lastAriaAnnounce = 0;
@@ -6545,6 +6637,10 @@ function createAgentCard(agent) {
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
     card.setAttribute('aria-label', `Agent ${agent.name}`);
+    card.oncontextmenu = (e) => {
+        e.preventDefault();
+        showContextMenu(agent.id, e.clientX, e.clientY);
+    };
     card.onkeydown = (e) => {
         if (e.key === 'Enter') {
             if (document.getElementById('agentGrid').classList.contains('bulk-mode')) {
@@ -7019,7 +7115,57 @@ function toggleCardMenu(agentId) {
     menu.classList.toggle('active');
     activeMenu = menu.classList.contains('active') ? menu : null;
 }
-document.addEventListener('click', () => { if (activeMenu) { activeMenu.classList.remove('active'); activeMenu = null; } });
+document.addEventListener('click', (e) => {
+    if (activeMenu) { activeMenu.classList.remove('active'); activeMenu = null; }
+    // Close context menu on any click
+    const ctxMenu = document.getElementById('contextMenu');
+    if (ctxMenu && ctxMenu.classList.contains('active') && !ctxMenu.contains(e.target)) {
+        ctxMenu.classList.remove('active');
+    }
+});
+
+// ── Context Menu (Right-Click) ──
+function showContextMenu(agentId, x, y) {
+    const menu = document.getElementById('contextMenu');
+    if (!menu) return;
+    const agent = state.agents.get(agentId);
+    if (!agent) return;
+    const info = ROLE_INFO[agent.role] || ROLE_INFO.general;
+    const isPaused = agent.status === 'paused';
+
+    menu.innerHTML = `
+        <div class="context-menu-item" onclick="openDeepView('${agentId}');hideContextMenu()">${icon('eye', 14)} Open Deep View</div>
+        <div class="context-menu-item" onclick="hideContextMenu();openCompare('${agentId}')">${icon('columns', 14)} Compare With...</div>
+        <div class="context-menu-item" onclick="hideContextMenu();cloneAgent('${agentId}')">${icon('copy', 14)} Clone Agent</div>
+        <div class="context-menu-sep"></div>
+        <div class="context-menu-item" onclick="hideContextMenu();pauseResumeAgent('${agentId}')">${icon(isPaused ? 'play' : 'circle-pause', 14)} ${isPaused ? 'Resume' : 'Pause'}</div>
+        <div class="context-menu-item" onclick="hideContextMenu();restartAgent('${agentId}')">${icon('refresh-cw', 14)} Restart</div>
+        <div class="context-menu-item" onclick="hideContextMenu();retryWithTask('${agentId}')">${icon('rotate-ccw', 14)} Retry with Changes</div>
+        <div class="context-menu-sep"></div>
+        <div class="context-menu-item" onclick="hideContextMenu();togglePin('${agentId}')">${icon('pin', 14)} ${agent.pinned ? 'Unpin' : 'Pin'}</div>
+        <div class="context-menu-item" onclick="hideContextMenu();navigator.clipboard.writeText('${agentId}');showToast('Agent ID copied','success')">${icon('clipboard', 14)} Copy Agent ID</div>
+        <div class="context-menu-item" onclick="hideContextMenu();navigator.clipboard.writeText(JSON.stringify(agent,null,2));showToast('Agent JSON copied','success')">${icon('code', 14)} Copy as JSON</div>
+        <div class="context-menu-sep"></div>
+        <div class="context-menu-item danger" onclick="hideContextMenu();killAgent('${agentId}')">${icon('x', 14)} Kill Agent</div>
+    `;
+
+    // Position: ensure it doesn't go off-screen
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.classList.add('active');
+
+    // Adjust if off-screen
+    requestAnimationFrame(() => {
+        const rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth) menu.style.left = (x - rect.width) + 'px';
+        if (rect.bottom > window.innerHeight) menu.style.top = (y - rect.height) + 'px';
+    });
+}
+
+function hideContextMenu() {
+    const menu = document.getElementById('contextMenu');
+    if (menu) menu.classList.remove('active');
+}
 
 async function killAgent(id) {
     if (activeMenu) { activeMenu.classList.remove('active'); activeMenu = null; }
@@ -7462,11 +7608,12 @@ function openDeepView(agentId) {
         _addLoadMoreIndicator(terminal);
         resetCodeBlockState(agentId);
         const frag = document.createDocumentFragment();
-        for (const line of lines) {
-            const cl = classifyTerminalLine(line, agentId);
+        for (let li = 0; li < lines.length; li++) {
+            const cl = classifyTerminalLine(lines[li], agentId);
             const div = document.createElement('div');
             div.className = cl.className;
             div.innerHTML = cl.html;
+            addLineNumber(div, li, agentId);
             frag.appendChild(div);
         }
         terminal.appendChild(frag);
@@ -7498,11 +7645,12 @@ function openDeepView(agentId) {
             _addLoadMoreIndicator(terminal);
             resetCodeBlockState(agentId);
             const frag = document.createDocumentFragment();
-            for (const line of buf) {
-                const cl = classifyTerminalLine(line, agentId);
+            for (let li = 0; li < buf.length; li++) {
+                const cl = classifyTerminalLine(buf[li], agentId);
                 const div = document.createElement('div');
                 div.className = cl.className;
                 div.innerHTML = cl.html;
+                addLineNumber(div, li, agentId);
                 frag.appendChild(div);
             }
             terminal.appendChild(frag);
@@ -7891,11 +8039,14 @@ function appendDeepOutput(lines) {
     if (terminal.querySelector('span[style*="text-dimmed"]') && terminal.children.length <= 1) terminal.innerHTML = '';
     const frag = document.createDocumentFragment();
     const aid = state.focusedAgentId || '';
+    // Count existing lines for line numbering
+    let existingCount = terminal.querySelectorAll('.terminal-line').length;
     for (const line of lines) {
         const cl = classifyTerminalLine(line, aid);
         const div = document.createElement('div');
         div.className = cl.className + (deepAutoScroll ? '' : ' new-highlight');
         div.innerHTML = cl.html;
+        addLineNumber(div, existingCount++, aid);
         frag.appendChild(div);
     }
     terminal.appendChild(frag);
