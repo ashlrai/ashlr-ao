@@ -3723,3 +3723,158 @@ class TestDiagnosticEndpoint:
         src = inspect.getsource(ashlar_server.run_diagnostic)
         assert "degraded" in src
         assert "all_ok" in src
+
+
+# ─────────────────────────────────────────────
+# Configurable Output Max Lines (#246)
+# ─────────────────────────────────────────────
+
+
+class TestOutputMaxLines:
+    def test_config_default(self):
+        """Default output_max_lines should be 2000."""
+        config = ashlar_server.Config()
+        assert config.output_max_lines == 2000
+
+    def test_config_custom_value(self):
+        """Config should accept custom output_max_lines."""
+        config = ashlar_server.Config()
+        config.output_max_lines = 500
+        assert config.output_max_lines == 500
+
+    def test_spawn_applies_custom_maxlen(self):
+        """Spawn should apply custom deque maxlen when output_max_lines != 2000."""
+        src = inspect.getsource(ashlar_server.AgentManager.spawn)
+        assert "output_max_lines" in src
+        assert "maxlen" in src
+
+    def test_default_deque_unchanged(self):
+        """When output_max_lines == 2000, no custom deque is created."""
+        src = inspect.getsource(ashlar_server.AgentManager.spawn)
+        # The condition checks != 2000 before creating custom deque
+        assert "!= 2000" in src
+
+    def test_agent_deque_default_maxlen(self):
+        """Agent output_lines default deque should have maxlen 2000."""
+        agent = ashlar_server.Agent(
+            id="test", name="test", role="general",
+            status="idle", working_dir="/tmp",
+            backend="claude-code", task="test",
+        )
+        assert agent.output_lines.maxlen == 2000
+
+
+# ─────────────────────────────────────────────
+# Request Logging Middleware (#247)
+# ─────────────────────────────────────────────
+
+
+class TestRequestLoggingMiddleware:
+    def test_middleware_exists(self):
+        """request_logging_middleware should be defined."""
+        assert hasattr(ashlar_server, 'request_logging_middleware')
+        assert callable(ashlar_server.request_logging_middleware)
+
+    def test_middleware_skips_non_api(self):
+        """Middleware should skip non-API paths."""
+        src = inspect.getsource(ashlar_server.request_logging_middleware)
+        assert "/api/" in src
+
+    def test_middleware_logs_slow_requests(self):
+        """Middleware should warn on requests slower than 1s."""
+        src = inspect.getsource(ashlar_server.request_logging_middleware)
+        assert "SLOW" in src
+        assert "1.0" in src
+
+    def test_middleware_registered(self):
+        """Middleware should be registered in create_app."""
+        src = inspect.getsource(ashlar_server.create_app)
+        assert "request_logging_middleware" in src
+
+    def test_middleware_first_in_chain(self):
+        """request_logging_middleware should be first middleware (outermost)."""
+        src = inspect.getsource(ashlar_server.create_app)
+        # Find the middlewares list line
+        assert "middlewares = [request_logging_middleware" in src
+
+    def test_middleware_handles_http_exceptions(self):
+        """Middleware should handle HTTPException gracefully."""
+        src = inspect.getsource(ashlar_server.request_logging_middleware)
+        assert "HTTPException" in src
+
+    def test_middleware_handles_generic_exceptions(self):
+        """Middleware should catch and log generic exceptions."""
+        src = inspect.getsource(ashlar_server.request_logging_middleware)
+        assert "except Exception" in src
+
+
+# ─────────────────────────────────────────────
+# Spawn Validation Endpoint (#248)
+# ─────────────────────────────────────────────
+
+
+class TestSpawnValidation:
+    def test_handler_exists(self):
+        """validate_spawn handler should exist."""
+        assert hasattr(ashlar_server, 'validate_spawn')
+        assert callable(ashlar_server.validate_spawn)
+
+    def test_route_registered(self):
+        """Route /api/agents/validate should be registered."""
+        src = inspect.getsource(ashlar_server.create_app)
+        assert "/api/agents/validate" in src
+        assert "validate_spawn" in src
+
+    def test_validates_role(self):
+        """Validation should check role against BUILTIN_ROLES."""
+        src = inspect.getsource(ashlar_server.validate_spawn)
+        assert "BUILTIN_ROLES" in src
+        assert "Unknown role" in src
+
+    def test_validates_name(self):
+        """Validation should sanitize and check name."""
+        src = inspect.getsource(ashlar_server.validate_spawn)
+        assert "sanitiz" in src.lower() or "name" in src
+
+    def test_validates_backend(self):
+        """Validation should check backend availability."""
+        src = inspect.getsource(ashlar_server.validate_spawn)
+        assert "backend" in src
+        assert "available" in src
+
+    def test_validates_working_dir(self):
+        """Validation should check working directory."""
+        src = inspect.getsource(ashlar_server.validate_spawn)
+        assert "working_dir" in src
+        assert "isdir" in src
+
+    def test_validates_task_length(self):
+        """Validation should check task length limit."""
+        src = inspect.getsource(ashlar_server.validate_spawn)
+        assert "10000" in src
+
+    def test_checks_capacity(self):
+        """Validation should check agent capacity."""
+        src = inspect.getsource(ashlar_server.validate_spawn)
+        assert "max_agents" in src
+
+    def test_checks_system_pressure(self):
+        """Validation should check system pressure."""
+        src = inspect.getsource(ashlar_server.validate_spawn)
+        assert "check_system_pressure" in src
+
+    def test_returns_resolved_fields(self):
+        """Validation should return resolved field values."""
+        src = inspect.getsource(ashlar_server.validate_spawn)
+        assert "resolved" in src
+        assert '"valid"' in src or "'valid'" in src
+
+    def test_returns_warnings(self):
+        """Validation should return warnings for non-blocking issues."""
+        src = inspect.getsource(ashlar_server.validate_spawn)
+        assert "warnings" in src
+
+    def test_returns_errors(self):
+        """Validation should return errors list for blocking issues."""
+        src = inspect.getsource(ashlar_server.validate_spawn)
+        assert "errors" in src

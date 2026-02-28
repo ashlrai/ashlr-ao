@@ -208,6 +208,7 @@ class Config:
     default_role: str = "general"
     default_working_dir: str = "~/Projects"
     output_capture_interval: float = 1.0
+    output_max_lines: int = 2000  # Max lines per agent output buffer (deque maxlen)
     memory_limit_mb: int = 2048
     claude_command: str = "claude"
     claude_args: list = field(default_factory=lambda: ["--dangerously-skip-permissions"])
@@ -1741,6 +1742,9 @@ class AgentManager:
             plan_mode=plan_mode,
             _spawn_time=time.monotonic(),
         )
+        # Apply configurable output buffer size
+        if self.config.output_max_lines != 2000:
+            agent.output_lines = collections.deque(maxlen=self.config.output_max_lines)
         agent.last_output_time = time.monotonic()
         self.agents[agent_id] = agent
         self._total_spawned += 1
@@ -4984,6 +4988,30 @@ async def rate_limit_middleware(request: web.Request, handler):
 
 
 @web.middleware
+async def request_logging_middleware(request: web.Request, handler):
+    """Log API request method, path, status, and duration. Warns on slow requests (>1s)."""
+    if not request.path.startswith("/api/"):
+        return await handler(request)
+    start = time.monotonic()
+    try:
+        response = await handler(request)
+        duration = time.monotonic() - start
+        if duration > 1.0:
+            log.warning(f"SLOW {request.method} {request.path} → {response.status} ({duration:.2f}s)")
+        else:
+            log.debug(f"{request.method} {request.path} → {response.status} ({duration:.3f}s)")
+        return response
+    except web.HTTPException as e:
+        duration = time.monotonic() - start
+        log.debug(f"{request.method} {request.path} → {e.status} ({duration:.3f}s)")
+        raise
+    except Exception as e:
+        duration = time.monotonic() - start
+        log.warning(f"{request.method} {request.path} → 500 ({duration:.3f}s) {e}")
+        raise
+
+
+@web.middleware
 async def compression_middleware(request: web.Request, handler):
     """Enable gzip compression for large API responses when client supports it."""
     response = await handler(request)
@@ -6119,6 +6147,112 @@ async def run_diagnostic(request: web.Request) -> web.Response:
         "results": results,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
+
+
+async def validate_spawn(request: web.Request) -> web.Response:
+    """POST /api/agents/validate — dry-run spawn validation.
+
+    Validates all spawn parameters without actually creating an agent.
+    Returns {valid: true, resolved: {...}} or {valid: false, errors: [...]}.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"valid": False, "errors": ["Invalid JSON body"]}, status=400)
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    resolved: dict[str, object] = {}
+    manager: AgentManager = request.app["agent_manager"]
+    config: Config = request.app["config"]
+
+    # ── Role ──
+    role = body.get("role", "general")
+    if role not in BUILTIN_ROLES:
+        errors.append(f"Unknown role '{role}'. Available: {', '.join(BUILTIN_ROLES.keys())}")
+    else:
+        resolved["role"] = role
+        resolved["role_name"] = BUILTIN_ROLES[role].name
+
+    # ── Name ──
+    name = body.get("name")
+    if name:
+        sanitized = re.sub(r'[\x00-\x1f]', '', name).strip()[:100]
+        if not sanitized:
+            errors.append("Agent name is empty after sanitization")
+        else:
+            resolved["name"] = sanitized
+            existing_names = {a.name for a in manager.agents.values()}
+            if sanitized in existing_names:
+                warnings.append(f"Name '{sanitized}' already in use — will be suffixed with agent ID")
+    else:
+        resolved["name"] = "(auto-generated)"
+
+    # ── Backend ──
+    backend = body.get("backend", "claude-code")
+    if not config.demo_mode:
+        if backend not in config.backends:
+            errors.append(f"Unknown backend '{backend}'. Available: {', '.join(config.backends.keys())}")
+        else:
+            bc = manager.backend_configs.get(backend)
+            if bc and not bc.available:
+                warnings.append(f"Backend '{backend}' is configured but CLI not found on PATH")
+            resolved["backend"] = backend
+    else:
+        resolved["backend"] = backend
+
+    # ── Working directory ──
+    working_dir = body.get("working_dir")
+    if working_dir:
+        wd = os.path.abspath(os.path.expanduser(working_dir))
+        if not os.path.isdir(wd):
+            home_dir = str(Path.home())
+            if not wd.startswith(home_dir):
+                errors.append(f"Working directory does not exist and is outside home: {wd}")
+            else:
+                warnings.append(f"Working directory '{wd}' does not exist — will be created")
+        resolved["working_dir"] = wd
+    else:
+        resolved["working_dir"] = os.path.abspath(os.path.expanduser(config.default_working_dir))
+
+    # ── Task ──
+    task = body.get("task", "")
+    if task and len(task) > 10000:
+        errors.append("Task description exceeds 10000 character limit")
+    elif not task:
+        warnings.append("No task provided — agent will start with no instructions")
+    resolved["task_length"] = len(task)
+
+    # ── Capacity ──
+    agent_count = len(manager.agents)
+    resolved["current_agents"] = agent_count
+    resolved["max_agents"] = config.max_agents
+    if agent_count >= config.max_agents:
+        errors.append(f"Maximum agents ({config.max_agents}) already reached")
+
+    # ── System pressure ──
+    if config.spawn_pressure_block:
+        pressure = manager.check_system_pressure()
+        if pressure.get("cpu_pressure") or pressure.get("memory_pressure"):
+            reasons = []
+            if pressure.get("cpu_pressure"):
+                reasons.append(f"CPU at {pressure.get('cpu_pct', 0):.0f}%")
+            if pressure.get("memory_pressure"):
+                reasons.append(f"Memory at {pressure.get('memory_pct', 0):.0f}%")
+            errors.append(f"System under pressure ({', '.join(reasons)}), spawning blocked")
+        resolved["system_pressure"] = pressure
+
+    # ── Plan mode ──
+    plan_mode = body.get("plan_mode", False)
+    resolved["plan_mode"] = bool(plan_mode)
+
+    valid = len(errors) == 0
+    result: dict[str, object] = {"valid": valid, "resolved": resolved}
+    if errors:
+        result["errors"] = errors
+    if warnings:
+        result["warnings"] = warnings
+    return web.json_response(result, status=200 if valid else 400)
 
 
 async def list_roles(request: web.Request) -> web.Response:
@@ -9209,7 +9343,7 @@ async def cleanup_background_tasks(app: web.Application) -> None:
 
 
 def create_app(config: Config) -> web.Application:
-    middlewares = [compression_middleware, rate_limit_middleware]
+    middlewares = [request_logging_middleware, compression_middleware, rate_limit_middleware]
     if config.require_auth:
         middlewares.append(auth_middleware)
     app = web.Application(middlewares=middlewares)
@@ -9279,6 +9413,7 @@ def create_app(config: Config) -> web.Application:
     app.router.add_post("/api/agents/bulk", bulk_agent_action)
     app.router.add_post("/api/agents/bulk-respond", bulk_respond)
     app.router.add_post("/api/agents/batch-spawn", batch_spawn)
+    app.router.add_post("/api/agents/validate", validate_spawn)
     app.router.add_get("/api/agents/suggestions", agent_suggestions)
     app.router.add_patch("/api/agents/{id}", patch_agent)
     app.router.add_get("/api/agents/{id}", get_agent)

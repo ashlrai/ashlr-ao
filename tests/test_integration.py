@@ -42,6 +42,7 @@ def _make_test_app():
     """Create a test app with DB and background tasks disabled."""
     config = ashlar_server.Config()
     config.demo_mode = True  # avoid needing real claude CLI
+    config.spawn_pressure_block = False  # disable for tests — host CPU/memory can trigger false 503s
 
     app = ashlar_server.create_app(config)
     # Replace the real DB with a mock so WS handlers don't crash
