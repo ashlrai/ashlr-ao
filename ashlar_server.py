@@ -92,12 +92,28 @@ def _strip_ansi(text: str) -> str:
 
 _SECRET_PATTERNS = [
     re.compile(r'\b(sk-[a-zA-Z0-9]{20,})'),           # OpenAI/Anthropic API keys
-    re.compile(r'\b(ghp_[a-zA-Z0-9]{36,})'),           # GitHub PATs
+    re.compile(r'\b(ghp_[a-zA-Z0-9]{36,})'),           # GitHub PATs (classic)
+    re.compile(r'\b(github_pat_[a-zA-Z0-9_]{22,})'),   # GitHub PATs (fine-grained)
+    re.compile(r'\b(gho_[a-zA-Z0-9]{36,})'),           # GitHub OAuth tokens
+    re.compile(r'\b(ghs_[a-zA-Z0-9]{36,})'),           # GitHub App installation tokens
     re.compile(r'\b(xai-[a-zA-Z0-9]{20,})'),           # xAI API keys
     re.compile(r'\b(AKIA[A-Z0-9]{16})'),               # AWS access keys
+    re.compile(r'\b(xoxb-[a-zA-Z0-9\-]{20,})'),       # Slack bot tokens
+    re.compile(r'\b(xoxp-[a-zA-Z0-9\-]{20,})'),       # Slack user tokens
+    re.compile(r'\b(xoxs-[a-zA-Z0-9\-]{20,})'),       # Slack session tokens
+    re.compile(r'\b(SG\.[a-zA-Z0-9_\-]{22,}\.[a-zA-Z0-9_\-]{22,})'),  # SendGrid API keys
+    re.compile(r'\b(np_[a-zA-Z0-9]{20,})'),            # npm tokens
+    re.compile(r'\b(pypi-[a-zA-Z0-9]{20,})'),          # PyPI tokens
     re.compile(r'\b(Bearer\s+[a-zA-Z0-9\-._~+/]{20,})'),  # Bearer tokens
     re.compile(r'(?i)\bpassword\s*[=:]\s*\S+'),        # password= fields
+    re.compile(r'(?i)\bsecret\s*[=:]\s*\S+'),          # secret= fields
+    re.compile(r'(?i)\bapi[_-]?key\s*[=:]\s*\S+'),     # api_key= fields
+    re.compile(r'(?i)\btoken\s*[=:]\s*["\']?[a-zA-Z0-9\-._]{20,}'),  # token= fields
     re.compile(r'\beyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}'),  # JWT tokens
+    re.compile(r'(?i)\b(mongodb(\+srv)?://[^\s]+)'),   # MongoDB connection strings
+    re.compile(r'(?i)\b(postgres(ql)?://[^\s]+)'),     # PostgreSQL connection strings
+    re.compile(r'(?i)\b(mysql://[^\s]+)'),             # MySQL connection strings
+    re.compile(r'(?i)\b(redis://[^\s]+)'),             # Redis connection strings
 ]
 
 
@@ -257,6 +273,13 @@ class Config:
     pathological_error_window_sec: float = 60.0  # If agent errors within this time of restart, mark pathological
     max_pathological_restarts: int = 1  # Max restarts for agents that error rapidly after restart
     # Pattern alerting — regex patterns that trigger high-priority notifications
+    # Archive rotation
+    archive_max_rows_per_agent: int = 50000  # Max archived lines per agent
+    archive_retention_hours: int = 48  # Auto-delete archives older than this
+    # Server stats
+    _stats_requests: int = 0  # Populated at runtime
+    _stats_start_time: float = 0.0  # Populated at runtime
+    # Alert patterns
     alert_patterns: list = field(default_factory=lambda: [
         {"pattern": r"(?i)CRITICAL|FATAL|panic|segfault|segmentation fault", "severity": "critical", "label": "Critical Error"},
         {"pattern": r"(?i)out of memory|OOM|memory exhausted|MemoryError", "severity": "critical", "label": "Memory Issue"},
@@ -1495,6 +1518,7 @@ class AgentManager:
         self._total_spawned: int = 0
         self._total_killed: int = 0
         self._total_messages_sent: int = 0
+        self._total_api_requests: int = 0
 
     def _build_backend_configs(self) -> dict[str, BackendConfig]:
         """Build BackendConfig objects from known defaults + user config."""
@@ -4339,6 +4363,52 @@ class Database:
         except Exception as e:
             log.debug(f"Failed to archive output for {agent_id}: {e}")
 
+    async def rotate_archive(self, agent_id: str, max_rows: int = 50000) -> int:
+        """Delete oldest archived rows for an agent if over limit. Returns rows deleted."""
+        if not self._db or max_rows <= 0:
+            return 0
+        try:
+            async with self._db.execute(
+                "SELECT COUNT(*) FROM agent_output_archive WHERE agent_id = ?", (agent_id,)
+            ) as cur:
+                row = await cur.fetchone()
+                total = row[0] if row else 0
+            if total <= max_rows:
+                return 0
+            excess = total - max_rows
+            await self._db.execute(
+                "DELETE FROM agent_output_archive WHERE agent_id = ? AND id IN "
+                "(SELECT id FROM agent_output_archive WHERE agent_id = ? ORDER BY line_offset ASC LIMIT ?)",
+                (agent_id, agent_id, excess),
+            )
+            await self._safe_commit()
+            return excess
+        except Exception as e:
+            log.debug(f"Failed to rotate archive for {agent_id}: {e}")
+            return 0
+
+    async def cleanup_old_archives(self, retention_hours: int = 48) -> int:
+        """Delete all archived output older than retention_hours. Returns rows deleted."""
+        if not self._db or retention_hours <= 0:
+            return 0
+        try:
+            cutoff = f"-{retention_hours} hours"
+            async with self._db.execute(
+                "SELECT COUNT(*) FROM agent_output_archive WHERE created_at < datetime('now', ?)", (cutoff,)
+            ) as cur:
+                row = await cur.fetchone()
+                count = row[0] if row else 0
+            if count > 0:
+                await self._db.execute(
+                    "DELETE FROM agent_output_archive WHERE created_at < datetime('now', ?)", (cutoff,)
+                )
+                await self._safe_commit()
+                log.info(f"Cleaned up {count} old archive rows (>{retention_hours}h)")
+            return count
+        except Exception as e:
+            log.debug(f"Failed to cleanup old archives: {e}")
+            return 0
+
     async def get_archived_output(self, agent_id: str, offset: int = 0, limit: int = 500) -> tuple[list[str], int]:
         """Retrieve archived output lines. Returns (lines, total_count)."""
         if not self._db:
@@ -5026,6 +5096,8 @@ async def request_logging_middleware(request: web.Request, handler):
     """Log API request method, path, status, and duration. Warns on slow requests (>1s)."""
     if not request.path.startswith("/api/"):
         return await handler(request)
+    # Increment request counter on manager (avoids mutating started app state)
+    request.app["agent_manager"]._total_api_requests += 1
     start = time.monotonic()
     try:
         response = await handler(request)
@@ -6181,6 +6253,58 @@ async def run_diagnostic(request: web.Request) -> web.Response:
     return web.json_response({
         "status": "ok" if all_ok else "degraded",
         "results": results,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+async def get_server_stats(request: web.Request) -> web.Response:
+    """GET /api/stats — server uptime, request counts, agent lifecycle stats."""
+    config: Config = request.app["config"]
+    manager: AgentManager = request.app["agent_manager"]
+    db: Database = request.app["db"]
+
+    uptime_sec = time.monotonic() - manager._start_time
+    uptime_human = f"{int(uptime_sec // 3600)}h {int((uptime_sec % 3600) // 60)}m {int(uptime_sec % 60)}s"
+
+    # Agent stats
+    active = len(manager.agents)
+    by_status: dict[str, int] = {}
+    for agent in manager.agents.values():
+        by_status[agent.status] = by_status.get(agent.status, 0) + 1
+
+    # DB size
+    db_size_mb = 0.0
+    try:
+        if db.db_path.exists():
+            db_size_mb = round(db.db_path.stat().st_size / (1024 * 1024), 2)
+    except Exception:
+        pass
+
+    # Request count from logging middleware (tracked on manager)
+    request_count = manager._total_api_requests
+
+    return web.json_response({
+        "uptime_sec": round(uptime_sec, 1),
+        "uptime_human": uptime_human,
+        "agents": {
+            "active": active,
+            "by_status": by_status,
+            "total_spawned": manager._total_spawned,
+            "total_killed": manager._total_killed,
+            "total_messages_sent": manager._total_messages_sent,
+        },
+        "database": {
+            "size_mb": db_size_mb,
+            "path": str(db.db_path),
+        },
+        "config": {
+            "max_agents": config.max_agents,
+            "demo_mode": config.demo_mode,
+            "llm_enabled": config.llm_enabled,
+            "archive_max_rows_per_agent": config.archive_max_rows_per_agent,
+            "archive_retention_hours": config.archive_retention_hours,
+        },
+        "request_count": request_count,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
 
@@ -9434,6 +9558,7 @@ def create_app(config: Config) -> web.Application:
     app["intelligence_insights"] = []  # list[AgentInsight]
     app["_meta_state_hash"] = ""  # For skipping unchanged fleet analysis
 
+
     # Extension Scanner — initial scan at startup
     scanner = ExtensionScanner()
     scanner.scan()  # Initial scan with no project dirs (DB not ready yet)
@@ -9494,6 +9619,7 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/health", health_check)
     app.router.add_get("/api/health/detailed", health_detailed)
     app.router.add_post("/api/diagnostic", run_diagnostic)
+    app.router.add_get("/api/stats", get_server_stats)
     app.router.add_get("/api/system", system_metrics)
     app.router.add_get("/api/roles", list_roles)
     app.router.add_get("/api/config", get_config)

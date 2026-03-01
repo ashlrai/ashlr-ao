@@ -4069,3 +4069,254 @@ class TestRoleValidationGuard:
         src = inspect.getsource(ashlar_server.AgentManager.spawn)
         # Should use .get(role) without fallback, then check
         assert "BUILTIN_ROLES.get(role)" in src
+
+
+# ─────────────────────────────────────────────
+# Archive Rotation (#252)
+# ─────────────────────────────────────────────
+
+
+class TestArchiveRotation:
+    def test_rotate_archive_method_exists(self):
+        """Database should have rotate_archive method."""
+        assert hasattr(ashlar_server.Database, 'rotate_archive')
+        assert callable(ashlar_server.Database.rotate_archive)
+
+    def test_cleanup_old_archives_method_exists(self):
+        """Database should have cleanup_old_archives method."""
+        assert hasattr(ashlar_server.Database, 'cleanup_old_archives')
+        assert callable(ashlar_server.Database.cleanup_old_archives)
+
+    def test_config_archive_max_rows(self):
+        """Config should have archive_max_rows_per_agent with default 50000."""
+        config = ashlar_server.Config()
+        assert hasattr(config, 'archive_max_rows_per_agent')
+        assert config.archive_max_rows_per_agent == 50000
+
+    def test_config_archive_retention_hours(self):
+        """Config should have archive_retention_hours with default 48."""
+        config = ashlar_server.Config()
+        assert hasattr(config, 'archive_retention_hours')
+        assert config.archive_retention_hours == 48
+
+    def test_rotate_archive_null_guard(self):
+        """rotate_archive should return 0 when DB is None."""
+        db = ashlar_server.Database()
+        # _db is None before init
+        result = asyncio.run(db.rotate_archive("test-agent"))
+        assert result == 0
+
+    def test_rotate_archive_zero_max_rows(self):
+        """rotate_archive should return 0 when max_rows <= 0."""
+        db = ashlar_server.Database()
+        result = asyncio.run(db.rotate_archive("test-agent", max_rows=0))
+        assert result == 0
+
+    def test_cleanup_old_archives_null_guard(self):
+        """cleanup_old_archives should return 0 when DB is None."""
+        db = ashlar_server.Database()
+        result = asyncio.run(db.cleanup_old_archives())
+        assert result == 0
+
+    def test_cleanup_old_archives_zero_retention(self):
+        """cleanup_old_archives should return 0 when retention_hours <= 0."""
+        db = ashlar_server.Database()
+        result = asyncio.run(db.cleanup_old_archives(retention_hours=0))
+        assert result == 0
+
+    def test_rotate_archive_uses_safe_commit(self):
+        """rotate_archive should use _safe_commit for timeout protection."""
+        src = inspect.getsource(ashlar_server.Database.rotate_archive)
+        assert "_safe_commit" in src
+
+    def test_cleanup_old_archives_uses_safe_commit(self):
+        """cleanup_old_archives should use _safe_commit for timeout protection."""
+        src = inspect.getsource(ashlar_server.Database.cleanup_old_archives)
+        assert "_safe_commit" in src
+
+
+# ─────────────────────────────────────────────
+# Server Stats Endpoint (#253)
+# ─────────────────────────────────────────────
+
+
+class TestServerStats:
+    def test_handler_exists(self):
+        """get_server_stats handler should exist."""
+        assert hasattr(ashlar_server, 'get_server_stats')
+        assert callable(ashlar_server.get_server_stats)
+
+    def test_route_registered(self):
+        """Route /api/stats should be registered."""
+        src = inspect.getsource(ashlar_server.create_app)
+        assert "/api/stats" in src
+        assert "get_server_stats" in src
+
+    def test_returns_uptime(self):
+        """Stats endpoint should return uptime fields."""
+        src = inspect.getsource(ashlar_server.get_server_stats)
+        assert "uptime_sec" in src
+        assert "uptime_human" in src
+
+    def test_returns_agent_stats(self):
+        """Stats endpoint should return agent statistics."""
+        src = inspect.getsource(ashlar_server.get_server_stats)
+        assert "total_spawned" in src
+        assert "total_killed" in src
+        assert "total_messages_sent" in src
+
+    def test_returns_db_size(self):
+        """Stats endpoint should return database size info."""
+        src = inspect.getsource(ashlar_server.get_server_stats)
+        assert "db_size_mb" in src
+
+    def test_returns_request_count(self):
+        """Stats endpoint should return request count."""
+        src = inspect.getsource(ashlar_server.get_server_stats)
+        assert "request_count" in src
+
+    def test_manager_has_api_request_counter(self):
+        """AgentManager should have _total_api_requests counter."""
+        config = ashlar_server.Config()
+        config.demo_mode = True
+        manager = ashlar_server.AgentManager(config)
+        assert hasattr(manager, '_total_api_requests')
+        assert manager._total_api_requests == 0
+
+    def test_middleware_increments_manager_counter(self):
+        """Request logging middleware should increment manager._total_api_requests."""
+        src = inspect.getsource(ashlar_server.request_logging_middleware)
+        assert "_total_api_requests" in src
+
+    def test_stats_returns_archive_config(self):
+        """Stats endpoint should include archive configuration."""
+        src = inspect.getsource(ashlar_server.get_server_stats)
+        assert "archive_max_rows_per_agent" in src
+        assert "archive_retention_hours" in src
+
+
+# ─────────────────────────────────────────────
+# Extended Secret Redaction (#254)
+# ─────────────────────────────────────────────
+
+
+class TestExtendedSecretRedaction:
+    def test_redact_secrets_exists(self):
+        """redact_secrets function should exist."""
+        assert hasattr(ashlar_server, 'redact_secrets')
+        assert callable(ashlar_server.redact_secrets)
+
+    def test_redact_openai_key(self):
+        """Should redact OpenAI/Anthropic sk- keys."""
+        text = "Using key sk-abcdefghijklmnopqrstuvwx in the config"
+        result = ashlar_server.redact_secrets(text)
+        assert "sk-" not in result
+        assert "REDACTED" in result
+
+    def test_redact_github_pat_classic(self):
+        """Should redact classic GitHub PATs (ghp_)."""
+        text = "Token: ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLm"
+        result = ashlar_server.redact_secrets(text)
+        assert "ghp_" not in result
+        assert "REDACTED" in result
+
+    def test_redact_github_pat_fine_grained(self):
+        """Should redact fine-grained GitHub PATs (github_pat_)."""
+        text = "Token: github_pat_aBcDeFgHiJkLmNoPqRsTuVw"
+        result = ashlar_server.redact_secrets(text)
+        assert "github_pat_" not in result
+        assert "REDACTED" in result
+
+    def test_redact_aws_access_key(self):
+        """Should redact AWS access keys (AKIA...)."""
+        text = "aws_access_key_id = AKIAIOSFODNN7EXAMPLE"
+        result = ashlar_server.redact_secrets(text)
+        assert "AKIAIOSFODNN7EXAMPLE" not in result
+        assert "REDACTED" in result
+
+    def test_redact_slack_bot_token(self):
+        """Should redact Slack bot tokens (xoxb-)."""
+        text = "SLACK_TOKEN=xoxb-12345678901-12345678901-abcdef"
+        result = ashlar_server.redact_secrets(text)
+        assert "xoxb-" not in result
+        assert "REDACTED" in result
+
+    def test_redact_sendgrid_key(self):
+        """Should redact SendGrid API keys (SG.xxxxx.xxxxx)."""
+        text = "key: SG.aBcDeFgHiJkLmNoPqRsTuVw.xYzAbCdEfGhIjKlMnOpQrSt"
+        result = ashlar_server.redact_secrets(text)
+        assert "SG." not in result
+        assert "REDACTED" in result
+
+    def test_redact_password_field(self):
+        """Should redact password= fields."""
+        text = "password=MyS3cretP@ss"
+        result = ashlar_server.redact_secrets(text)
+        assert "MyS3cretP@ss" not in result
+        assert "REDACTED" in result
+
+    def test_redact_jwt_token(self):
+        """Should redact JWT tokens (eyJ...)."""
+        text = "auth: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0"
+        result = ashlar_server.redact_secrets(text)
+        assert "eyJhbGciOiJIUzI1NiJ9" not in result
+        assert "REDACTED" in result
+
+    def test_redact_mongodb_connection_string(self):
+        """Should redact MongoDB connection strings."""
+        text = "DB_URL=mongodb+srv://user:pass@cluster.mongodb.net/db"
+        result = ashlar_server.redact_secrets(text)
+        assert "mongodb+srv://" not in result
+        assert "REDACTED" in result
+
+    def test_redact_postgres_connection_string(self):
+        """Should redact PostgreSQL connection strings."""
+        text = "DATABASE_URL=postgresql://user:pass@host:5432/mydb"
+        result = ashlar_server.redact_secrets(text)
+        assert "postgresql://" not in result
+        assert "REDACTED" in result
+
+    def test_redact_redis_connection_string(self):
+        """Should redact Redis connection strings."""
+        text = "REDIS_URL=redis://default:pass@redis-host:6379"
+        result = ashlar_server.redact_secrets(text)
+        assert "redis://" not in result
+        assert "REDACTED" in result
+
+    def test_no_false_positive_on_normal_text(self):
+        """Should not redact normal text without secrets."""
+        text = "Hello world, this is a normal log line with no secrets"
+        result = ashlar_server.redact_secrets(text)
+        assert result == text
+
+    def test_pattern_count(self):
+        """Should have at least 20 secret patterns (expanded from original 7)."""
+        assert len(ashlar_server._SECRET_PATTERNS) >= 20
+
+    def test_redact_xai_key(self):
+        """Should redact xAI API keys."""
+        text = "XAI_KEY=xai-aBcDeFgHiJkLmNoPqRsTuVw"
+        result = ashlar_server.redact_secrets(text)
+        assert "xai-" not in result
+        assert "REDACTED" in result
+
+    def test_redact_npm_token(self):
+        """Should redact npm tokens."""
+        text = "NPM_TOKEN=np_aBcDeFgHiJkLmNoPqRsTuVw"
+        result = ashlar_server.redact_secrets(text)
+        assert "np_" not in result
+        assert "REDACTED" in result
+
+    def test_redact_bearer_token(self):
+        """Should redact Bearer tokens."""
+        text = "Authorization: Bearer eyAbCdEfGhIjKlMnOpQr"
+        result = ashlar_server.redact_secrets(text)
+        assert "Bearer eyAbCdEfGhIjKlMnOpQr" not in result
+        assert "REDACTED" in result
+
+    def test_redact_api_key_field(self):
+        """Should redact api_key= fields."""
+        text = "api_key=abc123def456ghi789jkl012"
+        result = ashlar_server.redact_secrets(text)
+        assert "abc123def456ghi789jkl012" not in result
+        assert "REDACTED" in result
