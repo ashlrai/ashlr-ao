@@ -5891,3 +5891,347 @@ class TestDetectStatusMethod:
         manager.backend_configs = {}
         result = asyncio.run(manager.detect_status("nonexistent"))
         assert result == "error"
+
+
+# ─────────────────────────────────────────────
+# T28: _evaluate_skip_if — workflow skip condition evaluation
+# ─────────────────────────────────────────────
+
+class TestEvaluateSkipIf:
+    """Test AgentManager._evaluate_skip_if() branch coverage."""
+
+    def _make_manager(self, agents=None):
+        mgr = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        mgr.agents = agents or {}
+        mgr._evaluate_skip_if = ashlar_server.AgentManager._evaluate_skip_if.__get__(mgr)
+        mgr._safe_eval_condition = ashlar_server.AgentManager._safe_eval_condition
+        mgr._resolve_skip_val = ashlar_server.AgentManager._resolve_skip_val
+        return mgr
+
+    def _make_agent(self, agent_id="dep1", status="idle", summary="All done"):
+        agent = ashlar_server.Agent(
+            id=agent_id, name="dep-agent", role="backend",
+            status=status, task="dep task", backend="claude-code",
+            working_dir="/tmp", tmux_session=f"ashlar-{agent_id}",
+        )
+        agent.summary = summary
+        agent.created_at = ashlar_server.datetime.now(ashlar_server.timezone.utc).isoformat()
+        agent._spawn_time = time.monotonic() - 60
+        agent.last_output_time = time.monotonic() - 5
+        return agent
+
+    def test_no_skip_if_returns_false(self):
+        """No skip_if key on spec → should not skip."""
+        specs = [{"name": "a", "role": "backend", "task": "t"}]
+        wf = _make_wf_run(specs)
+        mgr = self._make_manager()
+        assert mgr._evaluate_skip_if(wf, 0) is False
+
+    def test_empty_skip_if_returns_false(self):
+        """Empty string skip_if → falsy → should not skip."""
+        specs = [{"name": "a", "role": "backend", "task": "t", "skip_if": ""}]
+        wf = _make_wf_run(specs)
+        mgr = self._make_manager()
+        assert mgr._evaluate_skip_if(wf, 0) is False
+
+    def test_skip_if_no_depends_on_returns_false(self):
+        """skip_if set but no depends_on → warning logged, returns False."""
+        specs = [{"name": "a", "role": "backend", "task": "t", "skip_if": "prev.status == 'idle'"}]
+        wf = _make_wf_run(specs)
+        mgr = self._make_manager()
+        assert mgr._evaluate_skip_if(wf, 0) is False
+
+    def test_dep_not_in_agent_map_returns_false(self):
+        """Dep index not in agent_map → falls through to False."""
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2",
+             "depends_on": [0], "skip_if": "prev.status == 'idle'"},
+        ]
+        wf = _make_wf_run(specs)
+        # agent_map is empty — dep 0 not mapped
+        mgr = self._make_manager()
+        assert mgr._evaluate_skip_if(wf, 1) is False
+
+    def test_dep_agent_not_in_agents_dict_returns_false(self):
+        """Dep mapped in agent_map but agent killed (not in self.agents) → False."""
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2",
+             "depends_on": [0], "skip_if": "prev.status == 'idle'"},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"  # mapped, but agent not in dict
+        mgr = self._make_manager(agents={})
+        assert mgr._evaluate_skip_if(wf, 1) is False
+
+    def test_condition_true_skips(self):
+        """Condition evaluates True → agent should be skipped."""
+        dep = self._make_agent(status="idle")
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2",
+             "depends_on": [0], "skip_if": "prev.status == 'idle'"},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        mgr = self._make_manager(agents={"dep1": dep})
+        assert mgr._evaluate_skip_if(wf, 1) is True
+
+    def test_condition_false_does_not_skip(self):
+        """Condition evaluates False → agent should not be skipped."""
+        dep = self._make_agent(status="working")
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2",
+             "depends_on": [0], "skip_if": "prev.status == 'idle'"},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        mgr = self._make_manager(agents={"dep1": dep})
+        assert mgr._evaluate_skip_if(wf, 1) is False
+
+    def test_summary_in_condition(self):
+        """'keyword' in prev.summary → skip if keyword present."""
+        dep = self._make_agent(summary="All tests passed successfully")
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2",
+             "depends_on": [0], "skip_if": "'passed' in prev.summary"},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        mgr = self._make_manager(agents={"dep1": dep})
+        assert mgr._evaluate_skip_if(wf, 1) is True
+
+    def test_first_dep_wins_semantics(self):
+        """With multiple deps, first resolvable dep is used."""
+        dep0 = self._make_agent(agent_id="d0", status="idle")
+        dep1 = self._make_agent(agent_id="d1", status="error")
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t"},
+            {"name": "c", "role": "tester", "task": "t",
+             "depends_on": [0, 1], "skip_if": "prev.status == 'idle'"},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "d0"
+        wf.agent_map[1] = "d1"
+        mgr = self._make_manager(agents={"d0": dep0, "d1": dep1})
+        # First dep (d0) is idle → condition True → skip
+        assert mgr._evaluate_skip_if(wf, 2) is True
+
+    def test_first_dep_unresolvable_uses_second(self):
+        """First dep not in agent_map, second is resolvable."""
+        dep1 = self._make_agent(agent_id="d1", status="error")
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t"},
+            {"name": "c", "role": "tester", "task": "t",
+             "depends_on": [0, 1], "skip_if": "prev.status == 'error'"},
+        ]
+        wf = _make_wf_run(specs)
+        # dep 0 not in agent_map, dep 1 is mapped
+        wf.agent_map[1] = "d1"
+        mgr = self._make_manager(agents={"d1": dep1})
+        assert mgr._evaluate_skip_if(wf, 2) is True
+
+
+# ─────────────────────────────────────────────
+# T29: _build_dep_context — predecessor context builder
+# ─────────────────────────────────────────────
+
+class TestBuildDepContext:
+    """Test AgentManager._build_dep_context() branch coverage."""
+
+    def _make_manager(self, agents=None, file_activity=None):
+        mgr = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        mgr.agents = agents or {}
+        mgr.file_activity = file_activity or {}
+        mgr._build_dep_context = ashlar_server.AgentManager._build_dep_context.__get__(mgr)
+        return mgr
+
+    def _make_agent(self, agent_id="dep1", name="dep-agent", role="backend",
+                    summary="Finished building API", output_lines=None):
+        agent = ashlar_server.Agent(
+            id=agent_id, name=name, role=role,
+            status="idle", task="Build the API", backend="claude-code",
+            working_dir="/tmp", tmux_session=f"ashlar-{agent_id}",
+        )
+        agent.summary = summary
+        agent.created_at = ashlar_server.datetime.now(ashlar_server.timezone.utc).isoformat()
+        agent._spawn_time = time.monotonic() - 60
+        agent.last_output_time = time.monotonic() - 5
+        if output_lines:
+            agent.output_lines.extend(output_lines)
+        return agent
+
+    def test_no_depends_on_returns_empty(self):
+        """Spec with no depends_on → empty string."""
+        specs = [{"name": "a", "role": "backend", "task": "t"}]
+        wf = _make_wf_run(specs)
+        mgr = self._make_manager()
+        assert mgr._build_dep_context(wf, 0) == ""
+
+    def test_dep_not_in_agent_map_skipped(self):
+        """Dep index not in agent_map → silently skipped."""
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2", "depends_on": [0]},
+        ]
+        wf = _make_wf_run(specs)
+        # agent_map is empty
+        mgr = self._make_manager()
+        result = mgr._build_dep_context(wf, 1)
+        # Header is added but no agent sections
+        assert "Context from predecessor" in result
+        assert "###" not in result
+
+    def test_dep_agent_killed_skipped(self):
+        """Dep mapped but agent removed from self.agents → skipped."""
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2", "depends_on": [0]},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        mgr = self._make_manager(agents={})  # dep1 not in agents
+        result = mgr._build_dep_context(wf, 1)
+        assert "###" not in result
+
+    def test_full_section_with_agent(self):
+        """Fully resolved dep → name, task, summary in output."""
+        dep = self._make_agent()
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2", "depends_on": [0]},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        mgr = self._make_manager(agents={"dep1": dep})
+        result = mgr._build_dep_context(wf, 1)
+        assert "### Agent 'dep-agent'" in result
+        assert "Task: Build the API" in result
+        assert "Summary: Finished building API" in result
+
+    def test_files_touched_included(self):
+        """File activity referencing the dep agent → Files touched line appears."""
+        dep = self._make_agent()
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2", "depends_on": [0]},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        file_activity = {
+            "src/app.ts": {"dep1": "write"},
+            "src/utils.ts": {"dep1": "read"},
+            "README.md": {"other": "write"},
+        }
+        mgr = self._make_manager(agents={"dep1": dep}, file_activity=file_activity)
+        result = mgr._build_dep_context(wf, 1)
+        assert "Files touched:" in result
+        assert "src/app.ts" in result
+        assert "src/utils.ts" in result
+        assert "README.md" not in result  # belongs to other agent
+
+    def test_no_files_no_files_touched_line(self):
+        """No file activity for dep → Files touched line absent."""
+        dep = self._make_agent()
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2", "depends_on": [0]},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        mgr = self._make_manager(agents={"dep1": dep})
+        result = mgr._build_dep_context(wf, 1)
+        assert "Files touched:" not in result
+
+    def test_substantive_output_included(self):
+        """Agent with substantive output lines → Recent output block appears."""
+        dep = self._make_agent(output_lines=[
+            "Reading src/app.ts...",
+            "Writing src/handler.ts...",
+            "All tests passed: 15 passed, 0 failed",
+        ])
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2", "depends_on": [0]},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        mgr = self._make_manager(agents={"dep1": dep})
+        result = mgr._build_dep_context(wf, 1)
+        assert "Recent output:" in result
+        assert "All tests passed" in result
+
+    def test_noise_output_filtered(self):
+        """Short/noise lines filtered; Recent output block absent if all noise."""
+        dep = self._make_agent(output_lines=[
+            "  ",
+            "ab",
+            "███░░░",
+            "⠋⠙⠹",
+        ])
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2", "depends_on": [0]},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        mgr = self._make_manager(agents={"dep1": dep})
+        result = mgr._build_dep_context(wf, 1)
+        assert "Recent output:" not in result
+
+    def test_ansi_stripped_from_output(self):
+        """ANSI escape codes stripped from output lines."""
+        dep = self._make_agent(output_lines=[
+            "\x1b[32mWriting src/handler.ts\x1b[0m",
+        ])
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2", "depends_on": [0]},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        mgr = self._make_manager(agents={"dep1": dep})
+        result = mgr._build_dep_context(wf, 1)
+        assert "Recent output:" in result
+        assert "\x1b[" not in result
+        assert "Writing src/handler.ts" in result
+
+    def test_multiple_deps_both_sections(self):
+        """Multiple deps resolved → both produce sections."""
+        dep0 = self._make_agent(agent_id="d0", name="api-builder")
+        dep1 = self._make_agent(agent_id="d1", name="test-runner")
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "tester", "task": "t"},
+            {"name": "c", "role": "reviewer", "task": "t", "depends_on": [0, 1]},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "d0"
+        wf.agent_map[1] = "d1"
+        mgr = self._make_manager(agents={"d0": dep0, "d1": dep1})
+        result = mgr._build_dep_context(wf, 2)
+        assert "api-builder" in result
+        assert "test-runner" in result
+
+    def test_files_capped_at_20(self):
+        """More than 20 files → only first 20 shown."""
+        dep = self._make_agent()
+        specs = [
+            {"name": "a", "role": "backend", "task": "t"},
+            {"name": "b", "role": "frontend", "task": "t2", "depends_on": [0]},
+        ]
+        wf = _make_wf_run(specs)
+        wf.agent_map[0] = "dep1"
+        file_activity = {f"src/file{i}.ts": {"dep1": "write"} for i in range(25)}
+        mgr = self._make_manager(agents={"dep1": dep}, file_activity=file_activity)
+        result = mgr._build_dep_context(wf, 1)
+        # Count file references in Files touched line
+        files_line = [l for l in result.split("\n") if "Files touched:" in l][0]
+        # Should have at most 20 files (comma-separated)
+        file_count = len(files_line.split("Files touched: ")[1].split(", "))
+        assert file_count == 20
