@@ -1070,6 +1070,9 @@ class Agent:
     _pathological: bool = field(default=False, repr=False)  # True if agent errors rapidly after restart
     _last_working_time: float = field(default=0.0, repr=False)  # monotonic time of last transition TO working
     _context_auto_paused: bool = field(default=False, repr=False)  # True if auto-paused due to context exhaustion
+    _context_exhaustion_warned: bool = field(default=False, repr=False)  # True if context warning (92%) was already sent
+    _budget_warned: bool = field(default=False, repr=False)  # True if cost budget warning was already sent
+    _memory_pause_warned: bool = field(default=False, repr=False)  # True if memory pause warning was already sent
     _pressure_paused: bool = field(default=False, repr=False)  # True if auto-paused due to system pressure
     _flood_detected: bool = field(default=False, repr=False)  # True if output rate exceeds flood threshold
     _flood_ticks: int = field(default=0, repr=False)  # consecutive capture cycles above flood threshold
@@ -2272,9 +2275,9 @@ class AgentManager:
 
         async with agent._restart_lock:
             agent._restart_in_progress = True
-            return await self._restart_impl(agent_id, agent)
+            return await self._restart_impl(agent_id, agent, new_task)
 
-    async def _restart_impl(self, agent_id: str, agent: "Agent") -> bool:
+    async def _restart_impl(self, agent_id: str, agent: "Agent", new_task: str | None = None) -> bool:
         """Internal restart implementation. Must be called under agent._restart_lock."""
         try:
             log.info(f"Restarting agent {agent_id} ({agent.name}), attempt {agent.restart_count + 1}")
@@ -2488,8 +2491,7 @@ class AgentManager:
         if not sample:
             return False
         # Strip common ANSI escape sequences before checking
-        import re
-        clean = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', sample)
+        clean = _ANSI_ESCAPE_RE.sub('', sample)
         if not clean:
             return False
         non_printable = sum(1 for c in clean if not c.isprintable() and c not in '\n\r\t')
@@ -2605,7 +2607,7 @@ class AgentManager:
         # Cost budget check
         budget = self.config.cost_budget_usd
         if budget > 0 and agent.estimated_cost_usd >= budget:
-            if not getattr(agent, '_budget_warned', False):
+            if not agent._budget_warned:
                 agent._budget_warned = True
                 log.warning("Agent %s exceeded cost budget ($%.2f / $%.2f)",
                             agent.name, agent.estimated_cost_usd, budget)
@@ -6126,16 +6128,16 @@ async def collaboration_graph(request: web.Request) -> web.Response:
                     edge_set.add(key)
                     edges.append({"from": agent_ids[i], "to": agent_ids[j], "type": "project", "weight": 1})
 
-    # 4. Conflict edges
-    for (path, conflict_agents) in manager.file_conflicts.items():
-        ids = list(set(conflict_agents))
-        for i in range(len(ids)):
-            for j in range(i + 1, len(ids)):
-                if ids[i] in {a.id for a in agents} and ids[j] in {a.id for a in agents}:
-                    key = (min(ids[i], ids[j]), max(ids[i], ids[j]), "conflict")
-                    if key not in edge_set:
-                        edge_set.add(key)
-                        edges.append({"from": ids[i], "to": ids[j], "type": "conflict", "weight": 1, "file": path.split("/")[-1]})
+    # 4. Conflict edges (from file_activity — agents writing to same files)
+    agent_id_set = {a.id for a in agents}
+    for path, agent_ops in manager.file_activity.items():
+        writers = [aid for aid, op in agent_ops.items() if op == "write" and aid in agent_id_set]
+        for i in range(len(writers)):
+            for j in range(i + 1, len(writers)):
+                key = (min(writers[i], writers[j]), max(writers[i], writers[j]), "conflict")
+                if key not in edge_set:
+                    edge_set.add(key)
+                    edges.append({"from": writers[i], "to": writers[j], "type": "conflict", "weight": 1, "file": path.split("/")[-1]})
 
     return web.json_response({"nodes": nodes, "edges": edges})
 
@@ -7157,26 +7159,6 @@ async def get_agent_messages(request: web.Request) -> web.Response:
     })
 
 
-# ── File Conflicts endpoint ──
-
-async def list_conflicts(request: web.Request) -> web.Response:
-    """GET /api/conflicts — list current file conflicts between agents."""
-    manager: AgentManager = request.app["agent_manager"]
-    conflicts = []
-    for file_path, agent_ids in manager.file_activity.items():
-        active_ids = [
-            aid for aid in agent_ids
-            if aid in manager.agents and manager.agents[aid].status in ("working", "planning", "reading")
-        ]
-        if len(active_ids) > 1:
-            agents_info = [
-                {"id": aid, "name": manager.agents[aid].name, "role": manager.agents[aid].role}
-                for aid in active_ids
-            ]
-            conflicts.append({"file_path": file_path, "agents": agents_info})
-    return web.json_response(conflicts)
-
-
 # ── Agent Handoff endpoint ──
 
 async def handoff_agent(request: web.Request) -> web.Response:
@@ -7787,7 +7769,7 @@ async def export_fleet_state(request: web.Request) -> web.Response:
         "config_summary": {
             "max_agents": config.max_agents,
             "default_backend": config.default_backend,
-            "fleet_cost_limit": config.fleet_cost_limit,
+            "fleet_cost_limit": config.cost_budget_usd,
             "intelligence_enabled": config.intelligence_enabled,
         },
     }
@@ -9185,7 +9167,7 @@ async def health_check_loop(app: web.Application) -> None:
 
                 # -- Context exhaustion auto-snapshot + warning --
                 if agent.context_pct >= 0.92 and agent.status in ("working", "planning", "reading"):
-                    if not getattr(agent, '_context_exhaustion_warned', False):
+                    if not agent._context_exhaustion_warned:
                         agent._context_exhaustion_warned = True
                         log.warning(f"Agent {agent_id} ({agent.name}) context at {agent.context_pct:.0%} — creating snapshot")
                         try:
@@ -9395,7 +9377,7 @@ async def memory_watchdog_loop(app: web.Application) -> None:
                     await hub.broadcast_event("agent_killed", f"Agent {name} killed: memory limit exceeded ({agent.memory_mb}MB)", agent_id, name)
                 elif agent.memory_mb > pause_threshold and agent.status in ("working", "planning", "reading"):
                     # Graduated response: pause before kill to prevent cascade
-                    if not getattr(agent, '_memory_pause_warned', False):
+                    if not agent._memory_pause_warned:
                         agent._memory_pause_warned = True
                         log.warning(f"Agent {agent_id} memory at {agent.memory_mb}MB ({pause_threshold}MB pause threshold) — auto-pausing")
                         try:
@@ -9744,8 +9726,6 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/history", list_history)
     app.router.add_get("/api/history/{id}", get_history_item)
     app.router.add_get("/api/events", list_events)
-    app.router.add_get("/api/conflicts", list_conflicts)
-    app.router.add_get("/api/search", global_search)
 
     # REST API — Presets
     app.router.add_get("/api/presets", list_presets)

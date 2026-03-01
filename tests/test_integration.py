@@ -35,6 +35,14 @@ def _make_mock_db():
     db.get_history = AsyncMock(return_value=[])
     db.get_events = AsyncMock(return_value=[])
     db.get_scratchpad = AsyncMock(return_value=[])
+    db.db_path = Path("/tmp/test-ashlar.db")  # fake path for stats endpoint
+    db.find_similar_tasks = AsyncMock(return_value=[])
+    db.get_resumable_sessions = AsyncMock(return_value=[])
+    db.archive_output = AsyncMock()
+    db.release_file_locks = AsyncMock()
+    db.get_archived_output = AsyncMock(return_value=([], 0))
+    db.get_bookmarks = AsyncMock(return_value=[])
+    db.add_bookmark = AsyncMock(return_value=1)
     return db
 
 
@@ -400,3 +408,614 @@ class TestDegradedMode:
         assert msg["type"] == "sync"
         assert msg["db_available"] is False
         await ws.close()
+
+
+# ── Agent Pause/Resume/Restart Integration Tests ──
+
+
+class TestApiPauseResumeRestart:
+    @pytest.mark.asyncio
+    async def test_pause_and_resume(self, aiohttp_client):
+        """Pause a running agent, then resume it."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        manager = app["agent_manager"]
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 30001
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+            agent = await manager.spawn(role="general", name="pause-test", task="test", working_dir="/tmp")
+
+        # Pause
+        resp = await client.post(f"/api/agents/{agent.id}/pause")
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["status"] == "paused"
+
+        # Verify agent is paused
+        resp = await client.get(f"/api/agents/{agent.id}")
+        data = await resp.json()
+        assert data["status"] == "paused"
+
+        # Resume
+        resp = await client.post(f"/api/agents/{agent.id}/resume")
+        assert resp.status == 200
+        body = await resp.json()
+        assert body["status"] == "resumed"
+
+    @pytest.mark.asyncio
+    async def test_pause_nonexistent_agent(self, aiohttp_client):
+        """Pausing a nonexistent agent should return 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents/nonexistent/pause")
+        assert resp.status == 404
+
+    @pytest.mark.asyncio
+    async def test_resume_nonexistent_agent(self, aiohttp_client):
+        """Resuming a nonexistent agent should return 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents/nonexistent/resume")
+        assert resp.status == 404
+
+    @pytest.mark.asyncio
+    async def test_restart_agent(self, aiohttp_client):
+        """Restart an agent via REST API."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        manager = app["agent_manager"]
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 30002
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+            agent = await manager.spawn(role="backend", name="restart-test", task="old task", working_dir="/tmp")
+
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec2:
+            mock_proc2 = MagicMock()
+            mock_proc2.pid = 30003
+            mock_proc2.returncode = None
+            mock_exec2.return_value = mock_proc2
+            resp = await client.post(
+                f"/api/agents/{agent.id}/restart",
+                json={"task": "new task"},
+            )
+            assert resp.status == 200
+
+    @pytest.mark.asyncio
+    async def test_restart_nonexistent_agent(self, aiohttp_client):
+        """Restarting a nonexistent agent should return 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents/nonexistent/restart")
+        assert resp.status == 404
+
+
+# ── System & Health Endpoint Tests ──
+
+
+class TestSystemEndpoints:
+    @pytest.mark.asyncio
+    async def test_health_check(self, aiohttp_client):
+        """GET /api/health should return 200 with status ok."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.get("/api/health")
+        assert resp.status == 200
+        data = await resp.json()
+        assert data["status"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_system_metrics(self, aiohttp_client):
+        """GET /api/system should return CPU, memory, and service info."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.get("/api/system")
+        assert resp.status == 200
+        data = await resp.json()
+        assert "cpu_pct" in data
+        assert "memory" in data
+        assert "services" in data
+        assert "agents_active" in data
+
+    @pytest.mark.asyncio
+    async def test_list_roles(self, aiohttp_client):
+        """GET /api/roles should return all builtin roles."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.get("/api/roles")
+        assert resp.status == 200
+        roles = await resp.json()
+        # Roles endpoint returns a dict keyed by role name
+        assert isinstance(roles, dict)
+        assert "general" in roles
+        assert "backend" in roles
+        assert "frontend" in roles
+
+    @pytest.mark.asyncio
+    async def test_list_backends(self, aiohttp_client):
+        """GET /api/backends should return available backends."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.get("/api/backends")
+        assert resp.status == 200
+        data = await resp.json()
+        # Backends endpoint returns a dict keyed by backend name
+        assert isinstance(data, dict)
+        assert "claude-code" in data
+
+    @pytest.mark.asyncio
+    async def test_get_config(self, aiohttp_client):
+        """GET /api/config should return current config."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.get("/api/config")
+        assert resp.status == 200
+        data = await resp.json()
+        assert "max_agents" in data
+        assert "default_role" in data
+
+    @pytest.mark.asyncio
+    async def test_get_stats(self, aiohttp_client):
+        """GET /api/stats should return server statistics."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.get("/api/stats")
+        assert resp.status == 200
+        data = await resp.json()
+        assert "uptime_sec" in data
+        assert "agents" in data
+
+    @pytest.mark.asyncio
+    async def test_health_detailed(self, aiohttp_client):
+        """GET /api/health/detailed should return detailed health info."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.get("/api/health/detailed")
+        assert resp.status == 200
+        data = await resp.json()
+        assert "status" in data
+
+
+# ── Spawn Validation Tests ──
+
+
+class TestApiSpawnValidation:
+    @pytest.mark.asyncio
+    async def test_spawn_missing_task(self, aiohttp_client):
+        """Spawning without a task should return 400."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents", json={
+            "role": "general",
+            "name": "no-task",
+            "working_dir": "/tmp",
+        })
+        assert resp.status == 400
+        body = await resp.json()
+        assert "task" in body["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_spawn_invalid_role(self, aiohttp_client):
+        """Spawning with an invalid role should return 400."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents", json={
+            "role": "nonexistent-role",
+            "task": "something",
+            "working_dir": "/tmp",
+        })
+        assert resp.status == 400
+        body = await resp.json()
+        assert "role" in body["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_spawn_invalid_json(self, aiohttp_client):
+        """Sending invalid JSON should return 400."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents", data="not json", headers={"Content-Type": "application/json"})
+        assert resp.status == 400
+
+    @pytest.mark.asyncio
+    async def test_spawn_task_too_long(self, aiohttp_client):
+        """Task exceeding 10000 chars should be rejected."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents", json={
+            "role": "general",
+            "task": "x" * 10001,
+            "working_dir": "/tmp",
+        })
+        assert resp.status == 400
+        body = await resp.json()
+        assert "10000" in body["error"]
+
+    @pytest.mark.asyncio
+    async def test_spawn_invalid_backend(self, aiohttp_client):
+        """Spawning with an unknown backend should return 400."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents", json={
+            "role": "general",
+            "task": "test",
+            "backend": "unknown-backend",
+            "working_dir": "/tmp",
+        })
+        assert resp.status == 400
+        body = await resp.json()
+        assert "backend" in body["error"].lower()
+
+    @pytest.mark.asyncio
+    async def test_validate_spawn_dry_run(self, aiohttp_client):
+        """POST /api/agents/validate should validate without spawning."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents/validate", json={
+            "role": "general",
+            "task": "test validation",
+            "working_dir": "/tmp",
+        })
+        assert resp.status == 200
+        data = await resp.json()
+        assert data.get("valid") is True
+
+    @pytest.mark.asyncio
+    async def test_validate_spawn_invalid(self, aiohttp_client):
+        """POST /api/agents/validate with bad role should fail validation."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents/validate", json={
+            "role": "bad-role",
+            "task": "test",
+            "working_dir": "/tmp",
+        })
+        # Should indicate invalid
+        data = await resp.json()
+        assert data.get("valid") is False or resp.status == 400
+
+
+# ── Agent Output & Activity Endpoint Tests ──
+
+
+class TestApiAgentOutputAndActivity:
+    async def _spawn_agent(self, app):
+        """Helper to spawn a test agent."""
+        manager = app["agent_manager"]
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 40001
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+            return await manager.spawn(role="general", name="output-test", task="test", working_dir="/tmp")
+
+    @pytest.mark.asyncio
+    async def test_get_agent_output(self, aiohttp_client):
+        """GET /api/agents/{id}/output should return output lines."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        agent = await self._spawn_agent(app)
+
+        resp = await client.get(f"/api/agents/{agent.id}/output")
+        assert resp.status == 200
+        data = await resp.json()
+        assert "data" in data or "lines" in data  # paginated output uses "data" key
+
+    @pytest.mark.asyncio
+    async def test_get_agent_output_404(self, aiohttp_client):
+        """GET /api/agents/{id}/output for nonexistent should 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.get("/api/agents/nonexistent/output")
+        assert resp.status == 404
+
+    @pytest.mark.asyncio
+    async def test_get_agent_activity(self, aiohttp_client):
+        """GET /api/agents/{id}/activity should return structured activity."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        agent = await self._spawn_agent(app)
+
+        resp = await client.get(f"/api/agents/{agent.id}/activity")
+        assert resp.status == 200
+        data = await resp.json()
+        assert "tool_invocations" in data
+        assert "file_operations" in data
+        assert "summary" in data
+
+    @pytest.mark.asyncio
+    async def test_get_agent_snapshots(self, aiohttp_client):
+        """GET /api/agents/{id}/snapshots should return snapshot list."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        agent = await self._spawn_agent(app)
+
+        resp = await client.get(f"/api/agents/{agent.id}/snapshots")
+        assert resp.status == 200
+        data = await resp.json()
+        assert "snapshots" in data
+        assert isinstance(data["snapshots"], list)
+
+    @pytest.mark.asyncio
+    async def test_export_agent_output(self, aiohttp_client):
+        """GET /api/agents/{id}/output/export should return exportable output."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        agent = await self._spawn_agent(app)
+
+        resp = await client.get(f"/api/agents/{agent.id}/output/export")
+        assert resp.status == 200
+
+
+# ── Batch Operations Tests ──
+
+
+class TestApiBatchOperations:
+    @pytest.mark.asyncio
+    async def test_batch_spawn(self, aiohttp_client):
+        """POST /api/agents/batch-spawn should spawn multiple agents."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 50001
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+
+            resp = await client.post("/api/agents/batch-spawn", json={
+                "agents": [
+                    {"role": "backend", "task": "build API", "working_dir": "/tmp"},
+                    {"role": "frontend", "task": "build UI", "working_dir": "/tmp"},
+                ],
+            })
+            assert resp.status == 201
+            data = await resp.json()
+            assert data["total_spawned"] == 2
+            assert data["total_failed"] == 0
+
+    @pytest.mark.asyncio
+    async def test_batch_spawn_with_invalid_entry(self, aiohttp_client):
+        """Batch spawn with one invalid entry should still spawn valid ones."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 50002
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+
+            resp = await client.post("/api/agents/batch-spawn", json={
+                "agents": [
+                    {"role": "general", "task": "valid task", "working_dir": "/tmp"},
+                    {"role": "general", "task": ""},  # missing task
+                ],
+            })
+            data = await resp.json()
+            assert data["total_spawned"] == 1
+            assert data["total_failed"] == 1
+
+    @pytest.mark.asyncio
+    async def test_batch_spawn_empty_list(self, aiohttp_client):
+        """Batch spawn with empty agent list should return 400."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents/batch-spawn", json={"agents": []})
+        assert resp.status == 400
+
+    @pytest.mark.asyncio
+    async def test_bulk_agent_action_kill(self, aiohttp_client):
+        """POST /api/agents/bulk with kill action should kill specified agents."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        manager = app["agent_manager"]
+        agent_ids = []
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 50010
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+
+            for i in range(2):
+                agent = await manager.spawn(role="general", name=f"bulk-{i}", task=f"task {i}", working_dir="/tmp")
+                agent_ids.append(agent.id)
+
+        resp = await client.post("/api/agents/bulk", json={
+            "action": "kill",
+            "agent_ids": agent_ids,
+        })
+        assert resp.status == 200
+        data = await resp.json()
+        assert len(data["success"]) == 2
+
+
+# ── Agent Notes & Tags Tests ──
+
+
+class TestApiNotesAndTags:
+    async def _spawn_agent(self, app):
+        """Helper to spawn a test agent."""
+        manager = app["agent_manager"]
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 60001
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+            return await manager.spawn(role="general", name="notes-test", task="test", working_dir="/tmp")
+
+    @pytest.mark.asyncio
+    async def test_update_notes(self, aiohttp_client):
+        """PUT /api/agents/{id}/notes should update agent notes."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        agent = await self._spawn_agent(app)
+
+        resp = await client.put(
+            f"/api/agents/{agent.id}/notes",
+            json={"notes": "Test note content"},
+        )
+        assert resp.status == 200
+
+        # Verify the notes were saved
+        resp = await client.get(f"/api/agents/{agent.id}")
+        data = await resp.json()
+        assert data.get("notes") == "Test note content"
+
+    @pytest.mark.asyncio
+    async def test_update_tags(self, aiohttp_client):
+        """PUT /api/agents/{id}/tags should update agent tags."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        agent = await self._spawn_agent(app)
+
+        resp = await client.put(
+            f"/api/agents/{agent.id}/tags",
+            json={"tags": ["important", "api"]},
+        )
+        assert resp.status == 200
+
+        # Verify the tags were saved
+        resp = await client.get(f"/api/agents/{agent.id}")
+        data = await resp.json()
+        assert "important" in data.get("tags", [])
+        assert "api" in data.get("tags", [])
+
+
+# ── Agent Clone Tests ──
+
+
+class TestApiClone:
+    @pytest.mark.asyncio
+    async def test_clone_agent(self, aiohttp_client):
+        """POST /api/agents/{id}/clone should create a copy."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        manager = app["agent_manager"]
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 70001
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+            original = await manager.spawn(role="backend", name="original", task="build API", working_dir="/tmp")
+
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec2:
+            mock_proc2 = MagicMock()
+            mock_proc2.pid = 70002
+            mock_proc2.returncode = None
+            mock_exec2.return_value = mock_proc2
+
+            resp = await client.post(f"/api/agents/{original.id}/clone")
+            assert resp.status == 201
+            data = await resp.json()
+            agent_data = data.get("agent", data)
+            assert agent_data["role"] == "backend"
+            assert agent_data["id"] != original.id
+
+    @pytest.mark.asyncio
+    async def test_clone_nonexistent_agent(self, aiohttp_client):
+        """Cloning a nonexistent agent should return 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.post("/api/agents/nonexistent/clone")
+        assert resp.status == 404
+
+
+# ── Fleet Export & Search Tests ──
+
+
+class TestApiFleetAndSearch:
+    @pytest.mark.asyncio
+    async def test_fleet_export(self, aiohttp_client):
+        """GET /api/fleet/export should return fleet state."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        resp = await client.get("/api/fleet/export")
+        assert resp.status == 200
+        data = await resp.json()
+        assert "agents" in data
+        assert "exported_at" in data
+
+    @pytest.mark.asyncio
+    async def test_search_agents(self, aiohttp_client):
+        """GET /api/search should search across agents."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+
+        manager = app["agent_manager"]
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 80001
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+            await manager.spawn(role="general", name="searchable", task="find this task", working_dir="/tmp")
+
+        resp = await client.get("/api/search?q=searchable")
+        assert resp.status == 200
+        data = await resp.json()
+        assert isinstance(data, list) or isinstance(data, dict)
+
+
+# ── Bookmarks Tests ──
+
+
+class TestApiBookmarks:
+    async def _spawn_agent(self, app):
+        """Helper to spawn a test agent."""
+        manager = app["agent_manager"]
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 90001
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+            return await manager.spawn(role="general", name="bm-test", task="test", working_dir="/tmp")
+
+    @pytest.mark.asyncio
+    async def test_add_and_list_bookmarks(self, aiohttp_client):
+        """Add a bookmark, then list bookmarks."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        agent = await self._spawn_agent(app)
+
+        # Add bookmark
+        resp = await client.post(
+            f"/api/agents/{agent.id}/bookmarks",
+            json={"line_index": 5, "label": "Important line"},
+        )
+        assert resp.status in (200, 201)
+
+        # List bookmarks
+        resp = await client.get(f"/api/agents/{agent.id}/bookmarks")
+        assert resp.status == 200
+        data = await resp.json()
+        # Response may be {"bookmarks": [...]} or a plain list
+        bookmarks = data.get("bookmarks", data) if isinstance(data, dict) else data
+        assert isinstance(bookmarks, list)
+        assert len(bookmarks) >= 1
