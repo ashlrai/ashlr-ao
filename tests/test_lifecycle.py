@@ -34,6 +34,7 @@ with patch("psutil.cpu_percent", return_value=0.0):
         WorkflowRun,
         _extract_question,
         _resolve_agent_refs,
+        calculate_efficiency_score,
     )
 
 
@@ -5466,3 +5467,209 @@ class TestSafeEvalCondition:
 
     def test_no_operator_returns_false(self):
         assert self._eval("just a string", {}) is False
+
+
+# ─────────────────────────────────────────────
+# T21: File conflict regex patterns
+# ─────────────────────────────────────────────
+
+class TestFileConflictRegex:
+    """Test the regex patterns used for file conflict detection."""
+
+    def _write_re(self):
+        return ashlar_server.AgentManager._FILE_WRITE_RE
+
+    def _read_re(self):
+        return ashlar_server.AgentManager._FILE_READ_RE
+
+    def test_write_writing_pattern(self):
+        m = self._write_re().search("Writing src/auth.ts")
+        assert m and m.group(1) == "src/auth.ts"
+
+    def test_write_editing_pattern(self):
+        m = self._write_re().search("Editing src/main.py")
+        assert m and m.group(1) == "src/main.py"
+
+    def test_write_creating_pattern(self):
+        m = self._write_re().search("Creating tests/new_test.py")
+        assert m and m.group(1) == "tests/new_test.py"
+
+    def test_write_tool_use_edit(self):
+        m = self._write_re().search("Tool Use: Edit src/app.js")
+        assert m and m.group(1) == "src/app.js"
+
+    def test_write_tool_use_write(self):
+        m = self._write_re().search("Tool Use: Write lib/utils.py")
+        assert m and m.group(1) == "lib/utils.py"
+
+    def test_read_reading_pattern(self):
+        m = self._read_re().search("Reading src/config.yaml")
+        assert m and m.group(1) == "src/config.yaml"
+
+    def test_read_tool_use_read(self):
+        m = self._read_re().search("Tool Use: Read src/index.ts")
+        assert m and m.group(1) == "src/index.ts"
+
+    def test_read_scanning_pattern(self):
+        m = self._read_re().search("Scanning lib/utils.py")
+        assert m and m.group(1) == "lib/utils.py"
+
+    def test_no_match_on_plain_text(self):
+        assert self._write_re().search("Hello world") is None
+        assert self._read_re().search("Hello world") is None
+
+    def test_case_insensitive(self):
+        m = self._write_re().search("WRITING SRC/Auth.ts")
+        assert m is not None
+
+    def test_path_with_deep_nesting(self):
+        m = self._write_re().search("Editing src/components/auth/Login.tsx")
+        assert m and "Login.tsx" in m.group(1)
+
+
+# ─────────────────────────────────────────────
+# T22: calculate_efficiency_score
+# ─────────────────────────────────────────────
+
+class TestCalculateEfficiencyScore:
+    def _make_agent(self, **overrides):
+        from ashlar_server import Agent
+        agent = Agent(
+            id="eff01", name="eff-test", role="backend",
+            status="working", backend="claude-code",
+            task="test", working_dir="/tmp"
+        )
+        agent._spawn_time = time.monotonic() - 300  # 5 minutes ago
+        agent._tool_invocations = []
+        agent._file_operations = []
+        agent.error_count = 0
+        agent.context_pct = 0.3
+        agent.total_output_lines = 100
+        for k, v in overrides.items():
+            setattr(agent, k, v)
+        return agent
+
+    def test_returns_dict_with_score(self):
+        agent = self._make_agent()
+        result = calculate_efficiency_score(agent)
+        assert "score" in result
+        assert "tools_per_min" in result
+        assert "error_rate" in result
+        assert "context_efficiency" in result
+        assert "uptime_min" in result
+
+    def test_score_in_valid_range(self):
+        agent = self._make_agent()
+        result = calculate_efficiency_score(agent)
+        assert 0.0 <= result["score"] <= 1.0
+
+    def test_high_tool_count_increases_score(self):
+        # Agent with many tools
+        agent_high = self._make_agent()
+        agent_high._tool_invocations = [MagicMock()] * 30
+        agent_high._file_operations = [MagicMock()] * 10
+
+        # Agent with no tools
+        agent_low = self._make_agent()
+
+        high_score = calculate_efficiency_score(agent_high)["score"]
+        low_score = calculate_efficiency_score(agent_low)["score"]
+        assert high_score > low_score
+
+    def test_high_error_rate_decreases_score(self):
+        agent_clean = self._make_agent()
+        agent_clean._tool_invocations = [MagicMock()] * 10
+        agent_clean.error_count = 0
+
+        agent_errors = self._make_agent()
+        agent_errors._tool_invocations = [MagicMock()] * 10
+        agent_errors.error_count = 5
+
+        clean_score = calculate_efficiency_score(agent_clean)["score"]
+        error_score = calculate_efficiency_score(agent_errors)["score"]
+        assert clean_score > error_score
+
+    def test_zero_spawn_time_handled(self):
+        agent = self._make_agent()
+        agent._spawn_time = 0
+        # Should not crash
+        result = calculate_efficiency_score(agent)
+        assert result["score"] >= 0.0
+
+    def test_uptime_reported(self):
+        agent = self._make_agent()
+        agent._spawn_time = time.monotonic() - 600  # 10 minutes
+        result = calculate_efficiency_score(agent)
+        assert result["uptime_min"] >= 9.0  # ~10 minutes
+
+
+# ─────────────────────────────────────────────
+# T23: Agent._cost_burn_rate
+# ─────────────────────────────────────────────
+
+class TestCostBurnRate:
+    def _make_agent(self, **overrides):
+        from ashlar_server import Agent
+        agent = Agent(
+            id="br01", name="burn-test", role="backend",
+            status="working", backend="claude-code",
+            task="test", working_dir="/tmp"
+        )
+        agent._spawn_time = time.monotonic() - 300  # 5 minutes ago
+        agent.estimated_cost_usd = 0.50
+        agent.tokens_input = 50000
+        agent.tokens_output = 10000
+        for k, v in overrides.items():
+            setattr(agent, k, v)
+        return agent
+
+    def test_returns_rates(self):
+        agent = self._make_agent()
+        result = agent._cost_burn_rate()
+        assert result is not None
+        assert "cost_per_min" in result
+        assert "tokens_per_min" in result
+        assert "minutes_remaining" in result
+        assert "uptime_min" in result
+
+    def test_math_correct(self):
+        agent = self._make_agent()
+        agent._spawn_time = time.monotonic() - 600  # 10 minutes
+        agent.estimated_cost_usd = 1.0
+        agent.tokens_input = 100000
+        agent.tokens_output = 20000
+        result = agent._cost_burn_rate()
+        assert result is not None
+        # $1.0 / 10 min = $0.10/min
+        assert abs(result["cost_per_min"] - 0.10) < 0.02
+        # 120K tokens / 10 min = 12K/min
+        assert abs(result["tokens_per_min"] - 12000) < 1000
+
+    def test_returns_none_with_zero_cost(self):
+        agent = self._make_agent()
+        agent.estimated_cost_usd = 0
+        result = agent._cost_burn_rate()
+        assert result is None
+
+    def test_returns_none_with_zero_spawn_time(self):
+        agent = self._make_agent()
+        agent._spawn_time = 0
+        result = agent._cost_burn_rate()
+        assert result is None
+
+    def test_returns_none_when_too_short_uptime(self):
+        agent = self._make_agent()
+        agent._spawn_time = time.monotonic() - 10  # Only 10 seconds
+        result = agent._cost_burn_rate()
+        assert result is None
+
+    def test_minutes_remaining_calculated(self):
+        agent = self._make_agent()
+        agent._spawn_time = time.monotonic() - 600  # 10 minutes
+        agent.tokens_input = 50000
+        agent.tokens_output = 10000
+        result = agent._cost_burn_rate()
+        assert result is not None
+        # Has remaining minutes estimate
+        assert result["minutes_remaining"] is not None
+        assert result["minutes_remaining"] > 0
