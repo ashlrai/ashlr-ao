@@ -1751,7 +1751,7 @@ class AgentManager:
             name = f"{role_name}-{agent_id}"
 
         # Detect name collisions — append agent ID suffix if collision found
-        existing_names = {a.name for a in self.agents.values()}
+        existing_names = {a.name for a in list(self.agents.values())}
         if name in existing_names:
             name = f"{name}-{agent_id}"
 
@@ -6788,7 +6788,7 @@ async def list_projects(request: web.Request) -> web.Response:
     projects = await db.get_projects()
     # Enrich with agent counts and cost
     for proj in projects:
-        agents = [a for a in manager.agents.values() if a.project_id == proj["id"]]
+        agents = [a for a in list(manager.agents.values()) if a.project_id == proj["id"]]
         proj["agent_count"] = len(agents)
         proj["active_count"] = sum(1 for a in agents if a.status in ("working", "planning", "reading"))
         proj["total_cost"] = round(sum(a.estimated_cost_usd for a in agents), 4)
