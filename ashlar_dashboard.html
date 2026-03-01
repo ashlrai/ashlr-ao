@@ -9089,13 +9089,16 @@ async function loadTaskSuggestions() {
             const label = s.success ? 'OK' : 'ERR';
             const dur = s.duration_sec ? (s.duration_sec >= 3600 ? `${(s.duration_sec / 3600).toFixed(1)}h` : `${Math.round(s.duration_sec / 60)}m`) : '';
             const cost = s.cost_usd > 0 ? ` · $${s.cost_usd.toFixed(2)}` : '';
-            html += `<div class="task-suggestion" onclick="applySuggestion('${escapeHtml(s.role)}', '${escapeHtml(s.task?.replace(/'/g, "\\'") || '')}')">`;
+            html += `<div class="task-suggestion" data-sug-role="${escapeHtml(s.role)}" data-sug-task="${escapeHtml(s.task || '')}">`;
             html += `<span class="task-suggestion-role">${escapeHtml(roleName)}</span>`;
             html += `<span class="task-suggestion-task" title="${escapeHtml(s.task || '')}">${escapeHtml(shortTask)}</span>`;
             html += `<span class="task-suggestion-outcome ${outcome}">${label}${dur ? ' · ' + dur : ''}${cost}</span>`;
             html += `</div>`;
         }
         container.innerHTML = html;
+        container.querySelectorAll('[data-sug-role]').forEach(el => {
+            el.addEventListener('click', () => applySuggestion(el.dataset.sugRole, el.dataset.sugTask));
+        });
         container.style.display = 'block';
     } catch { container.style.display = 'none'; }
 }
