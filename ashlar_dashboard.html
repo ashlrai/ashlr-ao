@@ -6265,6 +6265,9 @@ const ICONS = {
     'bookmark':      '<path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>',
     'file-code':     '<path d="M10 12.5 8 15l2 2.5"/><path d="m14 12.5 2 2.5-2 2.5"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>',
     'slash':         '<path d="M22 2 2 22"/>',
+    'columns':       '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/>',
+    'activity':      '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
+    'layers':        '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
 };
 
 function icon(name, size = 16, className = '') {
@@ -7411,7 +7414,6 @@ let _fleetMilestones = { firstComplete: false, allComplete: false, firstError: f
 function checkFleetMilestones(agent, prevStatus) {
     const agents = [...state.agents.values()];
     const activeAgents = agents.filter(a => !['idle', 'paused'].includes(a.status));
-    if (activeAgents.length === 0) return;
 
     // First agent completion
     if (agent.status === 'idle' && prevStatus === 'working' && !_fleetMilestones.firstComplete) {
@@ -7420,12 +7422,12 @@ function checkFleetMilestones(agent, prevStatus) {
         playTone([880, 1100], 0.15);
     }
 
-    // All agents complete
+    // All agents complete (check all agents, not just activeAgents which excludes idle)
     if (agent.status === 'idle' || agent.status === 'error') {
-        const allDone = activeAgents.every(a => a.status === 'idle' || a.status === 'error');
+        const allDone = agents.every(a => a.status === 'idle' || a.status === 'error' || a.status === 'paused');
         if (allDone && agents.length > 1 && !_fleetMilestones.allComplete) {
             _fleetMilestones.allComplete = true;
-            const errorCount = activeAgents.filter(a => a.status === 'error').length;
+            const errorCount = agents.filter(a => a.status === 'error').length;
             if (errorCount > 0) {
                 showToast(`Fleet complete — ${errorCount} agent${errorCount > 1 ? 's' : ''} with errors`, 'warning');
             } else {
@@ -8632,7 +8634,6 @@ function updateAgentCard(card, agent) {
                 costBadge.textContent = cost >= 1 ? `$${cost.toFixed(2)}` : `$${cost.toFixed(3)}`;
             }
             costBadge.style.display = '';
-            costBadge.style.color = '';
         } else {
             costBadge.style.display = 'none';
         }
@@ -11332,14 +11333,17 @@ function renderPaletteItems(query) {
         if (lq) {
             let qi = 0, result = '';
             for (let ci = 0; ci < item.label.length; ci++) {
+                const ch = item.label[ci].replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
                 if (qi < lq.length && item.label[ci].toLowerCase() === lq[qi]) {
-                    result += `<mark>${item.label[ci]}</mark>`;
+                    result += `<mark>${ch}</mark>`;
                     qi++;
                 } else {
-                    result += item.label[ci];
+                    result += ch;
                 }
             }
             labelHtml = result;
+        } else {
+            labelHtml = item.label.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
 
         el.innerHTML = `
@@ -15878,7 +15882,8 @@ async function loadWorkflowRuns() {
     const graph = document.getElementById('pipelineGraph');
     try {
         const res = await apiFetch('/api/workflow-runs');
-        const runs = await res.json();
+        const body = await res.json();
+        const runs = Array.isArray(body) ? body : (body.data || []);
         if (!runs.length) {
             graph.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-tertiary)">No active pipeline runs</div>';
             return;
@@ -16166,6 +16171,11 @@ openDeepView = function(agentId) {
     if (agent && (agent._outputBuffer?.length || 0) > VIRTUAL_THRESHOLD) {
         if (openDeepViewVirtual(agentId)) {
             const terminal = document.getElementById('deepTerminal');
+            // Remove the normal scroll handler to prevent dual-handler firing
+            if (terminal._ashlarScrollHandler) {
+                terminal.removeEventListener('scroll', terminal._ashlarScrollHandler);
+                terminal._ashlarScrollHandler = null;
+            }
             if (terminal._ashlarVScrollHandler) terminal.removeEventListener('scroll', terminal._ashlarVScrollHandler);
             terminal._ashlarVScrollHandler = () => {
                 renderVirtualRange(terminal);
@@ -17338,7 +17348,7 @@ function setCardSort(mode) {
     showToast(`Sorting by ${mode}`, 'info');
 }
 
-// Settings: populate alert thresholds
+// Settings: populate alert thresholds + load presets
 const _origOpenSettings = openSettings;
 openSettings = function() {
     _origOpenSettings();
@@ -17349,6 +17359,7 @@ openSettings = function() {
     document.getElementById('setHungTimeout').value = cfg.hung_timeout_minutes ?? 10;
     document.getElementById('setCostBudget').value = cfg.cost_budget_usd ?? 0;
     document.getElementById('setCostAutoPause').classList.toggle('active', !!cfg.cost_budget_auto_pause);
+    if (typeof loadSettingsPresets === 'function') loadSettingsPresets();
 };
 
 // Settings: include alert thresholds in save
@@ -18131,7 +18142,7 @@ function markDiffLines() {
 // ═══════════════════════════════════════════════════════════════════
 // ── Quick-Spawn Templates in Command Palette ──
 // ═══════════════════════════════════════════════════════════════════
-const SPAWN_TEMPLATES = [
+const QUICK_SPAWN_TEMPLATES = [
     { label: 'Backend API Agent', role: 'backend', namePrefix: 'api-', task: 'Build and implement the REST API endpoints' },
     { label: 'Test Suite Agent', role: 'tester', namePrefix: 'tests-', task: 'Write comprehensive tests for the codebase' },
     { label: 'Security Audit Agent', role: 'security', namePrefix: 'audit-', task: 'Perform a security audit and report vulnerabilities' },
@@ -18149,7 +18160,7 @@ if (_origOpenCommandPalette) {
         buildPaletteItems = function() {
             const items = _realBuildPaletteItems();
             // Add template section
-            const templateItems = SPAWN_TEMPLATES.map(t => ({
+            const templateItems = QUICK_SPAWN_TEMPLATES.map(t => ({
                 label: `Quick: ${t.label}`,
                 detail: `Spawn ${t.role} agent with pre-configured task`,
                 action: () => {
@@ -18816,14 +18827,7 @@ async function spawnFromPreset(id) {
     } catch { showToast('Failed to load preset', 'error'); }
 }
 
-// Load presets when settings opens
-const _origOpenSettings = typeof openSettings === 'function' ? openSettings : null;
-if (_origOpenSettings) {
-    openSettings = function() {
-        _origOpenSettings();
-        loadSettingsPresets();
-    };
-}
+// (Preset loading merged into _origOpenSettings patch above)
 
 const EMPTY_STATE_HTML = document.getElementById('emptyState').innerHTML;
 socket.connect();

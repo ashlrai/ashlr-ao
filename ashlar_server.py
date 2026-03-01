@@ -6137,9 +6137,10 @@ async def collaboration_graph(request: web.Request) -> web.Response:
                     edge_set.add(key)
                     edges.append({"from": ids[i], "to": ids[j], "type": "shared_file", "weight": 1, "file": path.split("/")[-1]})
                 else:
-                    # Increment weight for existing edge
+                    # Increment weight for existing shared-file edge between this pair
+                    pair_key = (min(ids[i], ids[j]), max(ids[i], ids[j]))
                     for e in edges:
-                        if e["from"] == key[0] and e["to"] == key[1] and e["type"] == "shared_file":
+                        if e["from"] == pair_key[0] and e["to"] == pair_key[1] and e["type"] == "shared_file":
                             e["weight"] += 1
                             break
 
@@ -9286,6 +9287,10 @@ async def health_check_loop(app: web.Application) -> None:
                             f"Fleet cost ${fleet_cost:.2f} exceeds budget ${config.cost_budget_usd:.2f}. {len(working)} agents auto-paused.",
                             None, None,
                         )
+                else:
+                    # Cost below budget — clear flag so it can trigger again
+                    if app.get('_fleet_budget_warned', False):
+                        app['_fleet_budget_warned'] = False
         except Exception as e:
             log.error(f"Fleet budget check error: {e}")
 
@@ -9444,12 +9449,12 @@ async def memory_watchdog_loop(app: web.Application) -> None:
             try:
                 db: Database = app["db"]
                 if app.get("db_available", True) and db._db:
-                    cutoff = datetime.now(timezone.utc).replace(microsecond=0)
-                    cutoff_str = cutoff.isoformat().replace("+00:00", "Z")
-                    # Delete archive rows older than 24h for agents no longer running
+                    retention_hours = getattr(config, 'archive_retention_hours', 24) or 24
+                    # Delete archive rows older than retention window for agents no longer running
                     active_ids = set(manager.agents.keys())
                     async with db._db.execute(
-                        "SELECT DISTINCT agent_id FROM agent_output_archive WHERE created_at < datetime('now', '-24 hours')"
+                        "SELECT DISTINCT agent_id FROM agent_output_archive WHERE created_at < datetime('now', ?)",
+                        (f"-{retention_hours} hours",),
                     ) as cursor:
                         old_agents = [row[0] async for row in cursor]
                     for aid in old_agents:
