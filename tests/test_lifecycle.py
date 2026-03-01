@@ -1121,8 +1121,9 @@ class TestOutputIntelligenceParser:
         agent, parser = self._make_agent(['Read("/a.py")', 'Read("/b.py")'])
         parser.parse_incremental(agent)
         assert len(agent._tool_invocations) == 2
-        # Add more lines
+        # Add more lines — must also update _total_lines_added
         agent.output_lines.append('Edit("/c.py")')
+        agent._total_lines_added = 3
         counts = parser.parse_incremental(agent)
         assert counts["tools"] == 1
         assert len(agent._tool_invocations) == 3
@@ -1174,6 +1175,77 @@ class TestOutputIntelligenceParser:
         counts = parser.parse_incremental(agent)
         assert counts["tests"] == 1
         assert agent._test_results[0].coverage_pct == 87.5
+
+    def test_deque_eviction_still_parses(self):
+        """Regression: parser must continue parsing after deque fills and evicts old lines.
+
+        Before the fix, _last_parse_index reached maxlen and stayed there forever,
+        causing parse_incremental to return early with zero counts on every call.
+        """
+        import collections
+        maxlen = 10  # Small maxlen for test
+        agent = MagicMock()
+        agent.id = "evict1"
+        agent.output_lines = collections.deque(maxlen=maxlen)
+        agent._last_parse_index = 0
+        agent._total_lines_added = 0
+        agent._tool_invocations = collections.deque(maxlen=500)
+        agent._file_operations = collections.deque(maxlen=500)
+        agent._git_operations = collections.deque(maxlen=200)
+        agent._test_results = collections.deque(maxlen=50)
+
+        parser = OutputIntelligenceParser()
+
+        # Fill the deque to capacity
+        for i in range(maxlen):
+            agent.output_lines.append(f"line {i}")
+        agent._total_lines_added = maxlen
+
+        # Parse all initial lines
+        parser.parse_incremental(agent)
+        assert agent._last_parse_index == maxlen
+
+        # Add more lines causing eviction (deque maxlen = 10, adding 5 more)
+        for i in range(5):
+            agent.output_lines.append(f'Read("/file{i}.py")')
+        agent._total_lines_added = maxlen + 5
+
+        # This should parse the 5 new lines (not return early)
+        counts = parser.parse_incremental(agent)
+        assert counts["tools"] == 5
+        assert len(agent._tool_invocations) == 5
+
+    def test_deque_eviction_no_duplicates(self):
+        """After eviction, previously-parsed lines should not be re-parsed."""
+        import collections
+        maxlen = 5
+        agent = MagicMock()
+        agent.id = "evict2"
+        agent.output_lines = collections.deque(maxlen=maxlen)
+        agent._last_parse_index = 0
+        agent._total_lines_added = 0
+        agent._tool_invocations = collections.deque(maxlen=500)
+        agent._file_operations = collections.deque(maxlen=500)
+        agent._git_operations = collections.deque(maxlen=200)
+        agent._test_results = collections.deque(maxlen=50)
+
+        parser = OutputIntelligenceParser()
+
+        # Add 3 Read tool lines
+        for i in range(3):
+            agent.output_lines.append(f'Read("/a{i}.py")')
+        agent._total_lines_added = 3
+        parser.parse_incremental(agent)
+        assert len(agent._tool_invocations) == 3
+
+        # Add 4 more, causing 2 evictions (deque now has items [1,2,3,4,5] but [0,1] evicted)
+        for i in range(4):
+            agent.output_lines.append(f'Edit("/b{i}.py")')
+        agent._total_lines_added = 7
+        counts = parser.parse_incremental(agent)
+        # Should only parse the 4 NEW lines, not re-parse surviving old ones
+        assert counts["tools"] == 4
+        assert len(agent._tool_invocations) == 7
 
 
 # ─────────────────────────────────────────────
