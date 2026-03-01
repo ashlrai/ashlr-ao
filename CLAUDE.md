@@ -2,97 +2,117 @@
 
 ## What This Is
 
-Ashlar is a **local-first agent orchestration platform**. It lets one developer manage many AI coding agents (Claude Code, Codex, etc.) across multiple projects from a single command center.
+Ashlar is a **local-first agent orchestration platform**. One developer, many AI coding agents (Claude Code, Codex, etc.), multiple repos, single command center.
 
-It is NOT a dashboard. It is NOT a terminal multiplexer. It is an **AI-native control surface** for the agentic engineering era — where every agent is visible at a glance, voice is a first-class input, and the management layer itself is intelligent.
+**Current state**: Fully functional. Server (~10K lines) + dashboard (~9500 lines) + 987 tests. All 5 development phases + multi-user auth + deployment infra complete. Ready for multi-user deployment.
 
 ## Architecture
 
 **Two files. That's the entire application.**
 
-- `ashlar_server.py` — Python aiohttp server (~1500-2000 lines). Manages agents via tmux, serves the dashboard, provides REST + WebSocket APIs, collects system metrics, handles configuration.
-- `ashlar_dashboard.html` — Single HTML file (~2000-2500 lines). Served by the Python server at `/`. Contains all CSS + JS inline. No build step, no bundler, no node_modules.
-
-Why monolithic? Because YOU (Claude Code) can read the entire system in one shot, understand it fully, and make confident changes. No import chains to trace. Change → restart server (1 second) → refresh browser → see result. We split into multiple files later when complexity demands it.
+- `ashlar_server.py` — Python aiohttp server. Manages agents via tmux, serves dashboard, REST + WebSocket APIs, SQLite persistence, system metrics, LLM intelligence.
+- `ashlar_dashboard.html` — Single HTML file served at `/`. All CSS + JS inline. No build step.
 
 ### Supporting files
 
-- `requirements.txt` — 4 Python packages (aiohttp, aiohttp-cors, psutil, pyyaml)
-- `ashlar.yaml` — User configuration (auto-created on first run at ~/.ashlar/ashlar.yaml)
-- `start.sh` — Launch script (installs deps, checks tmux, starts server)
+- `requirements.txt` — 6 packages: aiohttp, aiohttp-cors, psutil, pyyaml, aiosqlite, bcrypt
+- `start.sh` — Launch script (creates venv, installs deps, checks tmux/backends, starts server)
+- `~/.ashlar/ashlar.yaml` — User config (auto-created on first run)
+- `~/.ashlar/ashlar.db` — SQLite database (agent history, projects, workflows)
+
+## Quick Start
+
+```bash
+# Prerequisites: Python 3.11+, tmux, claude CLI
+./start.sh
+
+# Optional: enable LLM-powered summaries + NLU command parsing
+export XAI_API_KEY="your-key"
+./start.sh
+```
+
+Dashboard opens at `http://127.0.0.1:5111`. Override port with `ASHLAR_PORT=8080`.
 
 ## Tech Stack
 
-| Choice | Why |
-|--------|-----|
-| **Python 3.11+** | Best for process management (subprocess, psutil, tmux). Zero build step. Runs on Mac and Linux. |
-| **aiohttp** | Async HTTP + WebSocket in one library. No framework overhead. |
-| **Single HTML file** | No build step. Fastest iteration with Claude Code. |
-| **Vanilla JS (ES2022+)** | No React, no framework. Zero dependencies = zero breakage. |
-| **SQLite** | Zero-config persistence. Single file. Perfect for local-first. |
-| **tmux** | Proven terminal multiplexer. Process isolation, output capture, session persistence. |
-| **Web Speech API** | Browser-native push-to-talk. Zero dependencies. |
-| **WebSocket** | Real-time bidirectional. Native browser support. |
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Server | Python 3.11+ / aiohttp | Async HTTP + WebSocket. Process management via psutil. |
+| Frontend | Vanilla JS (ES2022+) | Zero dependencies. No build step. |
+| Persistence | SQLite via aiosqlite | Zero-config. Single file. Agent history, projects, workflows. |
+| Process mgmt | tmux | Session isolation, output capture, proven reliability. |
+| Intelligence | xAI Grok (optional) | OpenAI-compatible API. Summaries, NLU parsing, fleet analysis. |
+| Voice | Web Speech API | Browser-native push-to-talk. Zero dependencies. |
+| Fonts | Instrument Sans + JetBrains Mono | Display + monospace. |
 
 ## How Agents Work
 
-Each "agent" is a tmux session running a CLI tool (claude, codex, etc.):
+Each agent is a tmux session running a CLI tool:
 
-1. **Spawn**: `tmux new-session -d -s ashlar-{id} -x 200 -y 50` then send the claude command
-2. **Capture output**: `tmux capture-pane -t ashlar-{id} -p -S -100` every ~1 second
-3. **Send commands**: `tmux send-keys -t ashlar-{id} '{message}' Enter`
-4. **Kill**: Send `/exit` first, wait 3s, then `tmux kill-session -t ashlar-{id}`
-5. **Status detection**: Parse terminal output for patterns (planning, working, waiting for input, error, complete)
+1. **Spawn**: `tmux new-session -d -s ashlar-{id} -x 200 -y 50 -c {working_dir}` → sends CLI command
+2. **Capture**: `tmux capture-pane` every 1s → parse status, detect questions, extract summary
+3. **Interact**: `tmux send-keys` → sends user responses to agent's stdin
+4. **Kill**: `/exit` → wait 3s → `tmux kill-session`
+5. **Status**: Regex pattern matching on terminal output (planning/working/waiting/error/idle)
 
-## Data Models
+### Claude Code specifics
+- Default args: `--dangerously-skip-permissions`
+- Plan mode: replaces with `--permission-mode plan`
+- Task passed as positional argument after TUI ready detection
+- Model selection via `--model` flag
+- Tool restriction via `--allowedTools` flag
 
-### Agent
-```python
-@dataclass
-class Agent:
-    id: str                    # Short hex like "a7f3"
-    name: str                  # User-friendly, e.g., "auth-api"
-    role: str                  # Role key, e.g., "backend"
-    status: str                # spawning|planning|working|waiting|idle|error|paused
-    project_id: str | None     # Which project this agent belongs to
-    working_dir: str           # Absolute path to working directory
-    backend: str               # "claude-code" | "codex" | "custom"
-    task: str                  # Current task description
-    summary: str               # 1-2 line live summary of what agent is doing
-    context_pct: float         # Context window usage 0.0-1.0
-    memory_mb: float           # RSS memory usage
-    needs_input: bool          # True if waiting for user response
-    input_prompt: str | None   # What the agent is asking
-    output_lines: list[str]    # Ring buffer of last N terminal output lines
-    tmux_session: str          # tmux session name
-    pid: int | None            # OS process ID
-    created_at: datetime
-    updated_at: datetime
+## REST API
+
+```
+# Agents
+GET    /api/agents              List all agents
+POST   /api/agents              Spawn agent (role, task, working_dir, backend, plan_mode, project_id, model, tools)
+GET    /api/agents/{id}         Agent details + output
+DELETE /api/agents/{id}         Kill agent
+POST   /api/agents/{id}/send    Send message to agent (max 50K chars)
+POST   /api/agents/{id}/pause   Pause (SIGTSTP)
+POST   /api/agents/{id}/resume  Resume (SIGCONT)
+POST   /api/agents/{id}/restart Restart with same config
+POST   /api/agents/bulk         Bulk action (pause/resume/kill/restart) on multiple agents
+
+# Projects
+GET    /api/projects            List projects
+POST   /api/projects            Add project (name, path — must be real directory under ~/ or /tmp)
+DELETE /api/projects/{id}       Delete project
+
+# Workflows
+GET    /api/workflows           List workflows
+POST   /api/workflows           Create workflow (name, agent specs with depends_on DAG)
+PUT    /api/workflows/{id}      Update workflow (validates circular deps)
+POST   /api/workflows/{id}/run  Execute workflow
+DELETE /api/workflows/{id}      Delete workflow
+
+# Intelligence (requires XAI_API_KEY)
+POST   /api/intelligence/command    NLU command parsing (natural language → intent)
+GET    /api/intelligence/insights   Fleet analysis insights
+
+# Auth (session-based, cookie auth)
+GET    /api/auth/status         Check if auth required + current user
+POST   /api/auth/register       Register (first user = admin + creates org)
+POST   /api/auth/login          Login (email/password) → sets session cookie
+POST   /api/auth/logout         Logout (clears session)
+GET    /api/auth/me             Current user info
+POST   /api/auth/invite         Admin-only: invite user with temp password
+GET    /api/auth/team           List org members
+
+# System
+GET    /api/system              System metrics (CPU, RAM, agents)
+GET    /api/health              Health check
+GET    /api/config              Current config
+PUT    /api/config              Update config (validates, saves to YAML + runtime)
+GET    /api/roles               Available roles
+GET    /api/backends            Available backends with capabilities
+GET    /api/costs               Cost estimates (active + historical)
+POST   /api/agents/{id}/summarize   Trigger LLM summary
 ```
 
-### Agent Status Colors (for card UI)
-- **SPAWNING**: Skeleton loading animation
-- **PLANNING**: Yellow/amber left border, thinking indicator
-- **WORKING**: Role color left border, subtle pulse animation
-- **WAITING**: Orange left border, attention pulse (agent needs user input)
-- **IDLE**: Gray left border, dimmed
-- **ERROR**: Red left border, error icon
-- **PAUSED**: Entire card dimmed, pause overlay
-
-### Roles (built-in)
-| Key | Icon | Color | Name |
-|-----|------|-------|------|
-| `frontend` | 🎨 | `#8B5CF6` | Frontend Engineer |
-| `backend` | ⚙ | `#3B82F6` | Backend Engineer |
-| `devops` | 🚀 | `#F97316` | DevOps Engineer |
-| `tester` | 🧪 | `#22C55E` | QA / Tester |
-| `reviewer` | 👁 | `#EAB308` | Code Reviewer |
-| `security` | 🔒 | `#EF4444` | Security Auditor |
-| `architect` | 🏗 | `#06B6D4` | Architect |
-| `docs` | 📝 | `#A855F7` | Documentation |
-| `general` | 🤖 | `#64748B` | General Purpose |
-
-## WebSocket Protocol
+## WebSocket Protocol (`/ws`)
 
 ### Server → Client
 ```json
@@ -101,6 +121,8 @@ class Agent:
 {"type": "metrics", "cpu_pct": 34.2, "memory": {...}, "agents_active": 5}
 {"type": "event", "event": "agent_needs_input", "agent_id": "a7f3", "message": "..."}
 {"type": "sync", "agents": [...], "projects": [...], "config": {...}}
+{"type": "intelligence_alert", "insight": {...}}
+{"type": "file_conflict", "conflict": {...}}
 ```
 
 ### Client → Server
@@ -110,146 +132,109 @@ class Agent:
 {"type": "kill", "agent_id": "a7f3"}
 {"type": "pause", "agent_id": "a7f3"}
 {"type": "resume", "agent_id": "a7f3"}
-{"type": "sync_request"}
 ```
 
-## REST API
-```
-GET    /api/agents              List all agents
-POST   /api/agents              Spawn new agent
-GET    /api/agents/{id}         Agent details + output
-DELETE /api/agents/{id}         Kill agent
-POST   /api/agents/{id}/send    Send message to agent
-POST   /api/agents/{id}/pause   Pause agent
-POST   /api/agents/{id}/resume  Resume agent
-GET    /api/system              System metrics
-GET    /api/roles               Available roles
-GET    /api/projects            List projects
-POST   /api/projects            Add project
-GET    /api/config              Get config
-PUT    /api/config              Update config
-```
+## Dashboard Features
 
-## UI Design
+### Agent Card Grid
+- Cards show: role icon, name, project, live summary, context bar, status badge
+- Status-based styling: working (role color pulse), waiting (orange attention), error (red), planning (yellow)
+- Click card → deep view. Click waiting card → inline interaction sheet.
+- Filter by: project dropdown, status chips, text search
+- Dynamic grid layout adapts to agent count
 
-### Main View: Agent Card Grid
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  ▣ ASHLAR   Projects ▾   [+ Agent]         CPU 34%  RAM 62%    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
-│  │ 🎨 auth  │ │ ⚙ api    │ │ 🔒 audit │ │ 🧪 tests │           │
-│  │ WORKING  │ │ WAITING  │ │ COMPLETE │ │ PLANNING │           │
-│  │ Writing  │ │ Approve? │ │ 3 issues │ │ Analyzi  │           │
-│  │ ████░░░░ │ │ ██░░░░░░ │ │ ████████ │ │ █░░░░░░░ │           │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘           │
-│                                                                  │
-├─────────────────────────────────────────────────────────────────┤
-│  🎤 PTT Ready  │  > Type a command or message...         [Send] │
-└─────────────────────────────────────────────────────────────────┘
-```
+### Spawn Dialog
+- 9 built-in roles with icons
+- Project selector, working dir with autocomplete, backend selector
+- Plan mode toggle, model selector, tools restriction
+- Quick templates (Code Review, Tests, Bug Fix, Feature, Security, Refactor)
+- Fleet presets (Full Stack, Review Team, Quality Check) — spawn 2-3 agents at once
+- Recent tasks carousel from localStorage
 
-### Each Agent Card Shows:
-- Role icon + agent name + overflow menu
-- Project name (dimmed)
-- 1-2 line live summary of what agent is doing
-- Context window usage bar (percentage)
-- Status badge + time since last update
+### Interaction (Agent Needs Input)
+- Attention queue: Cmd+Shift+A — lists all waiting/errored agents
+- Approve/Reject/Custom response buttons
+- Plan mode: "Approve Plan" / "Revise" / "View Plan"
+- Keyboard: A/Y = approve, R/N = reject
 
-### Inline Interaction (Critical Feature)
-When an agent's status is WAITING:
-1. Card shows truncated version of what agent is asking
-2. Click card → expands inline or opens slide-out panel
-3. See agent's question/plan in full
-4. Action buttons: Approve, Reject, Edit, or type custom response
-5. Response sent to agent's tmux session
-6. Card collapses, agent resumes
+### Deep View
+- Full terminal output with ANSI colors, auto-scroll, search (Cmd+F)
+- Activity tab: parsed events (file reads/edits, bash commands, test results, errors, git ops)
+- Scratchpad tab: per-agent notes (persisted to SQLite)
+- Line numbers, timestamps, code block folding
 
-### Deep View (Click Into Agent)
-Full terminal output with ANSI color rendering, auto-scroll, message input at bottom. Back button returns to grid.
+### Bulk Operations
+- Cmd+Shift+S toggles select mode, Cmd+A selects all visible
+- Bulk pause/resume/restart/kill with confirmation
+- Batch send with variable templates ({name}, {role}, {task})
 
-### Command Palette
-`Cmd+K` or `/` opens a quick-action palette for spawning, killing, pausing agents.
+### Command Bar
+- `@agent-name` mention autocomplete
+- `/command` autocomplete (spawn, kill, pause, resume, status, help)
+- Natural language routing via LLM (if XAI_API_KEY set)
+- Smart single-agent auto-targeting
 
 ### Keyboard Shortcuts
 | Key | Action |
 |-----|--------|
-| `Cmd+K` or `/` | Command palette |
-| `Cmd+N` | New agent |
-| `1-9` | Focus agent by position |
-| `Escape` | Back to grid |
-| `Space` (hold) | Push-to-talk |
-| `Cmd+Enter` | Send to focused agent |
-| `Cmd+Shift+A` | Approve waiting agent |
+| Cmd+K | Command palette |
+| Cmd+N | New agent |
+| Cmd+, | Settings |
+| Cmd+Shift+S | Toggle bulk select |
+| Cmd+Shift+A | Attention queue (waiting agents) |
+| 1-9 | Focus agent / select role |
+| Escape | Close overlay / back to grid |
+| Space (hold) | Push-to-talk |
 
-## Voice System
-- **Push-to-talk**: Hold Space, speak, release
-- **Web Speech API**: Browser-native, zero dependencies
-- **Intent parsing**: Regex + keyword matching for MVP
-  - "spawn a backend agent on payment-service" → spawn action
-  - "approve agent 2" → approve action
-  - "what's agent 3 doing" → status query
-- **Audio feedback**: Web Audio API tones (PTT click, confirmation, error)
+### Additional
+- Dynamic favicon (color shifts by fleet status)
+- Ambient background gradient (fleet health indicator)
+- Audio feedback (Web Audio API tones)
+- Settings panel: max agents, backends, thresholds, cost budgets, alert patterns
+- Import/export config and fleet state
 
-## Agent Output Status Detection
-Parse terminal output to determine agent status:
-```python
-STATUS_PATTERNS = {
-    "planning": [r"(?i)plan:", r"(?i)let me (think|analyze|plan)"],
-    "working": [r"(?i)(writing|creating|reading|editing) .+\.\w+", r"█+░*"],
-    "waiting": [r"(?i)(do you want|shall I|should I)", r"> $"],
-    "error": [r"(?i)(error|exception|traceback|failed)"],
-    "complete": [r"(?i)(done|complete|finished|successfully)"],
-}
-```
+## Intelligence Layer (Optional — requires XAI_API_KEY)
 
-## Development Phases
+Single `IntelligenceClient` class using xAI Grok via OpenAI-compatible API:
+- **Summaries**: 1-line agent status summaries from terminal output
+- **NLU**: Natural language command parsing ("spawn 3 agents on auth-service")
+- **Fleet analysis**: Meta-agent detects conflicts, stuck agents, handoff opportunities (runs every 30s)
+- Circuit breaker: 5 failures → 60s cooldown
+- Falls back to regex parsing when LLM unavailable
 
-### Phase 1: Foundation (START HERE)
-Get a working server + dashboard that can spawn agents and show live cards.
-- ashlar_server.py with agent management via tmux
-- ashlar_dashboard.html with card grid + WebSocket updates
-- REST API for spawn, kill, list
-- Terminal output capture + display
-- System metrics bar
+## Agent Status Detection
 
-### Phase 2: Interaction
-Inline interaction, status detection, context tracking, notifications.
+Terminal output is pattern-matched every capture cycle:
+- **planning**: plan mode indicators, thinking patterns
+- **working**: file operations, tool usage, progress bars
+- **waiting**: questions, approval prompts, input requests
+- **error**: exceptions, tracebacks, failures
+- **idle/complete**: done indicators, no recent output
 
-### Phase 3: Voice + Commands
-Push-to-talk, command palette, keyboard shortcuts, audio feedback.
+Enhanced for Claude Code: `╭─`, `╰─`, `Press Enter to retry`, `Type your response`, `Thinking...`
 
-### Phase 4: Projects + Persistence
-Project registry, SQLite, agent history, workflow templates, settings.
+## Built-in Roles
 
-### Phase 5: Intelligence
-LLM-powered summaries, smart notifications, agent coordination, multi-backend support.
+| Key | Color | Name |
+|-----|-------|------|
+| `frontend` | `#8B5CF6` | Frontend Engineer |
+| `backend` | `#3B82F6` | Backend Engineer |
+| `devops` | `#F97316` | DevOps Engineer |
+| `tester` | `#22C55E` | QA / Tester |
+| `reviewer` | `#EAB308` | Code Reviewer |
+| `security` | `#EF4444` | Security Auditor |
+| `architect` | `#06B6D4` | Architect |
+| `docs` | `#A855F7` | Documentation |
+| `general` | `#64748B` | General Purpose |
 
-## Coding Standards
-- Python 3.11+ with full type hints
-- Dataclasses for all data models
-- async/await throughout (no blocking calls on the event loop)
-- Graceful shutdown: clean up all tmux sessions on SIGINT/SIGTERM
-- Colored logging (console) + structured logging (file)
-- Works on macOS AND Linux
-- Auto-creates ~/.ashlar/ config directory on first run
-- NEVER crash — wrap everything in try/except with meaningful error handling
+All roles use Lucide SVG icons (53 icons in ICONS object). No emoji in production UI.
 
-## Key Implementation Notes
-- Use `shutil.which('tmux')` to verify tmux is installed at startup
-- Use `shutil.which('claude')` to verify claude CLI, with helpful error message if not found
-- Agent IDs are 4 hex chars: `uuid.uuid4().hex[:4]`
-- Support a "demo mode" that spawns bash sessions with simulated behavior (for development/testing without Claude CLI)
-- The dashboard HTML is served from disk by the Python server at `/`. It is NOT embedded as a string — it's loaded from `ashlar_dashboard.html` in the same directory.
-- All real-time updates go through WebSocket. REST is for one-off requests.
-- tmux is non-negotiable for MVP. Don't reinvent process management.
+## Config (`~/.ashlar/ashlar.yaml`)
 
-## Config (ashlar.yaml, auto-created at ~/.ashlar/ashlar.yaml)
 ```yaml
 server:
   host: "127.0.0.1"
-  port: 5000
+  port: 5111
   log_level: "INFO"
 agents:
   max_concurrent: 16
@@ -257,6 +242,7 @@ agents:
   default_working_dir: "~/Projects"
   output_capture_interval_sec: 1.0
   memory_limit_mb: 2048
+  default_backend: "claude-code"
   backends:
     claude-code:
       command: "claude"
@@ -264,16 +250,82 @@ agents:
     codex:
       command: "codex"
       args: []
-  default_backend: "claude-code"
+llm:
+  enabled: false
+  provider: "xai"
+  model: "grok-4-1-fast-reasoning"
+  api_key_env: "XAI_API_KEY"
+  base_url: "https://api.x.ai/v1"
+  summary_interval_sec: 10.0
+  meta_interval_sec: 30.0
 voice:
   enabled: true
   ptt_key: "Space"
-  feedback_sounds: true
 display:
   theme: "dark"
   cards_per_row: 4
 ```
 
-## What Success Looks Like
+## Environment Variables
 
-You open Ashlar. Agent cards load. You hold Space: "Start three agents on payment-service — API, tests, and security audit. Plan mode." Three cards appear, turn yellow. You check email for 10 minutes. Come back — two cards are orange (plans ready), one is red (found a bug). You click, approve, fix, and manage 4 agents without ever opening a terminal. Flow state preserved.
+| Var | Required | Purpose |
+|-----|----------|---------|
+| `XAI_API_KEY` | No | All intelligence features (summaries, NLU, fleet analysis) via xAI Grok |
+| `ASHLAR_PORT` | No | Override port (default 5111) |
+| `ASHLAR_HOST` | No | Override bind host (default 127.0.0.1, use 0.0.0.0 for Docker) |
+| `ASHLAR_ALLOWED_ORIGINS` | No | CORS allowed origin (default `*`, set to domain for production) |
+| `CLAUDECODE` | No | Force demo mode (dev/testing without real CLI) |
+
+## Background Tasks (5, supervised with auto-restart)
+
+1. **Output capture** (1s) — tmux pane capture, status detection, summary generation
+2. **Metrics** (2s) — CPU, memory, per-agent resource tracking
+3. **Health check** (5s) — stall detection, hung agent detection, memory pressure
+4. **Memory watchdog** (10s) — per-agent memory limits, system pressure response
+5. **Meta-agent** (30s, optional) — fleet analysis via LLM, conflict detection
+
+## Coding Standards
+
+- Python 3.11+ with type hints
+- Dataclasses for all models
+- async/await throughout
+- Graceful shutdown: clean all tmux sessions on SIGINT/SIGTERM
+- Startup: clean orphaned tmux sessions from prior crashes
+- NEVER crash — try/except with meaningful error handling
+- All dict iterations use `list()` snapshots (prevent RuntimeError during async)
+- Security: working_dir restricted to home/tmp, message size limits, rate limiting
+- 987 pytest tests across 8 test files
+
+## Multi-User Auth
+
+Session-based authentication with bcrypt password hashing:
+- First user to register becomes admin and creates the organization
+- Subsequent users must be invited by admin (temp password generated)
+- Session cookies with HttpOnly, SameSite=Strict, Secure (behind HTTPS)
+- Agent ownership: spawned agents tagged with owner, only owner or admin can control
+- All org members can view all agents (command center purpose)
+- Bearer token fallback for API/CLI access (backward compat)
+
+## Deployment
+
+```bash
+# Local (default)
+./start.sh
+
+# Docker + HTTPS
+ASHLAR_DOMAIN=ashlar.yourdomain.com docker compose up -d
+```
+
+Files: `Dockerfile`, `docker-compose.yml`, `Caddyfile`
+- Caddy auto-provisions Let's Encrypt HTTPS certificates
+- SQLite data persisted via Docker volume
+- Set `ASHLAR_ALLOWED_ORIGINS` to your domain for CORS in production
+
+## Known Limitations
+
+1. **File conflict detection only** — warns when two agents edit the same file, but doesn't prevent it. Watch the activity feed.
+2. **Cost tracking is estimated** — heuristic based on character count, not real API metering.
+3. **Session resume starts fresh** — `--resume` flag support exists in code but isn't wired through the UI. Agents restart with same task but lose conversation context.
+4. **No git branch tracking** — git operations are parsed from output but branch isn't stored as agent metadata.
+5. **Working dir restricted to ~/\* and /tmp** — security measure. Use symlinks if repos are elsewhere.
+6. **No project UPDATE endpoint** — must delete and recreate to change project path.

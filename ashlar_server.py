@@ -26,7 +26,7 @@ import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +34,7 @@ import aiohttp
 import aiosqlite
 from aiohttp import web
 import aiohttp_cors
+import bcrypt
 import psutil
 import yaml
 
@@ -171,7 +172,7 @@ def check_dependencies() -> bool:
 # ─────────────────────────────────────────────
 
 DEFAULT_CONFIG = {
-    "server": {"host": "127.0.0.1", "port": 5000, "log_level": "INFO", "require_auth": False, "auth_token": ""},
+    "server": {"host": "127.0.0.1", "port": 5111, "log_level": "INFO", "require_auth": False, "auth_token": ""},
     "agents": {
         "max_concurrent": 16,
         "default_role": "general",
@@ -212,7 +213,7 @@ def deep_merge(base: dict, override: dict) -> dict:
 @dataclass
 class Config:
     host: str = "127.0.0.1"
-    port: int = 5000
+    port: int = 5111
     log_level: str = "INFO"
     max_agents: int = 16
     default_role: str = "general"
@@ -450,12 +451,15 @@ def load_config(has_claude: bool = True) -> Config:
             port = int(port_raw)
         except ValueError:
             log.warning(f"Invalid ASHLAR_PORT '{port_raw}', using default")
-            port = server.get("port", 5000)
+            port = server.get("port", 5111)
     else:
-        port = server.get("port", 5000)
+        port = server.get("port", 5111)
+
+    # ASHLAR_HOST env var overrides config file (use 0.0.0.0 for Docker/deployment)
+    host = os.environ.get("ASHLAR_HOST", server.get("host", "127.0.0.1"))
 
     return Config(
-        host=server.get("host", "127.0.0.1"),
+        host=host,
         port=port,
         log_level=server.get("log_level", "INFO"),
         max_agents=max_agents_val,
@@ -984,6 +988,38 @@ class OutputSnapshot:
 
 
 @dataclass
+class Organization:
+    """A team/company that shares an Ashlar instance."""
+    id: str
+    name: str
+    slug: str
+    created_at: str = ""
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "name": self.name, "slug": self.slug, "created_at": self.created_at}
+
+
+@dataclass
+class User:
+    """An authenticated user within an organization."""
+    id: str
+    email: str
+    display_name: str
+    password_hash: str
+    role: str = "member"  # "admin" | "member"
+    org_id: str = ""
+    created_at: str = ""
+    last_login: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "email": self.email, "display_name": self.display_name,
+            "role": self.role, "org_id": self.org_id, "created_at": self.created_at,
+            "last_login": self.last_login,
+        }
+
+
+@dataclass
 class Agent:
     id: str
     name: str
@@ -1038,6 +1074,8 @@ class Agent:
     session_id: str | None = None
     system_prompt: str | None = None
     plan_mode: bool = False
+    owner_id: str | None = None
+    owner_name: str | None = None
     workflow_run_id: str | None = None
     tokens_input: int = 0
     tokens_output: int = 0
@@ -1198,6 +1236,8 @@ class Agent:
             "estimated_cost_usd": round(self.estimated_cost_usd, 4),
             "cost_burn_rate": self._cost_burn_rate(),
             "plan_mode": self.plan_mode,
+            "owner_id": self.owner_id,
+            "owner_name": self.owner_name,
             "cost_is_estimated": True,
             "context_window": KNOWN_BACKENDS[self.backend].context_window if self.backend in KNOWN_BACKENDS else 200_000,
             "tool_invocations_count": len(self._tool_invocations),
@@ -1597,9 +1637,17 @@ class AgentManager:
         ready, False on timeout.
         """
         # Only look for strong indicators that the TUI is fully initialized.
-        # "bypass permissions" appears in Claude Code's status bar after full load.
+        # Claude Code's status bar shows permission mode and help hints.
         # Avoid ❯ or > as they can appear during partial renders.
-        ready_patterns = ["bypass permissions", "Enter a prompt", "shift+tab to cycle"]
+        ready_patterns = [
+            "bypass permissions",     # --dangerously-skip-permissions mode
+            "bypassPermissions",      # --permission-mode bypassPermissions
+            "Enter a prompt",         # prompt input area
+            "shift+tab to cycle",     # help hint in status bar
+            "permission-mode",        # any --permission-mode value
+            "plan mode",              # --permission-mode plan
+            "? for shortcuts",        # help hint variant
+        ]
         start = asyncio.get_event_loop().time()
         poll_count = 0
         while (asyncio.get_event_loop().time() - start) < timeout:
@@ -4234,6 +4282,35 @@ class Database:
                 created_at TEXT NOT NULL
             );
                 CREATE INDEX IF NOT EXISTS idx_bookmarks_agent ON output_bookmarks(agent_id);
+
+            CREATE TABLE IF NOT EXISTS organizations (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                slug TEXT UNIQUE NOT NULL,
+                created_at TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                display_name TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                role TEXT DEFAULT 'member',
+                org_id TEXT REFERENCES organizations(id),
+                created_at TEXT,
+                last_login TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+            CREATE INDEX IF NOT EXISTS idx_users_org ON users(org_id);
+
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id),
+                created_at TEXT,
+                expires_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+            CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
             """)
             await self._safe_commit()
 
@@ -4252,6 +4329,8 @@ class Database:
                 "ALTER TABLE agents_history ADD COLUMN resumable INTEGER DEFAULT 0",
                 "ALTER TABLE agents_history ADD COLUMN system_prompt TEXT DEFAULT ''",
                 "ALTER TABLE agents_history ADD COLUMN plan_mode INTEGER DEFAULT 0",
+                "ALTER TABLE agents_history ADD COLUMN owner_id TEXT DEFAULT ''",
+                "ALTER TABLE projects ADD COLUMN org_id TEXT DEFAULT ''",
             ]:
                 try:
                     await self._db.execute(col_sql)
@@ -4306,6 +4385,170 @@ class Database:
                  datetime.now(timezone.utc).isoformat()),
             )
         await self._safe_commit()
+
+    # ── Auth: Organizations ──
+
+    async def create_org(self, name: str, slug: str) -> Organization:
+        if not self._db:
+            raise RuntimeError("Database not initialized")
+        org_id = uuid.uuid4().hex[:8]
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            "INSERT INTO organizations (id, name, slug, created_at) VALUES (?, ?, ?, ?)",
+            (org_id, name, slug, now),
+        )
+        await self._safe_commit()
+        return Organization(id=org_id, name=name, slug=slug, created_at=now)
+
+    async def get_org(self, org_id: str) -> Organization | None:
+        if not self._db:
+            return None
+        try:
+            async with self._db.execute("SELECT * FROM organizations WHERE id = ?", (org_id,)) as cur:
+                row = await cur.fetchone()
+                if row:
+                    return Organization(id=row["id"], name=row["name"], slug=row["slug"], created_at=row["created_at"])
+        except Exception as e:
+            log.warning(f"Failed to get org {org_id}: {e}")
+        return None
+
+    # ── Auth: Users ──
+
+    async def create_user(self, email: str, display_name: str, password_hash: str, role: str = "member", org_id: str = "") -> User:
+        if not self._db:
+            raise RuntimeError("Database not initialized")
+        user_id = uuid.uuid4().hex[:8]
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            "INSERT INTO users (id, email, display_name, password_hash, role, org_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, email.lower().strip(), display_name.strip(), password_hash, role, org_id, now),
+        )
+        await self._safe_commit()
+        return User(id=user_id, email=email.lower().strip(), display_name=display_name.strip(),
+                    password_hash=password_hash, role=role, org_id=org_id, created_at=now)
+
+    async def get_user_by_email(self, email: str) -> User | None:
+        if not self._db:
+            return None
+        try:
+            async with self._db.execute("SELECT * FROM users WHERE email = ?", (email.lower().strip(),)) as cur:
+                row = await cur.fetchone()
+                if row:
+                    return User(id=row["id"], email=row["email"], display_name=row["display_name"],
+                                password_hash=row["password_hash"], role=row["role"], org_id=row["org_id"],
+                                created_at=row["created_at"], last_login=row["last_login"] or "")
+        except Exception as e:
+            log.warning(f"Failed to get user by email: {e}")
+        return None
+
+    async def get_user_by_id(self, user_id: str) -> User | None:
+        if not self._db:
+            return None
+        try:
+            async with self._db.execute("SELECT * FROM users WHERE id = ?", (user_id,)) as cur:
+                row = await cur.fetchone()
+                if row:
+                    return User(id=row["id"], email=row["email"], display_name=row["display_name"],
+                                password_hash=row["password_hash"], role=row["role"], org_id=row["org_id"],
+                                created_at=row["created_at"], last_login=row["last_login"] or "")
+        except Exception as e:
+            log.warning(f"Failed to get user by id: {e}")
+        return None
+
+    async def update_user_login(self, user_id: str) -> None:
+        if not self._db:
+            return
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            await self._db.execute("UPDATE users SET last_login = ? WHERE id = ?", (now, user_id))
+            await self._safe_commit()
+        except Exception as e:
+            log.warning(f"Failed to update user login: {e}")
+
+    async def get_org_users(self, org_id: str) -> list[User]:
+        if not self._db:
+            return []
+        try:
+            async with self._db.execute("SELECT * FROM users WHERE org_id = ? ORDER BY created_at", (org_id,)) as cur:
+                rows = await cur.fetchall()
+                return [User(id=r["id"], email=r["email"], display_name=r["display_name"],
+                             password_hash=r["password_hash"], role=r["role"], org_id=r["org_id"],
+                             created_at=r["created_at"], last_login=r["last_login"] or "") for r in rows]
+        except Exception as e:
+            log.warning(f"Failed to get org users: {e}")
+            return []
+
+    async def user_count(self) -> int:
+        if not self._db:
+            return 0
+        try:
+            async with self._db.execute("SELECT COUNT(*) FROM users") as cur:
+                row = await cur.fetchone()
+                return row[0] if row else 0
+        except Exception as e:
+            log.warning(f"Failed to count users: {e}")
+            return 0
+
+    # ── Auth: Sessions ──
+
+    async def create_session(self, user_id: str) -> str:
+        if not self._db:
+            raise RuntimeError("Database not initialized")
+        session_id = uuid.uuid4().hex + uuid.uuid4().hex[:32]  # 64-char hex
+        now = datetime.now(timezone.utc)
+        expires = now + timedelta(hours=24)
+        await self._db.execute(
+            "INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+            (session_id, user_id, now.isoformat(), expires.isoformat()),
+        )
+        await self._safe_commit()
+        return session_id
+
+    async def get_session(self, session_id: str) -> dict | None:
+        if not self._db:
+            return None
+        try:
+            async with self._db.execute(
+                "SELECT user_id, expires_at FROM sessions WHERE id = ?", (session_id,)
+            ) as cur:
+                row = await cur.fetchone()
+                if not row:
+                    return None
+                expires = datetime.fromisoformat(row["expires_at"])
+                if expires < datetime.now(timezone.utc):
+                    # Expired — clean up
+                    await self._db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+                    await self._safe_commit()
+                    return None
+                return {"user_id": row["user_id"], "expires_at": row["expires_at"]}
+        except Exception as e:
+            log.warning(f"Failed to validate session: {e}")
+            return None
+
+    async def delete_session(self, session_id: str) -> None:
+        if not self._db:
+            return
+        try:
+            await self._db.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+            await self._safe_commit()
+        except Exception as e:
+            log.warning(f"Failed to delete session: {e}")
+
+    async def delete_expired_sessions(self) -> int:
+        if not self._db:
+            return 0
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            async with self._db.execute("SELECT COUNT(*) FROM sessions WHERE expires_at < ?", (now,)) as cur:
+                row = await cur.fetchone()
+                count = row[0] if row else 0
+            if count > 0:
+                await self._db.execute("DELETE FROM sessions WHERE expires_at < ?", (now,))
+                await self._safe_commit()
+            return count
+        except Exception as e:
+            log.warning(f"Failed to clean expired sessions: {e}")
+            return 0
 
     async def close(self) -> None:
         if self._db:
@@ -5216,6 +5459,7 @@ class WebSocketHub:
         self.db = db
         self.max_clients: int = 100
         self._last_sync_time: dict[web.WebSocketResponse, float] = {}
+        self.client_meta: dict[web.WebSocketResponse, dict] = {}  # {ws: {user_id, org_id}}
 
     async def handle_ws(self, request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse(heartbeat=30.0, max_msg_size=1 * 1024 * 1024)
@@ -5228,6 +5472,10 @@ class WebSocketHub:
             return ws
 
         self.clients.add(ws)
+        # Store user metadata for org-filtered broadcasting
+        user = request.get("user")
+        if user:
+            self.client_meta[ws] = {"user_id": user.id, "org_id": user.org_id}
         log.info(f"WebSocket client connected ({len(self.clients)} total)")
 
         try:
@@ -5280,6 +5528,7 @@ class WebSocketHub:
         finally:
             self.clients.discard(ws)
             self._last_sync_time.pop(ws, None)
+            self.client_meta.pop(ws, None)
             # Clean up any per-client rate limiter state
             rl: RateLimiter | None = request.app.get("rate_limiter")
             if rl:
@@ -5458,6 +5707,8 @@ class WebSocketHub:
 
         await asyncio.gather(*[_send(ws) for ws in clients_snapshot], return_exceptions=True)
         self.clients -= dead
+        for d in dead:
+            self.client_meta.pop(d, None)
 
     async def broadcast_event(
         self,
@@ -5485,37 +5736,302 @@ class WebSocketHub:
 # ── Auth Middleware ──
 
 @web.middleware
+def _check_agent_ownership(request: web.Request, agent) -> web.Response | None:
+    """Check if current user can control this agent. Returns error response or None if allowed."""
+    user = request.get("user")
+    if not user:
+        return None  # No auth — allow (require_auth is false)
+    # Admin can control any agent
+    if user.role == "admin":
+        return None
+    # Owner can control their own agent
+    if agent.owner_id and agent.owner_id != user.id:
+        return web.json_response(
+            {"error": "Only the agent owner or an admin can perform this action"}, status=403
+        )
+    return None
+
+
+_AUTH_PUBLIC_ROUTES = frozenset({
+    "/", "/logo.png", "/api/health",
+    "/api/auth/login", "/api/auth/register", "/api/auth/verify", "/api/auth/status",
+})
+
+
 async def auth_middleware(request: web.Request, handler) -> web.Response:
-    """Token-based auth middleware. Skips for /, /logo.png, /api/health, /api/auth/verify."""
+    """Session-based auth middleware with bearer token fallback."""
     config: Config = request.app["config"]
     if not config.require_auth:
         return await handler(request)
 
-    # Skip auth for public routes
     path = request.path
-    if path in ("/", "/logo.png", "/api/health", "/api/auth/verify", "/ws"):
-        # For WebSocket, check token in query params
-        if path == "/ws":
-            token = request.query.get("token", "")
-            if token != config.auth_token:
-                return web.json_response({"error": "Unauthorized"}, status=401)
+    if path in _AUTH_PUBLIC_ROUTES:
         return await handler(request)
 
-    # Check Authorization header or query param
+    # WebSocket: validate session from cookie (sent automatically on same-origin)
+    if path == "/ws":
+        session_id = _extract_session_cookie(request)
+        if session_id:
+            db: Database = request.app["db"]
+            sess = await db.get_session(session_id)
+            if sess:
+                user = await db.get_user_by_id(sess["user_id"])
+                if user:
+                    request["user"] = user
+                    return await handler(request)
+        # Fallback: bearer token for backward compat
+        token = request.query.get("token", "")
+        if token and token == config.auth_token:
+            return await handler(request)
+        return web.json_response({"error": "Unauthorized"}, status=401)
+
+    # Session cookie check
+    session_id = _extract_session_cookie(request)
+    if session_id:
+        db: Database = request.app["db"]
+        sess = await db.get_session(session_id)
+        if sess:
+            user = await db.get_user_by_id(sess["user_id"])
+            if user:
+                request["user"] = user
+                return await handler(request)
+
+    # Bearer token fallback (API/CLI access)
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
+        if token == config.auth_token:
+            return await handler(request)
+
+    return web.json_response({"error": "Unauthorized"}, status=401)
+
+
+def _extract_session_cookie(request: web.Request) -> str:
+    """Extract ashlar_session cookie value from request."""
+    cookie = request.cookies.get("ashlar_session", "")
+    return cookie if cookie and len(cookie) >= 32 else ""
+
+
+def _make_slug(name: str) -> str:
+    """Convert org name to URL-safe slug."""
+    slug = re.sub(r'[^a-z0-9]+', '-', name.lower().strip()).strip('-')
+    return slug or "org"
+
+
+def _set_session_cookie(response: web.Response, session_id: str, request: web.Request | None = None) -> None:
+    """Set session cookie with appropriate security flags."""
+    cookie_opts = {
+        "httponly": True,
+        "samesite": "Strict",
+        "max_age": 86400,
+        "path": "/",
+    }
+    # Use Secure flag if behind HTTPS reverse proxy
+    if request and request.headers.get("X-Forwarded-Proto") == "https":
+        cookie_opts["secure"] = True
+    response.set_cookie("ashlar_session", session_id, **cookie_opts)
+
+
+async def auth_status(request: web.Request) -> web.Response:
+    """GET /api/auth/status — check if auth is required and if user is logged in."""
+    config: Config = request.app["config"]
+    db: Database = request.app["db"]
+
+    if not config.require_auth:
+        return web.json_response({"auth_required": False})
+
+    user_count = await db.user_count()
+    result = {"auth_required": True, "needs_setup": user_count == 0}
+
+    # Check if current request has valid session
+    session_id = _extract_session_cookie(request)
+    if session_id:
+        sess = await db.get_session(session_id)
+        if sess:
+            user = await db.get_user_by_id(sess["user_id"])
+            if user:
+                result["user"] = user.to_dict()
+
+    return web.json_response(result)
+
+
+async def auth_register(request: web.Request) -> web.Response:
+    """POST /api/auth/register — register a new user. First user becomes admin + creates org."""
+    config: Config = request.app["config"]
+    db: Database = request.app["db"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    email = str(data.get("email", "")).lower().strip()
+    password = str(data.get("password", ""))
+    display_name = str(data.get("display_name", "")).strip()
+    org_name = str(data.get("org_name", "")).strip()
+
+    if not email or "@" not in email:
+        return web.json_response({"error": "Valid email required"}, status=400)
+    if len(password) < 8:
+        return web.json_response({"error": "Password must be at least 8 characters"}, status=400)
+    if not display_name:
+        return web.json_response({"error": "Display name required"}, status=400)
+
+    # Check if email already taken
+    existing = await db.get_user_by_email(email)
+    if existing:
+        return web.json_response({"error": "Email already registered"}, status=409)
+
+    user_count = await db.user_count()
+    pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+    if user_count == 0:
+        # First user: create org + admin
+        if not org_name:
+            org_name = "My Team"
+        org = await db.create_org(org_name, _make_slug(org_name))
+        user = await db.create_user(email, display_name, pw_hash, role="admin", org_id=org.id)
+        log.info(f"First user registered: {email} (admin) in org '{org_name}'")
     else:
-        token = request.query.get("token", "")
+        # Subsequent users must be invited (have a pre-created account with temp password)
+        # For now, allow open registration if auth is enabled but check for invite
+        return web.json_response({"error": "Registration requires an invite from an admin"}, status=403)
 
-    if token != config.auth_token:
-        return web.json_response({"error": "Unauthorized"}, status=401)
+    # Auto-login after registration
+    session_id = await db.create_session(user.id)
+    await db.update_user_login(user.id)
 
-    return await handler(request)
+    resp = web.json_response({"user": user.to_dict(), "org": org.to_dict()})
+    _set_session_cookie(resp, session_id, request)
+    return resp
+
+
+async def auth_login(request: web.Request) -> web.Response:
+    """POST /api/auth/login — authenticate with email/password."""
+    db: Database = request.app["db"]
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    email = str(data.get("email", "")).lower().strip()
+    password = str(data.get("password", ""))
+
+    if not email or not password:
+        return web.json_response({"error": "Email and password required"}, status=400)
+
+    user = await db.get_user_by_email(email)
+    if not user:
+        return web.json_response({"error": "Invalid credentials"}, status=401)
+
+    if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+        return web.json_response({"error": "Invalid credentials"}, status=401)
+
+    session_id = await db.create_session(user.id)
+    await db.update_user_login(user.id)
+
+    org = await db.get_org(user.org_id) if user.org_id else None
+
+    resp = web.json_response({
+        "user": user.to_dict(),
+        "org": org.to_dict() if org else None,
+    })
+    _set_session_cookie(resp, session_id, request)
+    return resp
+
+
+async def auth_logout(request: web.Request) -> web.Response:
+    """POST /api/auth/logout — clear session."""
+    db: Database = request.app["db"]
+    session_id = _extract_session_cookie(request)
+    if session_id:
+        await db.delete_session(session_id)
+
+    resp = web.json_response({"ok": True})
+    resp.del_cookie("ashlar_session", path="/")
+    return resp
+
+
+async def auth_me(request: web.Request) -> web.Response:
+    """GET /api/auth/me — return current user info from session."""
+    db: Database = request.app["db"]
+
+    session_id = _extract_session_cookie(request)
+    if not session_id:
+        return web.json_response({"error": "Not authenticated"}, status=401)
+
+    sess = await db.get_session(session_id)
+    if not sess:
+        return web.json_response({"error": "Session expired"}, status=401)
+
+    user = await db.get_user_by_id(sess["user_id"])
+    if not user:
+        return web.json_response({"error": "User not found"}, status=401)
+
+    org = await db.get_org(user.org_id) if user.org_id else None
+    return web.json_response({
+        "user": user.to_dict(),
+        "org": org.to_dict() if org else None,
+    })
+
+
+async def auth_invite(request: web.Request) -> web.Response:
+    """POST /api/auth/invite — admin-only: create a new user with temp password."""
+    db: Database = request.app["db"]
+    config: Config = request.app["config"]
+
+    # Must be authenticated as admin
+    user = request.get("user")
+    if not user or user.role != "admin":
+        return web.json_response({"error": "Admin access required"}, status=403)
+
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    email = str(data.get("email", "")).lower().strip()
+    display_name = str(data.get("display_name", "")).strip()
+
+    if not email or "@" not in email:
+        return web.json_response({"error": "Valid email required"}, status=400)
+    if not display_name:
+        display_name = email.split("@")[0]
+
+    existing = await db.get_user_by_email(email)
+    if existing:
+        return web.json_response({"error": "Email already registered"}, status=409)
+
+    # Generate temp password
+    temp_password = uuid.uuid4().hex[:12]
+    pw_hash = bcrypt.hashpw(temp_password.encode(), bcrypt.gensalt()).decode()
+
+    invited_user = await db.create_user(email, display_name, pw_hash, role="member", org_id=user.org_id)
+    log.info(f"User invited: {email} by {user.email}")
+
+    return web.json_response({
+        "user": invited_user.to_dict(),
+        "temp_password": temp_password,
+    })
+
+
+async def auth_team(request: web.Request) -> web.Response:
+    """GET /api/auth/team — list all users in the current user's org."""
+    db: Database = request.app["db"]
+
+    user = request.get("user")
+    if not user:
+        return web.json_response({"error": "Not authenticated"}, status=401)
+
+    users = await db.get_org_users(user.org_id)
+    return web.json_response({
+        "users": [u.to_dict() for u in users],
+    })
 
 
 async def verify_auth(request: web.Request) -> web.Response:
-    """POST /api/auth/verify — validate an auth token."""
+    """POST /api/auth/verify — validate an auth token (backward compat)."""
     config: Config = request.app["config"]
     if not config.require_auth:
         return web.json_response({"valid": True, "auth_required": False})
@@ -5664,6 +6180,12 @@ async def spawn_agent(request: web.Request) -> web.Response:
             if best_match:
                 agent.project_id = best_match["id"]
 
+        # Set owner from authenticated user
+        user = request.get("user")
+        if user:
+            agent.owner_id = user.id
+            agent.owner_name = user.display_name
+
         # Broadcast to WebSocket clients
         hub: WebSocketHub = request.app["ws_hub"]
         await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
@@ -5692,6 +6214,8 @@ async def delete_agent(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    if err := _check_agent_ownership(request, agent):
+        return err
 
     # Archive to history before killing
     try:
@@ -5718,6 +6242,8 @@ async def send_to_agent(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    if err := _check_agent_ownership(request, agent):
+        return err
 
     try:
         data = await request.json()
@@ -5874,6 +6400,8 @@ async def pause_agent(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    if err := _check_agent_ownership(request, agent):
+        return err
 
     success = await manager.pause(agent_id)
     if success:
@@ -5893,6 +6421,8 @@ async def resume_agent(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    if err := _check_agent_ownership(request, agent):
+        return err
 
     try:
         data = await request.json()
@@ -5923,6 +6453,8 @@ async def restart_agent(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    if err := _check_agent_ownership(request, agent):
+        return err
 
     # Optional task override for retry-with-changes
     new_task: str | None = None
@@ -9733,6 +10265,13 @@ def create_app(config: Config) -> web.Application:
     app.router.add_put("/api/config", put_config)
     app.router.add_get("/api/backends", list_backends)
     app.router.add_post("/api/auth/verify", verify_auth)
+    app.router.add_get("/api/auth/status", auth_status)
+    app.router.add_post("/api/auth/register", auth_register)
+    app.router.add_post("/api/auth/login", auth_login)
+    app.router.add_post("/api/auth/logout", auth_logout)
+    app.router.add_get("/api/auth/me", auth_me)
+    app.router.add_post("/api/auth/invite", auth_invite)
+    app.router.add_get("/api/auth/team", auth_team)
     app.router.add_get("/api/costs", get_costs)
     app.router.add_get("/api/conflicts", list_conflicts)
 
@@ -9794,9 +10333,10 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/extensions", get_extensions)
     app.router.add_post("/api/extensions/refresh", refresh_extensions)
 
-    # CORS
+    # CORS — restrict origins in production via ASHLAR_ALLOWED_ORIGINS env var
+    allowed_origin = os.environ.get("ASHLAR_ALLOWED_ORIGINS", "*")
     cors = aiohttp_cors.setup(app, defaults={
-        "*": aiohttp_cors.ResourceOptions(
+        allowed_origin: aiohttp_cors.ResourceOptions(
             allow_credentials=True,
             expose_headers="*",
             allow_headers="*",
@@ -9857,7 +10397,7 @@ def main() -> None:
         if "Address already in use" in str(e) or getattr(e, 'errno', None) == 48:
             log.error(f"Port {config.port} is already in use.")
             log.error(f"  → Set ASHLAR_PORT=8080 to use a different port")
-            log.error(f"  → On macOS, AirPlay Receiver may use port 5000")
+            log.error(f"  → On macOS, AirPlay Receiver may use port 5000 (Ashlar defaults to 5111 to avoid this)")
             log.error(f"    System Settings > General > AirDrop & Handoff > AirPlay Receiver → off")
             sys.exit(1)
         raise

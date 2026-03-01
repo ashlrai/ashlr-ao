@@ -7,7 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/.venv"
-PORT="${ASHLAR_PORT:-5000}"
+PORT="${ASHLAR_PORT:-5111}"
 
 echo ""
 echo "  ╔═══════════════════════════════════╗"

@@ -3815,6 +3815,16 @@ body {
 .auth-login { position: fixed; inset: 0; z-index: 10000; background: var(--bg-page); display: flex; align-items: center; justify-content: center; }
 .auth-card { background: var(--bg-surface); padding: 32px; border-radius: 16px; width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
 .auth-title { font-size: 24px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 8px; }
+.user-menu { position: relative; display: flex; align-items: center; }
+.user-menu-btn { display: flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 4px 10px 4px 4px; cursor: pointer; color: var(--text-primary); font-family: inherit; font-size: 12px; transition: var(--transition); }
+.user-menu-btn:hover { border-color: var(--accent); }
+.user-avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.user-name { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-dropdown { position: absolute; top: calc(100% + 4px); right: 0; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); min-width: 180px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); z-index: 200; overflow: hidden; }
+.user-dropdown-header { padding: 10px 12px; font-size: 11px; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); }
+.user-dropdown-item { padding: 8px 12px; font-size: 13px; cursor: pointer; transition: var(--transition); color: var(--text-primary); }
+.user-dropdown-item:hover { background: rgba(99,102,241,0.1); color: var(--accent); }
+.agent-owner { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
 
 /* ── Grid Toolbar ── */
 .grid-toolbar { display: flex; align-items: center; gap: 8px; padding: 0 16px 8px; }
@@ -4970,10 +4980,24 @@ body {
 <div class="auth-login" id="authLogin" style="display:none">
     <div class="auth-card">
         <div class="auth-title">Ashlar AO</div>
-        <p style="color:var(--text-secondary);margin-bottom:16px">Authentication required</p>
-        <input type="password" class="form-input" id="authTokenInput" placeholder="Enter auth token" autofocus>
-        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="submitAuth()">Login</button>
-        <div class="auth-error" id="authError" style="display:none;color:#f87171;margin-top:8px;font-size:13px"></div>
+        <!-- Login Form -->
+        <div id="authLoginForm">
+            <p style="color:var(--text-secondary);margin-bottom:16px">Sign in to continue</p>
+            <input type="email" class="form-input" id="authEmail" placeholder="Email" autocomplete="email" style="margin-bottom:8px">
+            <input type="password" class="form-input" id="authPassword" placeholder="Password" autocomplete="current-password">
+            <button class="btn btn-primary" style="width:100%;margin-top:12px" id="authLoginBtn">Sign In</button>
+            <div class="auth-error" id="authError" style="display:none;color:#f87171;margin-top:8px;font-size:13px"></div>
+        </div>
+        <!-- Registration Form (first-run) -->
+        <div id="authRegisterForm" style="display:none">
+            <p style="color:var(--text-secondary);margin-bottom:16px">Create your account to get started</p>
+            <input type="text" class="form-input" id="regName" placeholder="Your name" autocomplete="name" style="margin-bottom:8px">
+            <input type="email" class="form-input" id="regEmail" placeholder="Email" autocomplete="email" style="margin-bottom:8px">
+            <input type="password" class="form-input" id="regPassword" placeholder="Password (8+ characters)" autocomplete="new-password" style="margin-bottom:8px">
+            <input type="text" class="form-input" id="regOrgName" placeholder="Team name (optional)">
+            <button class="btn btn-primary" style="width:100%;margin-top:12px" id="authRegisterBtn">Create Account</button>
+            <div class="auth-error" id="regError" style="display:none;color:#f87171;margin-top:8px;font-size:13px"></div>
+        </div>
     </div>
 </div>
 
@@ -5046,6 +5070,17 @@ body {
     </div>
     <button class="btn-extensions" onclick="toggleExtensionsPanel()" title="Extensions (⌘E)" aria-label="Extensions"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.39 4.39a2.12 2.12 0 0 1 3 3l-1.64 1.64"/><path d="M13.5 7.5 6.75 14.25a2.12 2.12 0 0 0 3 3l6.75-6.75"/><path d="M10 15.5a5 5 0 0 1-7-7l2-2"/><path d="M14 8.5a5 5 0 0 1 7 7l-2 2"/></svg></button>
     <button class="btn-extensions" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme" id="themeToggleBtn"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></button>
+    <div class="user-menu" id="userMenu" style="display:none">
+        <button class="user-menu-btn" id="userMenuBtn" onclick="toggleUserMenu()" title="Account menu">
+            <span class="user-avatar" id="userAvatar"></span>
+            <span class="user-name" id="userName"></span>
+        </button>
+        <div class="user-dropdown" id="userDropdown" style="display:none">
+            <div class="user-dropdown-header" id="userDropdownHeader"></div>
+            <div class="user-dropdown-item" id="teamBtn" onclick="openTeamPanel()" style="display:none">Team Members</div>
+            <div class="user-dropdown-item" onclick="doLogout()">Sign Out</div>
+        </div>
+    </div>
     <button class="btn-new-agent" onclick="openSpawnDialog()">
         <span>+</span> New Agent
     </button>
@@ -6338,6 +6373,9 @@ const state = {
     cardOrder: safeParseJSON('ashlar_card_order', []),
     notificationLog: [],
     deepScrollPositions: new Map(), // agentId -> scrollTop
+    currentUser: null, // {id, email, display_name, role, org_id}
+    currentOrg: null,  // {id, name, slug}
+    authMode: 'login', // 'login' | 'register'
 };
 
 const ROLE_INFO = {
@@ -6400,11 +6438,22 @@ async function apiFetch(url, options = {}) {
     }
 }
 
-function showAuthLogin() {
-    document.getElementById('authLogin').style.display = '';
+function showAuthLogin(mode) {
+    const el = document.getElementById('authLogin');
+    el.style.display = '';
     document.getElementById('mainContent').style.opacity = '0.2';
     document.getElementById('mainContent').style.pointerEvents = 'none';
-    document.getElementById('authTokenInput').focus();
+    if (mode === 'register') {
+        document.getElementById('authLoginForm').style.display = 'none';
+        document.getElementById('authRegisterForm').style.display = '';
+        state.authMode = 'register';
+        document.getElementById('regName')?.focus();
+    } else {
+        document.getElementById('authLoginForm').style.display = '';
+        document.getElementById('authRegisterForm').style.display = 'none';
+        state.authMode = 'login';
+        document.getElementById('authEmail')?.focus();
+    }
 }
 
 function hideAuthLogin() {
@@ -6413,26 +6462,65 @@ function hideAuthLogin() {
     document.getElementById('mainContent').style.pointerEvents = '';
 }
 
-async function submitAuth() {
-    const token = document.getElementById('authTokenInput').value.trim();
-    if (!token) return;
+function setCurrentUser(user, org) {
+    state.currentUser = user;
+    state.currentOrg = org || null;
+    const menu = document.getElementById('userMenu');
+    if (user) {
+        menu.style.display = '';
+        const initials = user.display_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+        document.getElementById('userAvatar').textContent = initials;
+        document.getElementById('userName').textContent = user.display_name;
+        const header = document.getElementById('userDropdownHeader');
+        header.textContent = user.email + (org ? ` \u00b7 ${org.name}` : '');
+        // Show team button for admins
+        document.getElementById('teamBtn').style.display = user.role === 'admin' ? '' : 'none';
+    } else {
+        menu.style.display = 'none';
+    }
+}
+
+function toggleUserMenu() {
+    const dd = document.getElementById('userDropdown');
+    dd.style.display = dd.style.display === 'none' ? '' : 'none';
+}
+// Close user menu on outside click
+document.addEventListener('click', (e) => {
+    const menu = document.getElementById('userMenu');
+    if (menu && !menu.contains(e.target)) {
+        document.getElementById('userDropdown').style.display = 'none';
+    }
+});
+
+async function doLogout() {
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+    state.currentUser = null;
+    state.currentOrg = null;
+    setCurrentUser(null, null);
+    showAuthLogin();
+}
+
+async function submitLogin() {
+    const email = document.getElementById('authEmail').value.trim();
+    const password = document.getElementById('authPassword').value;
     const errEl = document.getElementById('authError');
     errEl.style.display = 'none';
+    if (!email || !password) { errEl.textContent = 'Email and password required'; errEl.style.display = ''; return; }
     try {
-        const resp = await fetch('/api/auth/verify', {
+        const resp = await fetch('/api/auth/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
         });
+        const data = await resp.json();
         if (resp.ok) {
-            authToken = token;
-            localStorage.setItem('ashlar_auth_token', token);
+            setCurrentUser(data.user, data.org);
             hideAuthLogin();
-            // Reconnect WebSocket with token
-            if (socket.ws) { socket.ws.close(); }
+            if (socket.ws) socket.ws.close();
             socket.connect();
-            showToast('Authenticated', 'success');
+            showToast(`Welcome back, ${data.user.display_name}`, 'success');
         } else {
-            errEl.textContent = 'Invalid token';
+            errEl.textContent = data.error || 'Login failed';
             errEl.style.display = '';
         }
     } catch (e) {
@@ -6441,16 +6529,77 @@ async function submitAuth() {
     }
 }
 
-// Enter key on auth input
-document.getElementById('authTokenInput')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submitAuth();
-});
+async function submitRegister() {
+    const name = document.getElementById('regName').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const orgName = document.getElementById('regOrgName').value.trim();
+    const errEl = document.getElementById('regError');
+    errEl.style.display = 'none';
+    if (!name) { errEl.textContent = 'Name is required'; errEl.style.display = ''; return; }
+    if (!email || !email.includes('@')) { errEl.textContent = 'Valid email required'; errEl.style.display = ''; return; }
+    if (password.length < 8) { errEl.textContent = 'Password must be 8+ characters'; errEl.style.display = ''; return; }
+    try {
+        const resp = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, display_name: name, org_name: orgName }),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            setCurrentUser(data.user, data.org);
+            hideAuthLogin();
+            if (socket.ws) socket.ws.close();
+            socket.connect();
+            showToast(`Welcome, ${data.user.display_name}! Your workspace is ready.`, 'success');
+        } else {
+            errEl.textContent = data.error || 'Registration failed';
+            errEl.style.display = '';
+        }
+    } catch (e) {
+        errEl.textContent = 'Connection failed';
+        errEl.style.display = '';
+    }
+}
+
+async function openTeamPanel() {
+    document.getElementById('userDropdown').style.display = 'none';
+    try {
+        const resp = await apiFetch('/api/auth/team');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const users = data.users || [];
+        const html = users.map(u =>
+            `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border-subtle)">` +
+            `<span class="user-avatar">${u.display_name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}</span>` +
+            `<div><div style="font-size:13px">${u.display_name}</div><div style="font-size:11px;color:var(--text-secondary)">${u.email} \u00b7 ${u.role}</div></div></div>`
+        ).join('');
+        showToast('Team: ' + users.map(u => u.display_name).join(', '), 'info');
+    } catch {}
+}
+
+// Auth form event listeners
+document.getElementById('authLoginBtn')?.addEventListener('click', submitLogin);
+document.getElementById('authRegisterBtn')?.addEventListener('click', submitRegister);
+document.getElementById('authEmail')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
+document.getElementById('authPassword')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitLogin(); });
+document.getElementById('regPassword')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitRegister(); });
+document.getElementById('regOrgName')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitRegister(); });
 
 // Check auth on startup
 (async () => {
     try {
-        const resp = await fetch('/api/health');
-        if (resp.status === 401) showAuthLogin();
+        const resp = await fetch('/api/auth/status');
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data.auth_required) return; // No auth needed
+        if (data.needs_setup) {
+            showAuthLogin('register');
+        } else if (data.user) {
+            setCurrentUser(data.user, null);
+        } else {
+            showAuthLogin('login');
+        }
     } catch (e) {}
 })();
 
@@ -8010,6 +8159,7 @@ function createAgentCard(agent) {
             <span class="card-workflow-dot" style="display:none" title="Workflow group"></span>
             <span class="card-pipeline-badge"></span>
         </div>
+        <div class="agent-owner" style="display:none"></div>
         <div class="card-dir" onclick="event.stopPropagation();copyWorkingDir('${agent.id}')" title="Click to copy path"></div>
         <div class="card-summary"></div>
         <div class="card-last-action" style="display:none"></div>
@@ -8294,6 +8444,15 @@ function updateAgentCard(card, agent) {
         projBadge.style.display = '';
     } else {
         projBadge.style.display = 'none';
+    }
+
+    // Owner badge
+    const ownerEl = card.querySelector('.agent-owner');
+    if (ownerEl && agent.owner_name) {
+        ownerEl.textContent = agent.owner_name;
+        ownerEl.style.display = '';
+    } else if (ownerEl) {
+        ownerEl.style.display = 'none';
     }
 
     // Backend label

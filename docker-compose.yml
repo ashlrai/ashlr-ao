@@ -1,0 +1,44 @@
+# Ashlar AO — Production Deployment
+# Usage: ASHLAR_DOMAIN=ashlar.yourdomain.com docker compose up -d
+
+services:
+  ashlar:
+    build: .
+    container_name: ashlar-ao
+    restart: unless-stopped
+    environment:
+      - ASHLAR_HOST=0.0.0.0
+      - ASHLAR_PORT=5111
+      - XAI_API_KEY=${XAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - ashlar_data:/root/.ashlar
+    networks:
+      - ashlar-net
+    # Not exposed directly — Caddy handles public traffic
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: ashlar-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - ASHLAR_DOMAIN=${ASHLAR_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - ashlar-net
+    depends_on:
+      - ashlar
+
+volumes:
+  ashlar_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  ashlar-net:

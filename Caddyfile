@@ -1,0 +1,26 @@
+{$ASHLAR_DOMAIN:localhost} {
+    reverse_proxy ashlar:5111
+
+    # WebSocket support
+    @websocket {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @websocket ashlar:5111
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # Gzip compression
+    encode gzip
+
+    log {
+        output stdout
+        format console
+    }
+}
