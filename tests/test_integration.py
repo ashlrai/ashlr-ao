@@ -1383,7 +1383,7 @@ class TestApiInputValidation:
         app = _make_test_app()
         client = await aiohttp_client(app)
 
-        resp = await client.post("/api/projects", json={"name": "test-proj", "path": "/tmp/test"})
+        resp = await client.post("/api/projects", json={"name": "test-proj", "path": "/tmp"})
         assert resp.status == 201
         data = await resp.json()
         assert data["name"] == "test-proj"

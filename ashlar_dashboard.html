@@ -15974,12 +15974,18 @@ function renderPipelineDAG(container, run) {
     const failedIds = new Set(run.failed_ids || []);
     const runningIds = new Set(run.running_ids || []);
 
-    // Build depth levels via topological sort
+    // Build depth levels via iterative multi-pass relaxation (handles out-of-order deps)
     const depths = new Array(specs.length).fill(0);
-    for (let i = 0; i < specs.length; i++) {
-        const deps = specs[i].depends_on || [];
-        for (const d of deps) {
-            depths[i] = Math.max(depths[i], depths[d] + 1);
+    let changed = true;
+    let iterations = 0;
+    while (changed && iterations < specs.length) {
+        changed = false;
+        iterations++;
+        for (let i = 0; i < specs.length; i++) {
+            for (const d of (specs[i].depends_on || [])) {
+                const nd = depths[d] + 1;
+                if (nd > depths[i]) { depths[i] = nd; changed = true; }
+            }
         }
     }
     const maxDepth = Math.max(0, ...depths);

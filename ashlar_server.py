@@ -194,13 +194,7 @@ DEFAULT_CONFIG = {
         "base_url": "https://api.x.ai/v1",
         "summary_interval_sec": 10.0,
         "max_output_lines": 30,
-    },
-    "intelligence": {
-        "enabled": True,
-        "api_key_env": "ANTHROPIC_API_KEY",
-        "model": "claude-sonnet-4-20250514",
-        "summary_interval_sec": 15,
-        "meta_interval_sec": 30,
+        "meta_interval_sec": 30.0,
     },
 }
 
@@ -255,12 +249,8 @@ class Config:
     health_critical_threshold: float = 0.1
     stall_timeout_minutes: int = 5
     hung_timeout_minutes: int = 10
-    # Anthropic Intelligence config
-    intelligence_enabled: bool = True
-    intelligence_api_key: str = ""
-    intelligence_model: str = "claude-sonnet-4-20250514"
-    intelligence_summary_interval: float = 15.0
-    intelligence_meta_interval: float = 30.0
+    # Meta-agent analysis interval (fleet analysis via LLM)
+    llm_meta_interval: float = 30.0
     # Cost budget
     cost_budget_usd: float = 0.0  # 0 = no limit
     cost_budget_auto_pause: bool = False
@@ -307,14 +297,14 @@ class Config:
             "llm_provider": self.llm_provider,
             "llm_model": self.llm_model,
             "llm_summary_interval": self.llm_summary_interval,
+            "llm_meta_interval": self.llm_meta_interval,
             "voice_feedback": self.voice_feedback,
             "idle_agent_ttl": self.idle_agent_ttl,
             "health_low_threshold": self.health_low_threshold,
             "health_critical_threshold": self.health_critical_threshold,
             "stall_timeout_minutes": self.stall_timeout_minutes,
             "hung_timeout_minutes": self.hung_timeout_minutes,
-            "intelligence_enabled": self.intelligence_enabled,
-            "intelligence_model": self.intelligence_model,
+            "intelligence_enabled": self.llm_enabled,  # backward compat alias
             "cost_budget_usd": self.cost_budget_usd,
             "cost_budget_auto_pause": self.cost_budget_auto_pause,
             "alert_patterns": self.alert_patterns,
@@ -388,6 +378,8 @@ def load_config(has_claude: bool = True) -> Config:
     idle_ttl_val = _validate(idle_ttl_val, lambda v: isinstance(v, int) and 300 <= v <= 86400, 3600, "idle_agent_ttl")
     llm_interval_val = llm.get("summary_interval_sec", 10.0)
     llm_interval_val = _validate(llm_interval_val, lambda v: isinstance(v, (int, float)) and 3.0 <= v <= 120.0, 10.0, "llm_summary_interval")
+    llm_meta_interval_val = llm.get("meta_interval_sec", 30.0)
+    llm_meta_interval_val = _validate(llm_meta_interval_val, lambda v: isinstance(v, (int, float)) and 5.0 <= v <= 300.0, 30.0, "llm_meta_interval")
     health_low_val = alerts.get("health_low_threshold", 0.3)
     health_low_val = _validate(health_low_val, lambda v: isinstance(v, (int, float)) and 0.0 < v <= 1.0, 0.3, "health_low_threshold")
     health_crit_val = alerts.get("health_critical_threshold", 0.1)
@@ -420,10 +412,9 @@ def load_config(has_claude: bool = True) -> Config:
     api_key_env = llm.get("api_key_env", "XAI_API_KEY")
     llm_api_key = os.environ.get(api_key_env, "")
 
-    # Resolve Anthropic intelligence API key
-    intel = raw.get("intelligence", {})
-    intel_api_key_env = intel.get("api_key_env", "ANTHROPIC_API_KEY")
-    intel_api_key = os.environ.get(intel_api_key_env, "")
+    # Deprecation warning for old ANTHROPIC_API_KEY users
+    if os.environ.get("ANTHROPIC_API_KEY") and not os.environ.get("XAI_API_KEY"):
+        log.warning("ANTHROPIC_API_KEY is deprecated for intelligence features. Set XAI_API_KEY instead (xAI Grok via OpenAI-compatible API).")
 
     # Auth config
     require_auth = server.get("require_auth", False)
@@ -487,16 +478,12 @@ def load_config(has_claude: bool = True) -> Config:
         llm_base_url=llm.get("base_url", "https://api.x.ai/v1"),
         llm_summary_interval=llm_interval_val,
         llm_max_output_lines=llm.get("max_output_lines", 30),
+        llm_meta_interval=llm_meta_interval_val,
         idle_agent_ttl=idle_ttl_val,
         health_low_threshold=health_low_val,
         health_critical_threshold=health_crit_val,
         stall_timeout_minutes=stall_val,
         hung_timeout_minutes=hung_val,
-        intelligence_enabled=intel.get("enabled", True) and bool(intel_api_key),
-        intelligence_api_key=intel_api_key,
-        intelligence_model=intel.get("model", "claude-sonnet-4-20250514"),
-        intelligence_summary_interval=intel.get("summary_interval_sec", 15.0),
-        intelligence_meta_interval=intel.get("meta_interval_sec", 30.0),
         cost_budget_usd=float(raw.get("cost_budget_usd", 0)),
         cost_budget_auto_pause=bool(raw.get("cost_budget_auto_pause", False)),
         **({"alert_patterns": alert_patterns_final} if alert_patterns_final else {}),
@@ -3709,126 +3696,21 @@ _intelligence_parser = OutputIntelligenceParser()
 _alert_throttle: dict[str, float] = {}
 
 
-# ── LLM-Powered Summary Generation ──
+# ── Unified Intelligence Client (xAI Grok via OpenAI-compatible API) ──
 
-class LLMSummarizer:
-    """Async LLM client for generating rich agent summaries via xAI/OpenAI-compatible API."""
+class IntelligenceClient:
+    """Unified LLM client for summaries, command parsing, and fleet analysis.
+    Uses xAI's OpenAI-compatible API (grok-4-1-fast-reasoning).
+    Replaces both LLMSummarizer and AnthropicIntelligenceClient.
+    """
 
     def __init__(self, config: Config):
         self.config = config
         self._session: aiohttp.ClientSession | None = None
         self._failures: int = 0
-        self._max_failures: int = 5  # Circuit breaker threshold
-        self._circuit_reset_time: float = 0.0
-
-    async def _get_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=8),
-            )
-        return self._session
-
-    async def close(self) -> None:
-        if self._session and not self._session.closed:
-            await self._session.close()
-
-    async def summarize(self, output_lines: list[str], task: str, role: str, status: str) -> str | None:
-        """Generate a summary from agent output. Returns None on failure (use heuristic fallback)."""
-        if not self.config.llm_enabled or not self.config.llm_api_key:
-            return None
-
-        # Circuit breaker: if too many failures, back off
-        if self._failures >= self._max_failures:
-            if time.monotonic() < self._circuit_reset_time:
-                return None
-            # Reset circuit after cooldown
-            self._failures = 0
-
-        # Truncate output to configured max lines
-        recent = output_lines[-self.config.llm_max_output_lines:]
-        if not recent:
-            return None
-
-        output_text = _strip_ansi("\n".join(recent))
-
-        prompt = (
-            f"You are summarizing an AI coding agent's terminal output.\n"
-            f"Agent role: {role}\nAgent status: {status}\nTask: {task}\n\n"
-            f"Recent terminal output:\n```\n{output_text}\n```\n\n"
-            f"Write a concise 1-sentence summary (max 100 chars) of what the agent is currently doing. "
-            f"Focus on the specific action and file/component being worked on. "
-            f"Examples: 'Writing auth middleware in src/auth.ts', 'Running test suite — 12/15 passing', "
-            f"'Found 2 XSS vulnerabilities in form handler'. Do NOT include quotes."
-        )
-
-        try:
-            session = await self._get_session()
-            async with session.post(
-                f"{self.config.llm_base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.config.llm_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": self.config.llm_model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 60,
-                    "temperature": 0.3,
-                },
-            ) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    choices = data.get("choices") or []
-                    content = (choices[0].get("message", {}).get("content", "").strip() if choices else "")
-                    if content:
-                        self._failures = 0
-                        return content[:100]
-                elif resp.status in (401, 403):
-                    log.error(f"LLM disabled: authentication failed (HTTP {resp.status}). Check API key.")
-                    self.config.llm_enabled = False
-                    return None
-                elif resp.status == 429:
-                    retry_after = resp.headers.get("Retry-After")
-                    cooldown = float(retry_after) if retry_after and retry_after.isdigit() else 60.0
-                    log.warning(f"LLM rate limited, cooling down for {cooldown}s")
-                    self._circuit_reset_time = time.monotonic() + cooldown
-                    return None
-                else:
-                    log.debug(f"LLM API returned {resp.status}")
-                    self._failures += 1
-        except asyncio.TimeoutError:
-            log.debug("LLM summary request timed out")
-            self._failures += 1
-        except Exception as e:
-            log.debug(f"LLM summary error: {e}")
-            self._failures += 1
-
-        # Set circuit breaker cooldown
-        if self._failures >= self._max_failures:
-            self._circuit_reset_time = time.monotonic() + 60.0
-            log.warning("LLM circuit breaker tripped, cooling down for 60s")
-
-        return None
-
-
-# ── Anthropic Intelligence Client ──
-
-class AnthropicIntelligenceClient:
-    """Claude API client for intelligent summaries, command parsing, and fleet analysis.
-    Raw HTTP via aiohttp (no SDK dependency, same pattern as xAI integration).
-    """
-
-    BASE_URL = "https://api.anthropic.com/v1"
-
-    def __init__(self, api_key: str, model: str = "claude-sonnet-4-20250514"):
-        self.api_key = api_key
-        self.model = model
-        self.haiku_model = "claude-haiku-4-5-20251001"  # For fast summaries
-        self._session: aiohttp.ClientSession | None = None
-        self._failures: int = 0
         self._max_failures: int = 5
         self._circuit_reset_time: float = 0.0
-        self.available: bool = True
+        self.available: bool = bool(config.llm_enabled and config.llm_api_key)
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -3851,82 +3733,80 @@ class AnthropicIntelligenceClient:
             self._failures = 0
         return True
 
-    def _handle_error(self, status: int, retry_after: str | None = None) -> None:
-        """Handle HTTP error responses."""
-        if status in (401, 403):
-            log.error(f"Anthropic API disabled: auth failed (HTTP {status})")
-            self.available = False
-        elif status == 429:
-            self._failures += 1
-            cooldown = float(retry_after) if retry_after and retry_after.replace('.', '').isdigit() else 60.0
-            log.warning(f"Anthropic rate limited, cooling down for {cooldown}s (failures: {self._failures}/{self._max_failures})")
-            self._circuit_reset_time = time.monotonic() + cooldown
-        else:
-            self._failures += 1
-            if self._failures >= self._max_failures:
-                self._circuit_reset_time = time.monotonic() + 60.0
-                log.warning("Anthropic circuit breaker tripped, cooling down for 60s")
-
-    async def _call(self, messages: list[dict], model: str | None = None,
-                    max_tokens: int = 200, system: str = "") -> str | None:
-        """Make a raw API call to Claude. Returns response text or None."""
+    async def _call(self, messages: list[dict], max_tokens: int = 200,
+                    temperature: float = 0.3) -> str | None:
+        """Make an OpenAI-compatible API call. Returns response text or None."""
         if not self._check_circuit():
             return None
 
         try:
             session = await self._get_session()
-            body: dict[str, Any] = {
-                "model": model or self.model,
-                "max_tokens": max_tokens,
-                "messages": messages,
-            }
-            if system:
-                body["system"] = system
-
             async with session.post(
-                f"{self.BASE_URL}/messages",
+                f"{self.config.llm_base_url}/chat/completions",
                 headers={
-                    "x-api-key": self.api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
+                    "Authorization": f"Bearer {self.config.llm_api_key}",
+                    "Content-Type": "application/json",
                 },
-                json=body,
+                json={
+                    "model": self.config.llm_model,
+                    "messages": messages,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                },
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    content = data.get("content", [])
-                    text = "".join(c.get("text", "") for c in content if c.get("type") == "text")
-                    self._failures = 0
-                    return text.strip() if text else None
-                else:
-                    self._handle_error(resp.status, resp.headers.get("Retry-After"))
+                    choices = data.get("choices") or []
+                    content = (choices[0].get("message", {}).get("content", "").strip() if choices else "")
+                    if content:
+                        self._failures = 0
+                        return content
                     return None
+                elif resp.status in (401, 403):
+                    log.error(f"Intelligence disabled: auth failed (HTTP {resp.status}). Check XAI_API_KEY.")
+                    self.available = False
+                    return None
+                elif resp.status == 429:
+                    retry_after = resp.headers.get("Retry-After")
+                    cooldown = float(retry_after) if retry_after and retry_after.replace('.', '').isdigit() else 60.0
+                    self._failures += 1
+                    log.warning(f"Intelligence rate limited, cooling down for {cooldown}s (failures: {self._failures}/{self._max_failures})")
+                    self._circuit_reset_time = time.monotonic() + cooldown
+                    return None
+                else:
+                    log.debug(f"Intelligence API returned {resp.status}")
+                    self._failures += 1
         except asyncio.TimeoutError:
-            log.debug("Anthropic API request timed out")
+            log.debug("Intelligence API request timed out")
             self._failures += 1
-            return None
         except Exception as e:
-            log.debug(f"Anthropic API error: {e}")
+            log.debug(f"Intelligence API error: {e}")
             self._failures += 1
-            return None
+
+        if self._failures >= self._max_failures:
+            self._circuit_reset_time = time.monotonic() + 60.0
+            log.warning("Intelligence circuit breaker tripped, cooling down for 60s")
+
+        return None
 
     async def summarize(self, output_lines: list[str], task: str, role: str, status: str) -> str | None:
-        """Generate a 1-line summary. Uses Haiku for speed."""
-        recent = output_lines[-40:]
+        """Generate a 1-line summary from agent output."""
+        recent = output_lines[-self.config.llm_max_output_lines:]
         if not recent:
             return None
         output_text = _strip_ansi("\n".join(recent))[:4000]
 
-        return await self._call(
-            messages=[{"role": "user", "content": (
-                f"Agent role: {role}\nStatus: {status}\nTask: {task}\n\n"
-                f"Recent output:\n```\n{output_text}\n```\n\n"
-                f"Write a concise 1-sentence summary (max 80 chars) of what the agent is doing now. "
-                f"Focus on the specific action and file/component. No quotes."
-            )}],
-            model=self.haiku_model,
+        result = await self._call(
+            messages=[
+                {"role": "system", "content": "You are summarizing an AI coding agent's terminal output. Write a concise 1-sentence summary (max 80 chars). Focus on the specific action and file/component. No quotes."},
+                {"role": "user", "content": (
+                    f"Agent role: {role}\nStatus: {status}\nTask: {task}\n\n"
+                    f"Recent output:\n```\n{output_text}\n```"
+                )},
+            ],
             max_tokens=60,
         )
+        return result[:100] if result else None
 
     async def parse_command(self, transcript: str, agents: list, context: dict) -> ParsedIntent:
         """Parse a natural language command into a structured intent."""
@@ -3936,19 +3816,21 @@ class AnthropicIntelligenceClient:
         ) or "(no agents running)"
 
         response = await self._call(
-            messages=[{"role": "user", "content": transcript}],
-            system=(
-                "You are a command parser for an AI agent orchestration platform called Ashlar.\n"
-                "Parse the user's natural language command into a JSON intent.\n\n"
-                f"Current agents:\n{agent_list}\n\n"
-                "Respond with ONLY a JSON object:\n"
-                '{"action":"spawn|kill|pause|resume|send|status|query",'
-                '"targets":["agent_id1"],'
-                '"filter":"optional role/status filter",'
-                '"message":"message to send if action=send",'
-                '"parameters":{"role":"general","task":"optional task description"},'
-                '"confidence":0.0-1.0}'
-            ),
+            messages=[
+                {"role": "system", "content": (
+                    "You are a command parser for an AI agent orchestration platform called Ashlar.\n"
+                    "Parse the user's natural language command into a JSON intent.\n\n"
+                    f"Current agents:\n{agent_list}\n\n"
+                    "Respond with ONLY a JSON object:\n"
+                    '{"action":"spawn|kill|pause|resume|send|status|query",'
+                    '"targets":["agent_id1"],'
+                    '"filter":"optional role/status filter",'
+                    '"message":"message to send if action=send",'
+                    '"parameters":{"role":"general","task":"optional task description"},'
+                    '"confidence":0.0-1.0}'
+                )},
+                {"role": "user", "content": transcript},
+            ],
             max_tokens=300,
         )
 
@@ -3964,7 +3846,7 @@ class AnthropicIntelligenceClient:
                     confidence=float(data.get("confidence", 0.5)),
                 )
             except (json.JSONDecodeError, KeyError, ValueError) as e:
-                log.debug(f"Failed to parse Claude command response: {e}")
+                log.debug(f"Failed to parse command response: {e}")
 
         return ParsedIntent(action="unknown", message=transcript, confidence=0.0)
 
@@ -3985,17 +3867,20 @@ class AnthropicIntelligenceClient:
             )
 
         response = await self._call(
-            messages=[{"role": "user", "content": (
-                "Analyze these agents and identify issues:\n\n"
-                + "\n".join(agent_summaries)
-                + "\n\nRespond with a JSON array of insights:\n"
-                '[{"type":"conflict|stuck|handoff|anomaly|suggestion",'
-                '"severity":"info|warning|critical",'
-                '"message":"description",'
-                '"agent_ids":["id1"],'
-                '"suggested_action":"what to do"}]\n'
-                "Only include genuine issues. Return [] if everything looks fine."
-            )}],
+            messages=[
+                {"role": "system", "content": "You analyze AI agent fleets for an orchestration platform. Identify conflicts, stuck agents, handoff opportunities, and anomalies."},
+                {"role": "user", "content": (
+                    "Analyze these agents and identify issues:\n\n"
+                    + "\n".join(agent_summaries)
+                    + "\n\nRespond with a JSON array of insights:\n"
+                    '[{"type":"conflict|stuck|handoff|anomaly|suggestion",'
+                    '"severity":"info|warning|critical",'
+                    '"message":"description",'
+                    '"agent_ids":["id1"],'
+                    '"suggested_action":"what to do"}]\n'
+                    "Only include genuine issues. Return [] if everything looks fine."
+                )},
+            ],
             max_tokens=500,
         )
 
@@ -4208,14 +4093,19 @@ class Database:
         self.db_path = db_path or (ASHLAR_DIR / "ashlar.db")
         self._db: aiosqlite.Connection | None = None
 
-    async def _safe_commit(self, timeout: float = 3.0) -> None:
-        """Commit with timeout to prevent hangs if DB is locked or unresponsive."""
+    async def _safe_commit(self, timeout: float = 3.0) -> bool:
+        """Commit with timeout to prevent hangs if DB is locked or unresponsive. Returns True on success."""
         if not self._db:
-            return
+            return False
         try:
             await asyncio.wait_for(self._db.commit(), timeout=timeout)
+            return True
         except asyncio.TimeoutError:
-            log.warning(f"Database commit timed out after {timeout}s")
+            log.error(f"Database commit timed out after {timeout}s")
+            return False
+        except Exception as e:
+            log.error(f"Database commit failed: {e}")
+            return False
 
     async def init(self) -> None:
         # Close any existing connection (safe for retries)
@@ -4600,92 +4490,97 @@ class Database:
 
     async def get_historical_analytics(self) -> dict:
         """Compute historical success rates, cost breakdowns, and performance metrics."""
+        empty = {"success_rate": {}, "cost_by_role": {}, "cost_by_backend": {}, "performance_by_role": {}, "error_patterns": {}, "total_historical": 0}
         if not self._db:
-            return {"success_rate": {}, "cost_by_role": {}, "cost_by_backend": {}, "performance_by_role": {}, "error_patterns": {}, "total_historical": 0}
+            return empty
 
-        result: dict = {}
+        try:
+            result: dict = {}
 
-        # Success rate by role
-        async with self._db.execute(
-            """SELECT role,
-                      COUNT(*) as total,
-                      SUM(CASE WHEN status NOT IN ('error') THEN 1 ELSE 0 END) as successes,
-                      AVG(duration_sec) as avg_duration,
-                      SUM(estimated_cost_usd) as total_cost
-               FROM agents_history GROUP BY role"""
-        ) as cur:
-            rows = await cur.fetchall()
-            by_role = {}
-            for r in rows:
-                role = r["role"] or "unknown"
-                total = r["total"] or 0
-                successes = r["successes"] or 0
-                by_role[role] = {
-                    "total": total,
-                    "successes": successes,
-                    "success_rate": round(successes / total * 100, 1) if total > 0 else 0,
-                    "avg_duration_sec": round(r["avg_duration"] or 0),
-                    "total_cost_usd": round(r["total_cost"] or 0, 4),
-                }
-            result["success_rate_by_role"] = by_role
+            # Success rate by role
+            async with self._db.execute(
+                """SELECT role,
+                          COUNT(*) as total,
+                          SUM(CASE WHEN status NOT IN ('error') THEN 1 ELSE 0 END) as successes,
+                          AVG(duration_sec) as avg_duration,
+                          SUM(estimated_cost_usd) as total_cost
+                   FROM agents_history GROUP BY role"""
+            ) as cur:
+                rows = await cur.fetchall()
+                by_role = {}
+                for r in rows:
+                    role = r["role"] or "unknown"
+                    total = r["total"] or 0
+                    successes = r["successes"] or 0
+                    by_role[role] = {
+                        "total": total,
+                        "successes": successes,
+                        "success_rate": round(successes / total * 100, 1) if total > 0 else 0,
+                        "avg_duration_sec": round(r["avg_duration"] or 0),
+                        "total_cost_usd": round(r["total_cost"] or 0, 4),
+                    }
+                result["success_rate_by_role"] = by_role
 
-        # Success rate by backend
-        async with self._db.execute(
-            """SELECT backend,
-                      COUNT(*) as total,
-                      SUM(CASE WHEN status NOT IN ('error') THEN 1 ELSE 0 END) as successes,
-                      AVG(duration_sec) as avg_duration,
-                      SUM(estimated_cost_usd) as total_cost
-               FROM agents_history GROUP BY backend"""
-        ) as cur:
-            rows = await cur.fetchall()
-            by_backend = {}
-            for r in rows:
-                backend = r["backend"] or "unknown"
-                total = r["total"] or 0
-                successes = r["successes"] or 0
-                by_backend[backend] = {
-                    "total": total,
-                    "successes": successes,
-                    "success_rate": round(successes / total * 100, 1) if total > 0 else 0,
-                    "avg_duration_sec": round(r["avg_duration"] or 0),
-                    "total_cost_usd": round(r["total_cost"] or 0, 4),
-                }
-            result["success_rate_by_backend"] = by_backend
+            # Success rate by backend
+            async with self._db.execute(
+                """SELECT backend,
+                          COUNT(*) as total,
+                          SUM(CASE WHEN status NOT IN ('error') THEN 1 ELSE 0 END) as successes,
+                          AVG(duration_sec) as avg_duration,
+                          SUM(estimated_cost_usd) as total_cost
+                   FROM agents_history GROUP BY backend"""
+            ) as cur:
+                rows = await cur.fetchall()
+                by_backend = {}
+                for r in rows:
+                    backend = r["backend"] or "unknown"
+                    total = r["total"] or 0
+                    successes = r["successes"] or 0
+                    by_backend[backend] = {
+                        "total": total,
+                        "successes": successes,
+                        "success_rate": round(successes / total * 100, 1) if total > 0 else 0,
+                        "avg_duration_sec": round(r["avg_duration"] or 0),
+                        "total_cost_usd": round(r["total_cost"] or 0, 4),
+                    }
+                result["success_rate_by_backend"] = by_backend
 
-        # Recent error patterns from activity_events
-        async with self._db.execute(
-            """SELECT event_type, COUNT(*) as cnt
-               FROM activity_events
-               WHERE event_type LIKE '%error%' OR event_type LIKE '%fail%'
-               GROUP BY event_type ORDER BY cnt DESC LIMIT 10"""
-        ) as cur:
-            rows = await cur.fetchall()
-            result["error_patterns"] = {r["event_type"]: r["cnt"] for r in rows}
+            # Recent error patterns from activity_events
+            async with self._db.execute(
+                """SELECT event_type, COUNT(*) as cnt
+                   FROM activity_events
+                   WHERE event_type LIKE '%error%' OR event_type LIKE '%fail%'
+                   GROUP BY event_type ORDER BY cnt DESC LIMIT 10"""
+            ) as cur:
+                rows = await cur.fetchall()
+                result["error_patterns"] = {r["event_type"]: r["cnt"] for r in rows}
 
-        # Total historical
-        async with self._db.execute("SELECT COUNT(*) FROM agents_history") as cur:
-            row = await cur.fetchone()
-            result["total_historical"] = row[0] if row else 0
+            # Total historical
+            async with self._db.execute("SELECT COUNT(*) FROM agents_history") as cur:
+                row = await cur.fetchone()
+                result["total_historical"] = row[0] if row else 0
 
-        # Cost over recent sessions (last 50 agents)
-        async with self._db.execute(
-            """SELECT role, backend, estimated_cost_usd, duration_sec, status
-               FROM agents_history ORDER BY completed_at DESC LIMIT 50"""
-        ) as cur:
-            rows = await cur.fetchall()
-            recent_cost_by_role: dict[str, float] = {}
-            recent_cost_by_backend: dict[str, float] = {}
-            for r in rows:
-                role = r["role"] or "unknown"
-                backend = r["backend"] or "unknown"
-                cost = r["estimated_cost_usd"] or 0
-                recent_cost_by_role[role] = recent_cost_by_role.get(role, 0) + cost
-                recent_cost_by_backend[backend] = recent_cost_by_backend.get(backend, 0) + cost
-            result["recent_cost_by_role"] = {k: round(v, 4) for k, v in recent_cost_by_role.items()}
-            result["recent_cost_by_backend"] = {k: round(v, 4) for k, v in recent_cost_by_backend.items()}
+            # Cost over recent sessions (last 50 agents)
+            async with self._db.execute(
+                """SELECT role, backend, estimated_cost_usd, duration_sec, status
+                   FROM agents_history ORDER BY completed_at DESC LIMIT 50"""
+            ) as cur:
+                rows = await cur.fetchall()
+                recent_cost_by_role: dict[str, float] = {}
+                recent_cost_by_backend: dict[str, float] = {}
+                for r in rows:
+                    role = r["role"] or "unknown"
+                    backend = r["backend"] or "unknown"
+                    cost = r["estimated_cost_usd"] or 0
+                    recent_cost_by_role[role] = recent_cost_by_role.get(role, 0) + cost
+                    recent_cost_by_backend[backend] = recent_cost_by_backend.get(backend, 0) + cost
+                result["recent_cost_by_role"] = {k: round(v, 4) for k, v in recent_cost_by_role.items()}
+                result["recent_cost_by_backend"] = {k: round(v, 4) for k, v in recent_cost_by_backend.items()}
 
-        return result
+            return result
+        except Exception as e:
+            log.warning(f"Historical analytics query failed: {e}")
+            return empty
 
     async def find_similar_tasks(self, task_query: str, limit: int = 5) -> list[dict]:
         """Find historical agents with similar tasks using keyword matching."""
@@ -6742,10 +6637,7 @@ async def put_config(request: web.Request) -> web.Response:
         "hung_timeout_minutes": lambda v: isinstance(v, int) and 1 <= v <= 120,
         "cost_budget_usd": lambda v: isinstance(v, (int, float)) and v >= 0,
         "cost_budget_auto_pause": lambda v: isinstance(v, bool),
-        "intelligence_enabled": lambda v: isinstance(v, bool),
-        "intelligence_model": lambda v: isinstance(v, str) and len(v) > 0,
-        "intelligence_summary_interval": lambda v: isinstance(v, (int, float)) and 3.0 <= v <= 120.0,
-        "intelligence_meta_interval": lambda v: isinstance(v, (int, float)) and 5.0 <= v <= 300.0,
+        "llm_meta_interval": lambda v: isinstance(v, (int, float)) and 5.0 <= v <= 300.0,
     }
 
     # Clamp max_restarts to [1, 10] range
@@ -6768,7 +6660,7 @@ async def put_config(request: web.Request) -> web.Response:
                    "default_working_dir": "default_working_dir",
                    "output_capture_interval": "output_capture_interval_sec",
                    "memory_limit_mb": "memory_limit_mb", "default_backend": "default_backend"}
-    llm_keys = {"llm_enabled": "enabled", "llm_model": "model", "llm_summary_interval": "summary_interval_sec"}
+    llm_keys = {"llm_enabled": "enabled", "llm_model": "model", "llm_summary_interval": "summary_interval_sec", "llm_meta_interval": "meta_interval_sec"}
     voice_keys = {"voice_feedback": "feedback_sounds"}
     alert_keys = {
         "idle_agent_ttl": "idle_ttl_seconds",
@@ -6779,13 +6671,6 @@ async def put_config(request: web.Request) -> web.Response:
         "cost_budget_usd": "cost_budget_usd",
         "cost_budget_auto_pause": "cost_budget_auto_pause",
     }
-    intel_keys = {
-        "intelligence_enabled": "enabled",
-        "intelligence_model": "model",
-        "intelligence_summary_interval": "summary_interval_sec",
-        "intelligence_meta_interval": "meta_interval_sec",
-    }
-
     for key, value in data.items():
         if key not in allowed_keys:
             continue
@@ -6797,8 +6682,6 @@ async def put_config(request: web.Request) -> web.Response:
             yaml_update.setdefault("voice", {})[voice_keys[key]] = value
         elif key in alert_keys:
             yaml_update.setdefault("alerts", {})[alert_keys[key]] = value
-        elif key in intel_keys:
-            yaml_update.setdefault("intelligence", {})[intel_keys[key]] = value
 
     # FIRST: write YAML to disk. Only update in-memory config on success.
     config_path = ASHLAR_DIR / "ashlar.yaml"
@@ -6828,15 +6711,10 @@ async def put_config(request: web.Request) -> web.Response:
         if key in data and hasattr(config, key):
             setattr(config, key, data[key])
 
-    # If LLM was enabled/disabled, update summarizer
-    summarizer = request.app.get("llm_summarizer")
-    if summarizer and "llm_enabled" in data:
-        summarizer.config = config
-
-    # If intelligence model changed, update client
-    intel_client = request.app.get("intelligence_client")
-    if intel_client and "intelligence_model" in data:
-        intel_client.model = data["intelligence_model"]
+    # Update intelligence client config reference
+    client = request.app.get("intelligence")
+    if client:
+        client.config = config
 
     # Recompile alert patterns if config changed
     if "alert_patterns" in data and isinstance(data["alert_patterns"], list):
@@ -6878,10 +6756,17 @@ async def create_project(request: web.Request) -> web.Response:
     if not name or not isinstance(name, str) or not path or not isinstance(path, str):
         return web.json_response({"error": "name and path are required strings"}, status=400)
 
+    resolved_path = os.path.realpath(os.path.expanduser(path))
+    if not os.path.isdir(resolved_path):
+        return web.json_response({"error": f"Path is not a valid directory: {resolved_path}"}, status=400)
+    home = str(Path.home())
+    if not (resolved_path.startswith(home) or resolved_path.startswith("/tmp") or resolved_path.startswith("/private/tmp")):
+        return web.json_response({"error": "Project path must be under home directory or /tmp"}, status=400)
+
     project = {
         "id": uuid.uuid4().hex[:8],
         "name": name,
-        "path": os.path.expanduser(path),
+        "path": resolved_path,
         "description": str(data.get("description", "")),
     }
     try:
@@ -6909,6 +6794,49 @@ async def list_workflows(request: web.Request) -> web.Response:
     return web.json_response(workflows)
 
 
+def _validate_workflow_specs(agent_specs: list) -> str | None:
+    """Validate workflow agent specs for structure, deps, and circular deps. Returns error string or None."""
+    if not isinstance(agent_specs, list) or len(agent_specs) == 0:
+        return "agents must be a non-empty list"
+
+    valid_indices = set(range(len(agent_specs)))
+    for i, spec in enumerate(agent_specs):
+        if not isinstance(spec, dict):
+            return f"agents[{i}] must be an object"
+        if not spec.get("role"):
+            return f"agents[{i}] missing required field 'role'"
+        deps = spec.get("depends_on")
+        if deps:
+            if not isinstance(deps, list):
+                return f"agents[{i}].depends_on must be a list"
+            for dep in deps:
+                if not isinstance(dep, int) or dep not in valid_indices:
+                    return f"agents[{i}].depends_on contains invalid index {dep} (valid: 0-{len(agent_specs)-1})"
+                if dep == i:
+                    return f"agents[{i}].depends_on cannot reference itself"
+
+    # Circular dependency check via topological sort (DFS)
+    WHITE, GRAY, BLACK = 0, 1, 2
+    colors = [WHITE] * len(agent_specs)
+
+    def has_cycle(node: int) -> bool:
+        colors[node] = GRAY
+        for dep in (agent_specs[node].get("depends_on") or []):
+            if isinstance(dep, int) and 0 <= dep < len(agent_specs):
+                if colors[dep] == GRAY:
+                    return True
+                if colors[dep] == WHITE and has_cycle(dep):
+                    return True
+        colors[node] = BLACK
+        return False
+
+    for i in range(len(agent_specs)):
+        if colors[i] == WHITE and has_cycle(i):
+            return f"Circular dependency detected involving agents[{i}]"
+
+    return None
+
+
 async def create_workflow(request: web.Request) -> web.Response:
     db: Database = request.app["db"]
     try:
@@ -6921,27 +6849,9 @@ async def create_workflow(request: web.Request) -> web.Response:
         return web.json_response({"error": "name (string) and agents are required"}, status=400)
 
     agent_specs = data["agents"]
-    if not isinstance(agent_specs, list) or len(agent_specs) == 0:
-        return web.json_response({"error": "agents must be a non-empty list"}, status=400)
-
-    # Validate each agent spec
-    valid_indices = set(range(len(agent_specs)))
-    for i, spec in enumerate(agent_specs):
-        if not isinstance(spec, dict):
-            return web.json_response({"error": f"agents[{i}] must be an object"}, status=400)
-        if not spec.get("role"):
-            return web.json_response({"error": f"agents[{i}] missing required field 'role'"}, status=400)
-        deps = spec.get("depends_on")
-        if deps:
-            if not isinstance(deps, list):
-                return web.json_response({"error": f"agents[{i}].depends_on must be a list"}, status=400)
-            for dep in deps:
-                if not isinstance(dep, int) or dep not in valid_indices:
-                    return web.json_response({
-                        "error": f"agents[{i}].depends_on contains invalid index {dep} (valid: 0-{len(agent_specs)-1})"
-                    }, status=400)
-                if dep == i:
-                    return web.json_response({"error": f"agents[{i}].depends_on cannot reference itself"}, status=400)
+    error = _validate_workflow_specs(agent_specs)
+    if error:
+        return web.json_response({"error": error}, status=400)
 
     workflow = {
         "id": uuid.uuid4().hex[:8],
@@ -7159,10 +7069,10 @@ async def update_workflow(request: web.Request) -> web.Response:
     if not name or not agents:
         return web.json_response({"error": "name and agents are required"}, status=400)
 
-    # Validate agent roles
-    for agent_spec in agents:
-        if agent_spec.get("role") and agent_spec["role"] not in BUILTIN_ROLES:
-            return web.json_response({"error": f"Unknown role: {agent_spec['role']}"}, status=400)
+    # Full validation including circular dep check
+    error = _validate_workflow_specs(agents)
+    if error:
+        return web.json_response({"error": error}, status=400)
 
     workflow = {
         "id": workflow_id,
@@ -7510,7 +7420,7 @@ async def acknowledge_insight(request: web.Request) -> web.Response:
 
 async def intelligence_command(request: web.Request) -> web.Response:
     """POST /api/intelligence/command — parse natural language command via Claude API."""
-    client = request.app.get("anthropic_client")
+    client: IntelligenceClient | None = request.app.get("intelligence")
     manager: AgentManager = request.app["agent_manager"]
 
     try:
@@ -7522,7 +7432,7 @@ async def intelligence_command(request: web.Request) -> web.Response:
     if not transcript:
         return web.json_response({"error": "Empty transcript"}, status=400)
 
-    # If Claude API client is available, use it for NLU
+    # If intelligence client is available, use it for NLU
     if client and client.available:
         try:
             intent = await client.parse_command(
@@ -7532,7 +7442,7 @@ async def intelligence_command(request: web.Request) -> web.Response:
             )
             return web.json_response({
                 "intent": intent.to_dict(),
-                "source": "anthropic",
+                "source": "xai",
             })
         except Exception as e:
             log.warning(f"Intelligence command parse failed: {e}")
@@ -7611,16 +7521,16 @@ def _resolve_agent_refs(text: str, agents: list) -> list[str]:
 async def generate_summary(request: web.Request) -> web.Response:
     """POST /api/agents/{id}/summarize — manually trigger LLM summary."""
     manager: AgentManager = request.app["agent_manager"]
-    summarizer: LLMSummarizer | None = request.app.get("llm_summarizer")
+    client: IntelligenceClient | None = request.app.get("intelligence")
     agent_id = request.match_info["id"]
     agent = manager.agents.get(agent_id)
 
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
-    if not summarizer:
+    if not client or not client.available:
         return web.json_response({"error": "LLM not configured"}, status=503)
 
-    summary = await summarizer.summarize(
+    summary = await client.summarize(
         list(agent.output_lines), agent.task, agent.role, agent.status
     )
     if summary:
@@ -7889,7 +7799,7 @@ async def export_fleet_state(request: web.Request) -> web.Response:
             "max_agents": config.max_agents,
             "default_backend": config.default_backend,
             "fleet_cost_limit": config.cost_budget_usd,
-            "intelligence_enabled": config.intelligence_enabled,
+            "intelligence_enabled": config.llm_enabled,
         },
     }
     return web.json_response(export_data)
@@ -8968,8 +8878,8 @@ async def output_capture_loop(app: web.Application) -> None:
                         log.debug(f"Pattern alerting error for {agent_id}: {e}")
 
                     # LLM summary with throttling + output-change cache
-                    summarizer: LLMSummarizer | None = app.get("llm_summarizer")
-                    if summarizer and app["config"].llm_enabled:
+                    summarizer: IntelligenceClient | None = app.get("intelligence")
+                    if summarizer and summarizer.available:
                         if now_mono - agent._last_llm_summary_time >= app["config"].llm_summary_interval:
                             # Skip LLM call if output hasn't changed since last summary
                             current_hash = agent._prev_output_hash
@@ -9569,12 +9479,12 @@ async def meta_agent_loop(app: web.Application) -> None:
     agents, handoff opportunities, and anomalies.
     """
     config: Config = app["config"]
-    interval = config.intelligence_meta_interval
+    interval = config.llm_meta_interval
 
     while True:
         await asyncio.sleep(interval)
 
-        client: AnthropicIntelligenceClient | None = app.get("anthropic_client")
+        client: IntelligenceClient | None = app.get("intelligence")
         if not client or not client.available:
             continue
 
@@ -9672,8 +9582,9 @@ async def start_background_tasks(app: web.Application) -> None:
         asyncio.create_task(_supervised_task("health_check", health_check_loop, app)),
         asyncio.create_task(_supervised_task("memory_watchdog", memory_watchdog_loop, app)),
     ]
-    # Meta-agent intelligence task (only if Anthropic API is available)
-    if app.get("anthropic_client"):
+    # Meta-agent intelligence task (only if intelligence client is available)
+    intel = app.get("intelligence")
+    if intel and intel.available:
         bg_tasks.append(asyncio.create_task(_supervised_task("meta_agent", meta_agent_loop, app)))
     app["bg_tasks"] = bg_tasks
     log.info("Background tasks started")
@@ -9697,15 +9608,10 @@ async def cleanup_background_tasks(app: web.Application) -> None:
             except Exception as e:
                 log.warning(f"Shutdown: failed to archive agent {agent.id} ({agent.name}): {e}")
 
-    # Close LLM summarizer
-    summarizer: LLMSummarizer | None = app.get("llm_summarizer")
-    if summarizer:
-        await summarizer.close()
-
-    # Close Anthropic client
-    anthropic_client: AnthropicIntelligenceClient | None = app.get("anthropic_client")
-    if anthropic_client:
-        await anthropic_client.close()
+    # Close intelligence client
+    intel: IntelligenceClient | None = app.get("intelligence")
+    if intel:
+        await intel.close()
 
     # Close database
     await db.close()
@@ -9738,24 +9644,13 @@ def create_app(config: Config) -> web.Application:
     rate_limiter = RateLimiter()
     app["rate_limiter"] = rate_limiter
 
-    # LLM Summarizer
-    summarizer = LLMSummarizer(config)
-    app["llm_summarizer"] = summarizer
-    if config.llm_enabled:
-        log.info(f"LLM summaries enabled: {config.llm_provider}/{config.llm_model}")
+    # Unified Intelligence Client (xAI Grok)
+    intel_client = IntelligenceClient(config)
+    app["intelligence"] = intel_client
+    if intel_client.available:
+        log.info(f"Intelligence enabled: xai/{config.llm_model}")
     else:
-        log.info("LLM summaries disabled (set XAI_API_KEY and llm.enabled in config)")
-
-    # Anthropic Intelligence Client
-    anthropic_client = None
-    if config.intelligence_enabled and config.intelligence_api_key:
-        anthropic_client = AnthropicIntelligenceClient(
-            api_key=config.intelligence_api_key,
-            model=config.intelligence_model,
-        )
-        log.info(f"Intelligence enabled: Anthropic/{config.intelligence_model}")
-    else:
-        log.info("Intelligence disabled (set ANTHROPIC_API_KEY env var)")
+        log.info("Intelligence disabled (set XAI_API_KEY and llm.enabled in config)")
 
     # Compile alert patterns for pattern alerting in capture loop
     compiled_alerts = []
@@ -9767,7 +9662,6 @@ def create_app(config: Config) -> web.Application:
     app["_compiled_alert_patterns"] = compiled_alerts if compiled_alerts else None
     if compiled_alerts:
         log.info(f"Pattern alerting enabled: {len(compiled_alerts)} patterns")
-    app["anthropic_client"] = anthropic_client
     app["intelligence_insights"] = []  # list[AgentInsight]
     app["_meta_state_hash"] = ""  # For skipping unchanged fleet analysis
 

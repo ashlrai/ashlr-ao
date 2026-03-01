@@ -27,7 +27,7 @@ with patch("psutil.cpu_percent", return_value=0.0):
         FileOperation,
         GitOperation,
         AgentTestResult,
-        AnthropicIntelligenceClient,
+        IntelligenceClient,
         AgentInsight,
         ParsedIntent,
         _keyword_parse_command,
@@ -2882,21 +2882,17 @@ class TestConfigLoadingAndValidation:
         assert "re.compile" in src
         assert "re.error" in src
 
-    def test_put_config_has_intelligence_validators(self):
-        """put_config should validate intelligence fields."""
+    def test_put_config_has_llm_meta_interval_validator(self):
+        """put_config should validate llm_meta_interval field."""
         import inspect
         src = inspect.getsource(ashlar_server.put_config)
-        assert "intelligence_enabled" in src
-        assert "intelligence_model" in src
-        assert "intelligence_summary_interval" in src
-        assert "intelligence_meta_interval" in src
+        assert "llm_meta_interval" in src
 
-    def test_put_config_maps_intel_to_yaml(self):
-        """put_config should map intelligence fields to YAML intelligence section."""
+    def test_put_config_maps_llm_meta_to_yaml(self):
+        """put_config should map llm_meta_interval to YAML llm section."""
         import inspect
         src = inspect.getsource(ashlar_server.put_config)
-        assert "intel_keys" in src
-        assert '"intelligence"' in src
+        assert "meta_interval_sec" in src
 
     def test_put_config_recompiles_alert_patterns(self):
         """put_config should recompile alert patterns when config changes."""
@@ -4639,95 +4635,94 @@ class TestActivityPerformanceTiming:
 
 
 # ─────────────────────────────────────────────
-# T19: AnthropicIntelligenceClient Unit Tests
+# T19: IntelligenceClient Unit Tests
 # ─────────────────────────────────────────────
 
-class TestAnthropicIntelligenceClient:
-    """Tests for circuit breaker, error handling, and graceful degradation."""
+def _make_intel_config(enabled=True, api_key="test-key"):
+    """Create a Config with LLM fields set for testing IntelligenceClient."""
+    cfg = ashlar_server.Config()
+    cfg.llm_enabled = enabled
+    cfg.llm_api_key = api_key
+    cfg.llm_model = "grok-4-1-fast-reasoning"
+    cfg.llm_base_url = "https://api.x.ai/v1"
+    cfg.llm_max_output_lines = 30
+    return cfg
 
-    def test_check_circuit_returns_true_when_available(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
-        assert client._check_circuit() is True
 
-    def test_check_circuit_returns_false_when_unavailable(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
-        client.available = False
+class TestIntelligenceClient:
+    """Tests for unified IntelligenceClient circuit breaker, error handling, and graceful degradation."""
+
+    def test_check_circuit_disabled_no_key(self):
+        """Client with no API key should not be available."""
+        cfg = _make_intel_config(enabled=True, api_key="")
+        client = IntelligenceClient(cfg)
+        assert client.available is False
         assert client._check_circuit() is False
 
+    def test_check_circuit_disabled_flag(self):
+        """Client with enabled=False should not be available."""
+        cfg = _make_intel_config(enabled=False, api_key="test-key")
+        client = IntelligenceClient(cfg)
+        assert client.available is False
+
+    def test_check_circuit_enabled(self):
+        """Client with key and enabled=True should be available."""
+        cfg = _make_intel_config(enabled=True, api_key="test-key")
+        client = IntelligenceClient(cfg)
+        assert client.available is True
+        assert client._check_circuit() is True
+
     def test_check_circuit_trips_at_max_failures(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
+        cfg = _make_intel_config()
+        client = IntelligenceClient(cfg)
         client._failures = 5
         client._circuit_reset_time = time.monotonic() + 60
         assert client._check_circuit() is False
 
     def test_check_circuit_resets_after_cooldown(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
+        cfg = _make_intel_config()
+        client = IntelligenceClient(cfg)
         client._failures = 5
         client._circuit_reset_time = time.monotonic() - 1  # expired
         assert client._check_circuit() is True
         assert client._failures == 0
 
-    def test_handle_error_401_marks_unavailable(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
-        client._handle_error(401)
-        assert client.available is False
-
-    def test_handle_error_403_marks_unavailable(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
-        client._handle_error(403)
-        assert client.available is False
-
-    def test_handle_error_429_sets_cooldown(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
-        before = time.monotonic()
-        client._handle_error(429, retry_after="30")
-        assert client._circuit_reset_time >= before + 29
-        assert client.available is True  # Still available, just cooling
-
-    def test_handle_error_429_default_cooldown(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
-        before = time.monotonic()
-        client._handle_error(429)  # No retry_after
-        assert client._circuit_reset_time >= before + 59
-
-    def test_handle_error_500_increments_failures(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
-        assert client._failures == 0
-        client._handle_error(500)
-        assert client._failures == 1
+    def test_available_flag_controls_circuit(self):
+        cfg = _make_intel_config()
+        client = IntelligenceClient(cfg)
         assert client.available is True
-
-    def test_handle_error_trips_circuit_at_max(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
-        for _ in range(5):
-            client._handle_error(500)
-        assert client._failures == 5
-        assert client._circuit_reset_time > time.monotonic()
+        client.available = False
+        assert client._check_circuit() is False
 
     def test_call_returns_none_when_circuit_open(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
+        cfg = _make_intel_config()
+        client = IntelligenceClient(cfg)
         client.available = False
         result = asyncio.run(client._call([{"role": "user", "content": "hi"}]))
         assert result is None
 
     def test_analyze_fleet_skips_single_agent(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
+        cfg = _make_intel_config()
+        client = IntelligenceClient(cfg)
         mock_agent = MagicMock()
         result = asyncio.run(client.analyze_fleet([mock_agent], []))
         assert result == []
 
     def test_analyze_fleet_skips_empty_list(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
+        cfg = _make_intel_config()
+        client = IntelligenceClient(cfg)
         result = asyncio.run(client.analyze_fleet([], []))
         assert result == []
 
     def test_summarize_returns_none_for_empty_output(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
+        cfg = _make_intel_config()
+        client = IntelligenceClient(cfg)
         result = asyncio.run(client.summarize([], "task", "general", "working"))
         assert result is None
 
     def test_parse_command_returns_unknown_when_circuit_open(self):
-        client = AnthropicIntelligenceClient(api_key="test-key")
+        cfg = _make_intel_config()
+        client = IntelligenceClient(cfg)
         client.available = False
         result = asyncio.run(client.parse_command("test command", [], {}))
         assert isinstance(result, ParsedIntent)
@@ -6495,3 +6490,90 @@ class TestMigrationIndividualAlters:
         """init() should use a for loop with individual try/except for ALTERs."""
         source = inspect.getsource(ashlar_server.Database.init)
         assert "for col_sql in [" in source
+
+
+# ─────────────────────────────────────────────
+# T-NEW: Workflow Validation (shared helper)
+# ─────────────────────────────────────────────
+
+class TestWorkflowValidation:
+    """Tests for _validate_workflow_specs shared validation helper."""
+
+    def test_self_dependency_rejected(self):
+        specs = [{"role": "backend", "depends_on": [0]}]
+        error = ashlar_server._validate_workflow_specs(specs)
+        assert error is not None
+        assert "cannot reference itself" in error
+
+    def test_circular_dependency_detected(self):
+        specs = [
+            {"role": "backend", "depends_on": [1]},
+            {"role": "frontend", "depends_on": [0]},
+        ]
+        error = ashlar_server._validate_workflow_specs(specs)
+        assert error is not None
+        assert "Circular dependency" in error
+
+    def test_valid_workflow_passes(self):
+        specs = [
+            {"role": "backend"},
+            {"role": "frontend", "depends_on": [0]},
+            {"role": "tester", "depends_on": [0, 1]},
+        ]
+        error = ashlar_server._validate_workflow_specs(specs)
+        assert error is None
+
+
+# ─────────────────────────────────────────────
+# T-NEW: _safe_commit return value
+# ─────────────────────────────────────────────
+
+class TestSafeCommitReturn:
+    """Tests that _safe_commit returns bool."""
+
+    def test_returns_false_when_no_db(self):
+        db = ashlar_server.Database()
+        db._db = None
+        result = asyncio.run(db._safe_commit())
+        assert result is False
+
+    def test_returns_bool_type(self):
+        """_safe_commit should return bool, not None."""
+        source = inspect.getsource(ashlar_server.Database._safe_commit)
+        assert "-> bool" in source
+        assert "return True" in source
+        assert "return False" in source
+
+
+# ─────────────────────────────────────────────
+# T-NEW: Historical Analytics Error Handling
+# ─────────────────────────────────────────────
+
+class TestHistoricalAnalyticsErrorHandling:
+    """Tests that get_historical_analytics handles errors gracefully."""
+
+    def test_returns_empty_dict_when_no_db(self):
+        db = ashlar_server.Database()
+        db._db = None
+        result = asyncio.run(db.get_historical_analytics())
+        assert isinstance(result, dict)
+        assert result.get("total_historical") == 0
+        assert "error_patterns" in result
+
+
+# ─────────────────────────────────────────────
+# T-NEW: Create Project Path Validation
+# ─────────────────────────────────────────────
+
+class TestCreateProjectPathValidation:
+    """Tests that create_project validates paths."""
+
+    def test_source_has_isdir_check(self):
+        """create_project should validate path is a directory."""
+        source = inspect.getsource(ashlar_server.create_project)
+        assert "os.path.isdir" in source
+
+    def test_source_has_home_check(self):
+        """create_project should validate path is under home or /tmp."""
+        source = inspect.getsource(ashlar_server.create_project)
+        assert "Path.home()" in source or "startswith" in source
