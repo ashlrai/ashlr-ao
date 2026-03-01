@@ -6312,3 +6312,186 @@ class TestBuildDepContext:
         # Should have at most 20 files (comma-separated)
         file_count = len(files_line.split("Files touched: ")[1].split(", "))
         assert file_count == 20
+
+
+# ── Database close and init safety ──
+
+class TestDatabaseCloseNullsDb:
+    """Tests that Database.close() sets _db = None for safe guard checks."""
+
+    def test_close_nulls_db(self):
+        """After close(), _db should be None so all guards short-circuit."""
+        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        mock_conn = AsyncMock()
+        db._db = mock_conn
+        asyncio.run(db.close())
+        assert db._db is None
+        mock_conn.close.assert_awaited_once()
+
+    def test_close_noop_when_none(self):
+        """close() should be safe to call when _db is already None."""
+        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db._db = None
+        asyncio.run(db.close())  # Should not raise
+        assert db._db is None
+
+
+class TestDatabaseInitSafety:
+    """Tests that Database.init() handles retries safely."""
+
+    def test_init_closes_existing_on_retry(self):
+        """If init() is called when _db already has a connection, it should close first."""
+        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        old_conn = AsyncMock()
+        db._db = old_conn
+        db.db_path = Path("/tmp/test_nonexistent.db")
+
+        # init() will fail on connect since we patch it to raise, but should close old conn first
+        with patch("aiosqlite.connect", side_effect=Exception("test error")):
+            with pytest.raises(Exception, match="test error"):
+                asyncio.run(db.init())
+
+        old_conn.close.assert_awaited_once()
+        assert db._db is None  # Should be cleaned up after failure
+
+
+class TestDatabaseWriteErrorHandling:
+    """Tests that write methods catch exceptions gracefully."""
+
+    def _make_db(self):
+        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db._db = AsyncMock()
+        db._db.execute = AsyncMock(side_effect=Exception("disk full"))
+        return db
+
+    def test_save_agent_handles_db_error(self):
+        """save_agent should log warning, not raise."""
+        db = self._make_db()
+        agent = MagicMock()
+        agent.id = "test1"
+        agent.name = "test"
+        agent.role = "general"
+        agent.project_id = None
+        agent.task = "test"
+        agent.summary = ""
+        agent.status = "complete"
+        agent.working_dir = "/tmp"
+        agent.backend = "claude-code"
+        agent.created_at = "2024-01-01T00:00:00Z"
+        agent.context_pct = 0.0
+        agent.output_lines = []
+        agent.tokens_input = 0
+        agent.tokens_output = 0
+        agent.estimated_cost_usd = 0.0
+        agent.plan_mode = False
+        agent._spawn_time = time.monotonic() - 60
+        # Should not raise
+        asyncio.run(db.save_agent(agent))
+
+    def test_save_project_handles_db_error(self):
+        db = self._make_db()
+        asyncio.run(db.save_project({"id": "p1", "name": "test", "path": "/tmp"}))
+
+    def test_save_workflow_handles_db_error(self):
+        db = self._make_db()
+        asyncio.run(db.save_workflow({"id": "w1", "name": "test", "agents_json": "[]"}))
+
+    def test_save_message_handles_db_error(self):
+        db = self._make_db()
+        asyncio.run(db.save_message({"id": "m1", "from_agent_id": "a1", "content": "hi", "created_at": "now"}))
+
+    def test_set_file_lock_handles_db_error(self):
+        db = self._make_db()
+        asyncio.run(db.set_file_lock("/tmp/file.py", "a1", "agent1"))
+
+    def test_release_file_locks_handles_db_error(self):
+        db = self._make_db()
+        asyncio.run(db.release_file_locks("a1"))
+
+    def test_mark_messages_read_handles_db_error(self):
+        db = self._make_db()
+        result = asyncio.run(db.mark_messages_read("a1"))
+        assert result == 0
+
+
+class TestDatabaseReadErrorHandling:
+    """Tests that read methods return fallbacks on DB errors."""
+
+    def _make_db(self):
+        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        mock_conn = MagicMock()
+        # Make execute raise when used as async context manager
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__ = AsyncMock(side_effect=Exception("corrupt"))
+        mock_conn.execute = MagicMock(return_value=mock_ctx)
+        db._db = mock_conn
+        return db
+
+    def test_get_agent_history_returns_empty_on_error(self):
+        db = self._make_db()
+        result = asyncio.run(db.get_agent_history())
+        assert result == []
+
+    def test_get_agent_history_count_returns_zero_on_error(self):
+        db = self._make_db()
+        result = asyncio.run(db.get_agent_history_count())
+        assert result == 0
+
+    def test_get_agent_history_item_returns_none_on_error(self):
+        db = self._make_db()
+        result = asyncio.run(db.get_agent_history_item("test_id"))
+        assert result is None
+
+
+class TestResumeFromHistoryNoProjectId:
+    """Tests that resume_from_history doesn't pass project_id to spawn()."""
+
+    def test_spawn_signature_has_no_project_id(self):
+        """Verify AgentManager.spawn() does not accept project_id as a kwarg."""
+        sig = inspect.signature(ashlar_server.AgentManager.spawn)
+        assert "project_id" not in sig.parameters
+
+    def test_resume_sets_project_id_after_spawn(self):
+        """The resume handler should set project_id on the agent after spawn(), not as a kwarg."""
+        # Verify the source code pattern: project_id should NOT be in the spawn() call
+        import inspect
+        source = inspect.getsource(ashlar_server.resume_from_history)
+        # The fix: project_id should NOT appear in manager.spawn() kwargs
+        assert "project_id=session" not in source
+
+
+class TestQueueValidation:
+    """Tests that add_to_queue validates role and backend."""
+
+    def test_queue_source_validates_role(self):
+        """The add_to_queue handler should check role against BUILTIN_ROLES."""
+        source = inspect.getsource(ashlar_server.add_to_queue)
+        assert "BUILTIN_ROLES" in source
+
+    def test_queue_source_validates_backend(self):
+        """The add_to_queue handler should check backend against KNOWN_BACKENDS."""
+        source = inspect.getsource(ashlar_server.add_to_queue)
+        assert "KNOWN_BACKENDS" in source
+
+
+class TestHandoffValidation:
+    """Tests that handoff_agent validates files_modified type."""
+
+    def test_handoff_validates_files_modified_type(self):
+        """The handoff handler should validate files_modified is a list."""
+        source = inspect.getsource(ashlar_server.handoff_agent)
+        assert "isinstance(files_modified, list)" in source
+
+    def test_handoff_truncates_key_findings(self):
+        """key_findings should be truncated to 5000 chars."""
+        source = inspect.getsource(ashlar_server.handoff_agent)
+        assert "[:5000]" in source
+
+
+class TestMigrationIndividualAlters:
+    """Tests that DB migrations use individual try/except per ALTER."""
+
+    def test_migration_uses_loop(self):
+        """init() should use a for loop with individual try/except for ALTERs."""
+        source = inspect.getsource(ashlar_server.Database.init)
+        assert "for col_sql in [" in source

@@ -4218,16 +4218,23 @@ class Database:
             log.warning(f"Database commit timed out after {timeout}s")
 
     async def init(self) -> None:
+        # Close any existing connection (safe for retries)
+        if self._db:
+            try:
+                await self._db.close()
+            except Exception:
+                pass
+            self._db = None
         self._db = await aiosqlite.connect(str(self.db_path))
-        self._db.row_factory = aiosqlite.Row
+        try:
+            self._db.row_factory = aiosqlite.Row
+            # SQLite performance PRAGMAs
+            await self._db.execute("PRAGMA journal_mode=WAL")
+            await self._db.execute("PRAGMA busy_timeout=5000")
+            await self._db.execute("PRAGMA synchronous=NORMAL")
+            await self._db.execute("PRAGMA cache_size=-8000")
 
-        # SQLite performance PRAGMAs
-        await self._db.execute("PRAGMA journal_mode=WAL")
-        await self._db.execute("PRAGMA busy_timeout=5000")
-        await self._db.execute("PRAGMA synchronous=NORMAL")
-        await self._db.execute("PRAGMA cache_size=-8000")
-
-        await self._db.executescript("""
+            await self._db.executescript("""
             CREATE TABLE IF NOT EXISTS agents_history (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -4336,40 +4343,48 @@ class Database:
                 color TEXT DEFAULT 'accent',
                 created_at TEXT NOT NULL
             );
-            CREATE INDEX IF NOT EXISTS idx_bookmarks_agent ON output_bookmarks(agent_id);
-        """)
-        await self._safe_commit()
-
-        # Safe migrations: add columns if missing
-        try:
-            await self._db.execute("ALTER TABLE agent_messages ADD COLUMN message_type TEXT DEFAULT 'text'")
+                CREATE INDEX IF NOT EXISTS idx_bookmarks_agent ON output_bookmarks(agent_id);
+            """)
             await self._safe_commit()
+
+            # Safe migrations: add columns if missing
+            try:
+                await self._db.execute("ALTER TABLE agent_messages ADD COLUMN message_type TEXT DEFAULT 'text'")
+                await self._safe_commit()
+            except Exception:
+                pass  # Column already exists
+
+            # Each ALTER must be its own try/except to handle partial migration states
+            for col_sql in [
+                "ALTER TABLE agents_history ADD COLUMN tokens_input INTEGER DEFAULT 0",
+                "ALTER TABLE agents_history ADD COLUMN tokens_output INTEGER DEFAULT 0",
+                "ALTER TABLE agents_history ADD COLUMN estimated_cost_usd REAL DEFAULT 0.0",
+                "ALTER TABLE agents_history ADD COLUMN resumable INTEGER DEFAULT 0",
+                "ALTER TABLE agents_history ADD COLUMN system_prompt TEXT DEFAULT ''",
+                "ALTER TABLE agents_history ADD COLUMN plan_mode INTEGER DEFAULT 0",
+            ]:
+                try:
+                    await self._db.execute(col_sql)
+                    await self._safe_commit()
+                except Exception:
+                    pass  # Column already exists
+
+            # Seed built-in workflows if empty
+            async with self._db.execute("SELECT COUNT(*) FROM workflows") as cur:
+                row = await cur.fetchone()
+                if row[0] == 0:
+                    await self._seed_default_workflows()
+
+            log.info(f"Database initialized at {self.db_path}")
         except Exception:
-            pass  # Column already exists
-
-        try:
-            await self._db.execute("ALTER TABLE agents_history ADD COLUMN tokens_input INTEGER DEFAULT 0")
-            await self._db.execute("ALTER TABLE agents_history ADD COLUMN tokens_output INTEGER DEFAULT 0")
-            await self._db.execute("ALTER TABLE agents_history ADD COLUMN estimated_cost_usd REAL DEFAULT 0.0")
-            await self._safe_commit()
-        except Exception:
-            pass  # Columns already exist
-
-        try:
-            await self._db.execute("ALTER TABLE agents_history ADD COLUMN resumable INTEGER DEFAULT 0")
-            await self._db.execute("ALTER TABLE agents_history ADD COLUMN system_prompt TEXT DEFAULT ''")
-            await self._db.execute("ALTER TABLE agents_history ADD COLUMN plan_mode INTEGER DEFAULT 0")
-            await self._safe_commit()
-        except Exception:
-            pass  # Columns already exist
-
-        # Seed built-in workflows if empty
-        async with self._db.execute("SELECT COUNT(*) FROM workflows") as cur:
-            row = await cur.fetchone()
-            if row[0] == 0:
-                await self._seed_default_workflows()
-
-        log.info(f"Database initialized at {self.db_path}")
+            # Close leaked connection on init failure
+            if self._db:
+                try:
+                    await self._db.close()
+                except Exception:
+                    pass
+                self._db = None
+            raise
 
     async def _seed_default_workflows(self) -> None:
         defaults = [
@@ -4405,6 +4420,7 @@ class Database:
     async def close(self) -> None:
         if self._db:
             await self._db.close()
+            self._db = None  # Ensure all guards short-circuit after close
 
     # ── Output Archive ──
 
@@ -4507,46 +4523,61 @@ class Database:
         # An agent is resumable if it completed normally or was killed while working
         resumable = 1 if agent.status in ("complete", "working", "planning", "idle") else 0
 
-        await self._db.execute(
-            """INSERT OR REPLACE INTO agents_history
-               (id, name, role, project_id, task, summary, status, working_dir,
-                backend, created_at, completed_at, duration_sec, context_pct, output_preview,
-                tokens_input, tokens_output, estimated_cost_usd,
-                resumable, system_prompt, plan_mode)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (agent.id, agent.name, agent.role, agent.project_id, agent.task,
-             agent.summary, agent.status, agent.working_dir, agent.backend,
-             agent.created_at, completed_at, duration, agent.context_pct, output_preview,
-             agent.tokens_input, agent.tokens_output, agent.estimated_cost_usd,
-             resumable, getattr(agent, 'system_prompt', ''), int(agent.plan_mode)),
-        )
-        await self._safe_commit()
+        try:
+            await self._db.execute(
+                """INSERT OR REPLACE INTO agents_history
+                   (id, name, role, project_id, task, summary, status, working_dir,
+                    backend, created_at, completed_at, duration_sec, context_pct, output_preview,
+                    tokens_input, tokens_output, estimated_cost_usd,
+                    resumable, system_prompt, plan_mode)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (agent.id, agent.name, agent.role, agent.project_id, agent.task,
+                 agent.summary, agent.status, agent.working_dir, agent.backend,
+                 agent.created_at, completed_at, duration, agent.context_pct, output_preview,
+                 agent.tokens_input, agent.tokens_output, agent.estimated_cost_usd,
+                 resumable, getattr(agent, 'system_prompt', ''), int(agent.plan_mode)),
+            )
+            await self._safe_commit()
+        except Exception as e:
+            log.warning(f"Failed to save agent {agent.id} ({agent.name}) to history: {e}")
 
     async def get_agent_history(self, limit: int = 50, offset: int = 0) -> list[dict]:
         if not self._db:
             return []
-        async with self._db.execute(
-            "SELECT * FROM agents_history ORDER BY completed_at DESC LIMIT ? OFFSET ?",
-            (limit, offset),
-        ) as cur:
-            rows = await cur.fetchall()
-            return [dict(r) for r in rows]
+        try:
+            async with self._db.execute(
+                "SELECT * FROM agents_history ORDER BY completed_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            ) as cur:
+                rows = await cur.fetchall()
+                return [dict(r) for r in rows]
+        except Exception as e:
+            log.warning(f"Failed to get agent history: {e}")
+            return []
 
     async def get_agent_history_count(self) -> int:
         if not self._db:
             return 0
-        async with self._db.execute("SELECT COUNT(*) FROM agents_history") as cur:
-            row = await cur.fetchone()
-            return row[0] if row else 0
+        try:
+            async with self._db.execute("SELECT COUNT(*) FROM agents_history") as cur:
+                row = await cur.fetchone()
+                return row[0] if row else 0
+        except Exception as e:
+            log.warning(f"Failed to get agent history count: {e}")
+            return 0
 
     async def get_agent_history_item(self, agent_id: str) -> dict | None:
         if not self._db:
             return None
-        async with self._db.execute(
-            "SELECT * FROM agents_history WHERE id = ?", (agent_id,)
-        ) as cur:
-            row = await cur.fetchone()
-            return dict(row) if row else None
+        try:
+            async with self._db.execute(
+                "SELECT * FROM agents_history WHERE id = ?", (agent_id,)
+            ) as cur:
+                row = await cur.fetchone()
+                return dict(row) if row else None
+        except Exception as e:
+            log.warning(f"Failed to get agent history item {agent_id}: {e}")
+            return None
 
     async def get_resumable_sessions(self, limit: int = 20) -> list[dict]:
         """Get recently completed agents that can be resumed."""
@@ -4692,13 +4723,16 @@ class Database:
         if not self._db:
             return
         now = datetime.now(timezone.utc).isoformat()
-        await self._db.execute(
-            """INSERT OR REPLACE INTO projects (id, name, path, description, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (project["id"], project["name"], project["path"],
-             project.get("description", ""), project.get("created_at", now), now),
-        )
-        await self._safe_commit()
+        try:
+            await self._db.execute(
+                """INSERT OR REPLACE INTO projects (id, name, path, description, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (project["id"], project["name"], project["path"],
+                 project.get("description", ""), project.get("created_at", now), now),
+            )
+            await self._safe_commit()
+        except Exception as e:
+            log.warning(f"Failed to save project: {e}")
 
     async def get_projects(self) -> list[dict]:
         if not self._db:
@@ -4723,13 +4757,16 @@ class Database:
         agents_json = workflow.get("agents_json", "")
         if isinstance(agents_json, list):
             agents_json = json.dumps(agents_json)
-        await self._db.execute(
-            """INSERT OR REPLACE INTO workflows (id, name, description, agents_json, created_at)
-               VALUES (?, ?, ?, ?, ?)""",
-            (workflow["id"], workflow["name"], workflow.get("description", ""),
-             agents_json, workflow.get("created_at", now)),
-        )
-        await self._safe_commit()
+        try:
+            await self._db.execute(
+                """INSERT OR REPLACE INTO workflows (id, name, description, agents_json, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (workflow["id"], workflow["name"], workflow.get("description", ""),
+                 agents_json, workflow.get("created_at", now)),
+            )
+            await self._safe_commit()
+        except Exception as e:
+            log.warning(f"Failed to save workflow: {e}")
 
     async def get_workflows(self) -> list[dict]:
         if not self._db:
@@ -4776,13 +4813,16 @@ class Database:
     async def save_message(self, msg: dict) -> None:
         if not self._db:
             return
-        await self._db.execute(
-            """INSERT INTO agent_messages (id, from_agent_id, to_agent_id, content, created_at)
-               VALUES (?, ?, ?, ?, ?)""",
-            (msg["id"], msg["from_agent_id"], msg.get("to_agent_id"),
-             msg["content"], msg["created_at"]),
-        )
-        await self._safe_commit()
+        try:
+            await self._db.execute(
+                """INSERT INTO agent_messages (id, from_agent_id, to_agent_id, content, created_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (msg["id"], msg["from_agent_id"], msg.get("to_agent_id"),
+                 msg["content"], msg["created_at"]),
+            )
+            await self._safe_commit()
+        except Exception as e:
+            log.warning(f"Failed to save message: {e}")
 
     async def get_messages_for_agent(self, agent_id: str, limit: int = 50, offset: int = 0) -> list[dict]:
         if not self._db:
@@ -4817,13 +4857,17 @@ class Database:
     async def mark_messages_read(self, agent_id: str) -> int:
         if not self._db:
             return 0
-        now = datetime.now(timezone.utc).isoformat()
-        async with self._db.execute(
-            "UPDATE agent_messages SET read_at = ? WHERE to_agent_id = ? AND read_at IS NULL",
-            (now, agent_id),
-        ) as cur:
-            await self._safe_commit()
-            return cur.rowcount
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            async with self._db.execute(
+                "UPDATE agent_messages SET read_at = ? WHERE to_agent_id = ? AND read_at IS NULL",
+                (now, agent_id),
+            ) as cur:
+                await self._safe_commit()
+                return cur.rowcount
+        except Exception as e:
+            log.warning(f"Failed to mark messages read for {agent_id}: {e}")
+            return 0
 
     async def get_unread_count(self, agent_id: str) -> int:
         if not self._db:
@@ -4934,11 +4978,14 @@ class Database:
         if not self._db:
             return
         now = datetime.now(timezone.utc).isoformat()
-        await self._db.execute(
-            "INSERT OR REPLACE INTO file_locks (file_path, agent_id, agent_name, locked_at) VALUES (?, ?, ?, ?)",
-            (file_path, agent_id, agent_name, now),
-        )
-        await self._safe_commit()
+        try:
+            await self._db.execute(
+                "INSERT OR REPLACE INTO file_locks (file_path, agent_id, agent_name, locked_at) VALUES (?, ?, ?, ?)",
+                (file_path, agent_id, agent_name, now),
+            )
+            await self._safe_commit()
+        except Exception as e:
+            log.warning(f"Failed to set file lock for {file_path}: {e}")
 
     async def get_file_locks(self, file_path: str | None = None) -> list[dict]:
         if not self._db:
@@ -4955,8 +5002,11 @@ class Database:
     async def release_file_locks(self, agent_id: str) -> None:
         if not self._db:
             return
-        await self._db.execute("DELETE FROM file_locks WHERE agent_id = ?", (agent_id,))
-        await self._safe_commit()
+        try:
+            await self._db.execute("DELETE FROM file_locks WHERE agent_id = ?", (agent_id,))
+            await self._safe_commit()
+        except Exception as e:
+            log.warning(f"Failed to release file locks for {agent_id}: {e}")
 
     # ── Agent Presets ──
 
@@ -6766,6 +6816,10 @@ async def put_config(request: web.Request) -> web.Response:
         log.info(f"Config saved to disk: {', '.join(data.keys())}")
     except Exception as e:
         log.warning(f"Failed to save config to disk: {e}")
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
         # Do NOT update in-memory config — disk write failed
         return web.json_response({"error": f"Failed to save: {e}", "config": config.to_dict()}, status=500)
 
@@ -7157,6 +7211,8 @@ async def send_agent_message(request: web.Request) -> web.Response:
     content = data.get("content", "")
     if not to_agent_id or not content:
         return web.json_response({"error": "to_agent_id and content required"}, status=400)
+    if len(content) > 50000:
+        return web.json_response({"error": "content too long (max 50,000 chars)"}, status=400)
 
     to_agent = manager.agents.get(to_agent_id)
     if not to_agent:
@@ -7244,8 +7300,11 @@ async def handoff_agent(request: web.Request) -> web.Response:
     if not to_agent:
         return web.json_response({"error": "Target agent not found"}, status=404)
 
-    key_findings = data.get("key_findings", "")
+    key_findings = str(data.get("key_findings", ""))[:5000]
     files_modified = data.get("files_modified", [])
+    if not isinstance(files_modified, list):
+        return web.json_response({"error": "files_modified must be a list"}, status=400)
+    files_modified = [str(f)[:500] for f in files_modified[:50]]
 
     # Build handoff block
     from_role = BUILTIN_ROLES.get(from_agent.role, BUILTIN_ROLES["general"])
@@ -7769,9 +7828,10 @@ async def resume_from_history(request: web.Request) -> web.Response:
             task=task,
             working_dir=working_dir,
             backend=session.get("backend", config.default_backend),
-            project_id=session.get("project_id"),
             plan_mode=plan_mode,
         )
+        if session.get("project_id"):
+            new_agent.project_id = session["project_id"]
     except Exception as e:
         return web.json_response({"error": f"Failed to resume: {e}"}, status=500)
 
@@ -7904,6 +7964,14 @@ async def add_to_queue(request: web.Request) -> web.Response:
         return web.json_response({"error": "Invalid JSON"}, status=400)
 
     role = data.get("role", "general")
+    if role not in BUILTIN_ROLES:
+        return web.json_response({"error": f"Unknown role '{role}'"}, status=400)
+    backend = data.get("backend")
+    if backend:
+        config_temp: Config = request.app["config"]
+        valid_backends = set(KNOWN_BACKENDS.keys()) | set(config_temp.backends.keys())
+        if backend not in valid_backends:
+            return web.json_response({"error": f"Unknown backend '{backend}'"}, status=400)
     name = data.get("name", f"{role}-{uuid.uuid4().hex[:4]}")
     task_desc = data.get("task", "")
     if not task_desc:
@@ -8118,6 +8186,11 @@ async def import_config(request: web.Request) -> web.Response:
     finally:
         tmp_validate.unlink(missing_ok=True)
 
+    # Strip security-sensitive fields from import payload
+    if isinstance(data.get("server"), dict):
+        data["server"].pop("auth_token", None)
+        data["server"].pop("host", None)
+
     # Atomic write (validated)
     try:
         tmp_path = config_path.with_suffix(".yaml.tmp")
@@ -8125,6 +8198,7 @@ async def import_config(request: web.Request) -> web.Response:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
         tmp_path.rename(config_path)
     except Exception as e:
+        tmp_path.unlink(missing_ok=True)
         return web.json_response({"error": f"Failed to write config: {e}"}, status=500)
 
     # Reload in-memory config

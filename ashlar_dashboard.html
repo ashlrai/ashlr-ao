@@ -6295,6 +6295,11 @@ const ROLE_ICONS = {
 
 // ── State ──
 
+function safeParseJSON(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
+    catch { return fallback; }
+}
+
 const state = {
     agents: new Map(),
     config: {},
@@ -6316,7 +6321,7 @@ const state = {
     conflicts: new Map(),
     presets: [],
     viewMode: localStorage.getItem('ashlar_view_mode') || 'grid',
-    pinnedAgents: new Set(JSON.parse(localStorage.getItem('ashlar_pinned') || '[]')),
+    pinnedAgents: new Set(safeParseJSON('ashlar_pinned', [])),
     commandHistory: new Map(),
     tableSortCol: 'name',
     tableSortAsc: true,
@@ -6330,7 +6335,7 @@ const state = {
     insights: [],
     taskQueue: [],
     cardSort: localStorage.getItem('ashlar_card_sort') || 'priority',
-    cardOrder: JSON.parse(localStorage.getItem('ashlar_card_order') || '[]'),
+    cardOrder: safeParseJSON('ashlar_card_order', []),
     notificationLog: [],
     deepScrollPositions: new Map(), // agentId -> scrollTop
 };
@@ -7344,8 +7349,16 @@ async function acknowledgeInsight(insightId) {
 // ── Message Handlers ──
 
 async function handleSync(data) {
+    const prevAgents = new Map(state.agents);
     state.agents.clear();
-    (data.agents || []).forEach(a => state.agents.set(a.id, a));
+    (data.agents || []).forEach(a => {
+        const prev = prevAgents.get(a.id);
+        if (prev?._outputBuffer) a._outputBuffer = prev._outputBuffer;
+        if (prev?._outputHistory) a._outputHistory = prev._outputHistory;
+        if (prev?._healthHistory) a._healthHistory = prev._healthHistory;
+        if (prev?._progressive) a._progressive = prev._progressive;
+        state.agents.set(a.id, a);
+    });
     state.config = data.config || {};
     state.projects = data.projects || [];
     state.workflows = data.workflows || [];
@@ -9265,6 +9278,9 @@ function openDeepView(agentId) {
     deepSearchIdx = -1;
     _virtualSearchMatches = [];
     virtualTermData = [];
+    // Clear stale server search state from previous agent
+    const _prevTerminal = document.getElementById('deepTerminal');
+    if (_prevTerminal) _prevTerminal._origContent = null;
 
     document.getElementById('deepView').classList.add('active');
     updateDeepViewHeader(agent);
@@ -10479,7 +10495,7 @@ function markOutputPosition() {
     }
     const agent = state.agents.get(state.focusedAgentId);
     if (!agent) return;
-    const lineCount = (agent.output_lines || []).length;
+    const lineCount = (agent._outputBuffer || agent.output_lines || []).length;
     _outputMarks.set(state.focusedAgentId, lineCount);
     const btn = document.getElementById('toolbarMark');
     btn.classList.add('active');
@@ -13461,11 +13477,20 @@ setInterval(() => {
         if (card) {
             const meta = card.querySelector('.card-meta');
             const parts = [];
+            if (agent.model) {
+                const shortModel = agent.model.replace(/^claude-/, '').replace(/-\d{8}$/, '').replace(/^grok-/, 'grok ');
+                parts.push(shortModel);
+            }
             if (agent.restart_count > 0) parts.push(`\u21bb${agent.restart_count}`);
             if (agent.memory_mb) parts.push(`${Math.round(agent.memory_mb)}MB`);
             if (agent.output_rate) parts.push(`${Math.round(agent.output_rate)}l/m`);
             if (agent.estimated_cost_usd > 0.001) parts.push(`$${agent.estimated_cost_usd.toFixed(2)}`);
             if (agent.files_touched > 0) parts.push(`${agent.files_touched} files`);
+            if (agent.last_test_result) {
+                const tr = agent.last_test_result;
+                if (tr.failed > 0) parts.push(`${tr.passed}\u2713 ${tr.failed}\u2717`);
+                else if (tr.passed > 0) parts.push(`${tr.passed}\u2713`);
+            }
             parts.push(timeAgo(agent.updated_at || agent.created_at));
             meta.innerHTML = parts.map(p => `<span>${escapeHtml(p)}</span>`).join('');
         }
@@ -14708,9 +14733,11 @@ function openCompare(leftId, rightId) {
     rightSel.value = rightId || (agents.length > 1 ? agents[1][0] : agents[0][0]);
     document.getElementById('compareOverlay').classList.add('active');
 
-    // Wire synchronized scrolling
+    // Wire synchronized scrolling (remove existing first to prevent leaks)
     const leftTerm = document.getElementById('compareLeftTerminal');
     const rightTerm = document.getElementById('compareRightTerminal');
+    if (leftTerm._compareSyncHandler) leftTerm.removeEventListener('scroll', leftTerm._compareSyncHandler);
+    if (rightTerm._compareSyncHandler) rightTerm.removeEventListener('scroll', rightTerm._compareSyncHandler);
     leftTerm._compareSyncHandler = () => {
         if (_compareSyncing || !_compareSyncScroll) return;
         _compareSyncing = true;
@@ -17682,8 +17709,8 @@ document.getElementById('deepTerminal')?.addEventListener('dblclick', (e) => {
 // ═══════════════════════════════════════════════════════════════════
 // ── Project Card Grouping ──
 // ═══════════════════════════════════════════════════════════════════
-let _groupByProject = JSON.parse(localStorage.getItem('ashlar_group_by_project') || 'false');
-const _collapsedGroups = new Set(JSON.parse(localStorage.getItem('ashlar_collapsed_groups') || '[]'));
+let _groupByProject = safeParseJSON('ashlar_group_by_project', false);
+const _collapsedGroups = new Set(safeParseJSON('ashlar_collapsed_groups', []));
 
 function toggleGroupByProject() {
     _groupByProject = !_groupByProject;
@@ -17824,8 +17851,14 @@ function applySearchReplace() {
     const findVal = document.getElementById('srFindInput')?.value;
     const replaceVal = document.getElementById('srReplaceInput')?.value || '';
     if (!findVal) return;
+    // Validate regex before DOM mutation to avoid partial state on invalid patterns
+    let re;
+    try { re = new RegExp(findVal, 'gi'); } catch {
+        const countEl = document.getElementById('srCount');
+        if (countEl) countEl.textContent = 'invalid regex';
+        return;
+    }
     try {
-        const re = new RegExp(findVal, 'gi');
         const terminal = document.getElementById('deepTerminal');
         if (!terminal) return;
         // Save original content for reset
