@@ -1,12 +1,12 @@
-{$ASHLAR_DOMAIN:localhost} {
-    reverse_proxy ashlar:5111
+{$ASHLR_DOMAIN:localhost} {
+    reverse_proxy ashlr:5111
 
     # WebSocket support
     @websocket {
         header Connection *Upgrade*
         header Upgrade websocket
     }
-    reverse_proxy @websocket ashlar:5111
+    reverse_proxy @websocket ashlr:5111
 
     # Security headers
     header {

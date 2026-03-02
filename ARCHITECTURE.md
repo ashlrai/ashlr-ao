@@ -1,13 +1,13 @@
-# ASHLAR — Architecture & Development Bible
+# ASHLR — Architecture & Development Bible
 
 **Version**: 0.1.0 | **Last Updated**: February 2026
 **Status**: Pre-development — ready for Claude Code implementation
 
 ---
 
-## 1. WHAT IS ASHLAR?
+## 1. WHAT IS ASHLR?
 
-Ashlar is a **local-first agent orchestration platform** that lets one developer manage many AI coding agents across multiple projects from a single command center.
+Ashlr is a **local-first agent orchestration platform** that lets one developer manage many AI coding agents across multiple projects from a single command center.
 
 It is not a dashboard. It is not a terminal multiplexer. It is an **AI-native control surface** for the agentic engineering era — where the management layer itself is intelligent, the primary input is voice, and every agent is visible at a glance.
 
@@ -22,7 +22,7 @@ Today's AI coding tools (Claude Code, Codex, Cursor, etc.) are powerful but isol
 
 ### The Solution
 
-Ashlar gives you a **command center** where every agent is a card showing real-time status. You see at a glance what's working, what's stuck, what needs your attention. You speak commands ("spawn a backend agent for the auth feature"), respond to agent questions inline, and click into any agent for the full terminal view. Ashlar itself is intelligent — it monitors your agents, detects when they need help, and coordinates information between them.
+Ashlr gives you a **command center** where every agent is a card showing real-time status. You see at a glance what's working, what's stuck, what needs your attention. You speak commands ("spawn a backend agent for the auth feature"), respond to agent questions inline, and click into any agent for the full terminal view. Ashlr itself is intelligent — it monitors your agents, detects when they need help, and coordinates information between them.
 
 ### Who Is This For?
 
@@ -48,7 +48,7 @@ Agentic engineers — developers who use AI coding agents as their primary devel
 
 ### The 30-Second Experience
 
-1. You launch Ashlar. Your projects and any persistent agents load.
+1. You launch Ashlr. Your projects and any persistent agents load.
 2. You see a grid of agent cards — each color-coded by status.
 3. You hold your PTT key: "Spin up three agents on the payment service — one for the API, one for tests, one for security audit. Start them all in plan mode."
 4. Three cards appear. They turn yellow (thinking), then blue (planning). You see 1-2 line summaries updating in real-time.
@@ -64,7 +64,7 @@ Agentic engineers — developers who use AI coding agents as their primary devel
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    ASHLAR                             │
+│                    ASHLR                             │
 │                                                       │
 │  ┌─────────────────────────────────────────────────┐ │
 │  │              Web Dashboard (HTML/JS)             │ │
@@ -77,7 +77,7 @@ Agentic engineers — developers who use AI coding agents as their primary devel
 │  └────────────────────┼─────────────────────────────┘ │
 │                       │                               │
 │  ┌────────────────────┼─────────────────────────────┐ │
-│  │         Ashlar Core (Python/aiohttp)             │ │
+│  │         Ashlr Core (Python/aiohttp)             │ │
 │  │                    │                              │ │
 │  │  ┌────────────┐ ┌─┴──────────┐ ┌─────────────┐  │ │
 │  │  │  Agent     │ │  WebSocket │ │  REST API    │  │ │
@@ -103,7 +103,7 @@ Agentic engineers — developers who use AI coding agents as their primary devel
 
 ### Component Breakdown
 
-**Ashlar Core** (Python, ~1500 lines)
+**Ashlr Core** (Python, ~1500 lines)
 - aiohttp web server (serves dashboard + REST API + WebSocket)
 - Agent lifecycle management (spawn, monitor, send, kill, pause, resume)
 - System metrics collection (CPU, RAM, disk via psutil)
@@ -270,7 +270,7 @@ class Role:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  ▣ ASHLAR   Projects ▾   [+ Agent]         CPU 34%  RAM 62%    │  ← Top bar
+│  ▣ ASHLR   Projects ▾   [+ Agent]         CPU 34%  RAM 62%    │  ← Top bar
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
@@ -632,11 +632,11 @@ Claude Code doesn't directly expose context usage, but we can estimate:
 ## 10. FILE STRUCTURE
 
 ```
-ashlar/
-├── ashlar_server.py          # THE server — everything in one file
-├── ashlar_dashboard.html     # THE dashboard — everything in one file
+ashlr/
+├── ashlr_server.py          # THE server — everything in one file
+├── ashlr_dashboard.html     # THE dashboard — everything in one file
 ├── requirements.txt          # 4 dependencies
-├── ashlar.yaml              # Default configuration (auto-created)
+├── ashlr.yaml              # Default configuration (auto-created)
 ├── start.sh                 # Launch script (install deps + start)
 └── README.md                # Getting started guide
 ```
@@ -652,7 +652,7 @@ Yes, seriously — two files. Here's why:
 ### The Server File (~1500-2000 lines)
 
 ```python
-# ashlar_server.py — sections:
+# ashlr_server.py — sections:
 
 # 1. Imports and constants (~30 lines)
 # 2. Configuration dataclass + loader (~80 lines)
@@ -670,7 +670,7 @@ Yes, seriously — two files. Here's why:
 ### The Dashboard File (~2000-2500 lines)
 
 ```html
-<!-- ashlar_dashboard.html — sections: -->
+<!-- ashlr_dashboard.html — sections: -->
 
 <!-- 1. HTML structure (~100 lines) -->
 <!-- 2. CSS: dark theme, card styles, animations (~500 lines) -->
@@ -694,8 +694,8 @@ Yes, seriously — two files. Here's why:
 **Goal**: A working server that spawns Claude Code agents and shows them in a dashboard.
 
 Build:
-- [ ] `ashlar_server.py` — aiohttp server with agent management via tmux
-- [ ] `ashlar_dashboard.html` — agent card grid with WebSocket updates
+- [ ] `ashlr_server.py` — aiohttp server with agent management via tmux
+- [ ] `ashlr_dashboard.html` — agent card grid with WebSocket updates
 - [ ] Basic REST API (spawn, kill, list agents)
 - [ ] Terminal output capture and display
 - [ ] System metrics bar (CPU, RAM)
@@ -743,7 +743,7 @@ Build:
 Test: Full workflow — add 3 projects, spawn 8 agents across them, use voice to manage, restart server, agents resume.
 
 ### Phase 5: Intelligence (Days 15-21)
-**Goal**: Ashlar becomes smart — AI-powered summaries, coordination, suggestions.
+**Goal**: Ashlr becomes smart — AI-powered summaries, coordination, suggestions.
 
 Build:
 - [ ] LLM-powered agent summaries (Haiku for fast, cheap analysis)
@@ -757,18 +757,18 @@ Build:
 - Team support (multiple users, shared dashboard)
 - Cloud sync (access your command center from anywhere)
 - Agent marketplace (share/download role templates)
-- Hardware integration (Ashlar Compact device)
+- Hardware integration (Ashlr Compact device)
 - Mobile companion app
 
 ---
 
 ## 12. CONFIGURATION
 
-### Default ashlar.yaml
+### Default ashlr.yaml
 
 ```yaml
-# Ashlar Configuration
-# Auto-created on first run at ~/.ashlar/ashlar.yaml
+# Ashlr Configuration
+# Auto-created on first run at ~/.ashlr/ashlr.yaml
 
 server:
   host: "127.0.0.1"
@@ -826,10 +826,10 @@ projects: []
 
 ```bash
 # 1. Create the project directory
-mkdir -p ~/ashlar && cd ~/ashlar
+mkdir -p ~/ashlr && cd ~/ashlr
 
 # 2. Create the two source files
-# (Claude Code creates ashlar_server.py and ashlar_dashboard.html)
+# (Claude Code creates ashlr_server.py and ashlr_dashboard.html)
 
 # 3. Install dependencies
 pip install aiohttp aiohttp-cors psutil pyyaml
@@ -839,7 +839,7 @@ brew install tmux  # macOS
 # sudo apt install tmux  # Linux
 
 # 5. Run the server
-python ashlar_server.py
+python ashlr_server.py
 
 # 6. Open browser
 open http://localhost:5000
@@ -847,7 +847,7 @@ open http://localhost:5000
 
 ### Development workflow with Claude Code:
 
-1. Open the ashlar directory in Claude Code
+1. Open the ashlr directory in Claude Code
 2. Start with Phase 1 — get the basic server + dashboard working
 3. Test manually (spawn agents, watch cards update)
 4. Iterate on each phase
@@ -855,7 +855,7 @@ open http://localhost:5000
 
 ### Key implementation notes for Claude Code:
 
-- **Start with the server**. Get `ashlar_server.py` working first — spawn a tmux session, capture output, serve it via WebSocket. The dashboard is useless without data.
+- **Start with the server**. Get `ashlr_server.py` working first — spawn a tmux session, capture output, serve it via WebSocket. The dashboard is useless without data.
 - **Test with fake agents first**. Before requiring Claude Code CLI to be installed, support a "demo mode" that spawns bash sessions with simulated agent behavior (just echo commands with delays).
 - **The dashboard must be a SINGLE HTML file** served by the Python server at `/`. No separate static file serving. The HTML is either embedded in the Python file as a string, or loaded from disk at startup.
 - **WebSocket is the primary communication channel**. REST is for one-off requests. All real-time updates go through WebSocket.
@@ -865,9 +865,9 @@ open http://localhost:5000
 
 ## 14. WHAT SUCCESS LOOKS LIKE
 
-When Ashlar is done right, this is the experience:
+When Ashlr is done right, this is the experience:
 
-> I open Ashlar. My three active projects load with their agent configurations from yesterday. I hold Space: "Start a deep work session on payment-service — audit, plan, and propose improvements." Three agents spin up. Their cards appear, turn yellow as they start planning.
+> I open Ashlr. My three active projects load with their agent configurations from yesterday. I hold Space: "Start a deep work session on payment-service — audit, plan, and propose improvements." Three agents spin up. Their cards appear, turn yellow as they start planning.
 >
 > I switch to my email for 10 minutes.
 >
@@ -883,4 +883,4 @@ When Ashlar is done right, this is the experience:
 
 ---
 
-*This document is the single source of truth for the Ashlar project. When in doubt, refer here. When building in Claude Code, reference this for architecture decisions, data models, and UI patterns.*
+*This document is the single source of truth for the Ashlr project. When in doubt, refer here. When building in Claude Code, reference this for architecture decisions, data models, and UI patterns.*

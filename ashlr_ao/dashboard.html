@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ashlar AO</title>
+<title>Ashlr AO</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230D1520'/%3E%3Cpath d='M16 6L8 26h4l2-5h4l2 5h4L16 6zm0 8l2.5 6h-5L16 14z' fill='%23F97316'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -4979,7 +4979,7 @@ body {
 <!-- ── Auth Login Screen ── -->
 <div class="auth-login" id="authLogin" style="display:none">
     <div class="auth-card">
-        <div class="auth-title">Ashlar AO</div>
+        <div class="auth-title">Ashlr AO</div>
         <!-- Login Form -->
         <div id="authLoginForm">
             <p style="color:var(--text-secondary);margin-bottom:16px">Sign in to continue</p>
@@ -5004,7 +5004,7 @@ body {
 <!-- ── Top Bar ── -->
 <div class="top-bar">
     <div class="logo">
-        <img src="/logo.png" alt="Ashlar" onerror="this.onerror=null;this.style.display='none';this.parentElement.insertAdjacentHTML('afterbegin','<svg width=\'26\' height=\'26\' viewBox=\'0 0 32 32\' style=\'flex-shrink:0\'><rect width=\'32\' height=\'32\' rx=\'6\' fill=\'%230D1520\'/><path d=\'M16 6L8 26h4l2-5h4l2 5h4L16 6zm0 8l2.5 6h-5L16 14z\' fill=\'%23F97316\'/></svg>')">
+        <img src="/logo.png" alt="Ashlr" onerror="this.onerror=null;this.style.display='none';this.parentElement.insertAdjacentHTML('afterbegin','<svg width=\'26\' height=\'26\' viewBox=\'0 0 32 32\' style=\'flex-shrink:0\'><rect width=\'32\' height=\'32\' rx=\'6\' fill=\'%230D1520\'/><path d=\'M16 6L8 26h4l2-5h4l2 5h4L16 6zm0 8l2.5 6h-5L16 14z\' fill=\'%23F97316\'/></svg>')">
     </div>
     <span class="demo-badge" id="demoBadge">DEMO</span>
     <select class="project-selector" id="projectSelector" onchange="filterByProject(this.value)" aria-label="Filter by project">
@@ -6233,8 +6233,20 @@ body {
 
 <script>
 /* ─────────────────────────────────────────────
-   Ashlar AO — Production Dashboard
+   Ashlr AO — Production Dashboard
    ───────────────────────────────────────────── */
+
+// ── One-time localStorage migration: ashlar_* → ashlr_* ──
+(function() {
+    if (localStorage.getItem('_ashlr_migrated')) return;
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('ashlar_')) {
+            localStorage.setItem(key.replace('ashlar_', 'ashlr_'), localStorage.getItem(key));
+        }
+    }
+    localStorage.setItem('_ashlr_migrated', '1');
+})();
 
 // ── Lucide Icon System ──
 
@@ -6355,8 +6367,8 @@ const state = {
     workflowRuns: new Map(),
     conflicts: new Map(),
     presets: [],
-    viewMode: localStorage.getItem('ashlar_view_mode') || 'grid',
-    pinnedAgents: new Set(safeParseJSON('ashlar_pinned', [])),
+    viewMode: localStorage.getItem('ashlr_view_mode') || 'grid',
+    pinnedAgents: new Set(safeParseJSON('ashlr_pinned', [])),
     commandHistory: new Map(),
     tableSortCol: 'name',
     tableSortAsc: true,
@@ -6369,8 +6381,8 @@ const state = {
     aqDismissedAt: 0,
     insights: [],
     taskQueue: [],
-    cardSort: localStorage.getItem('ashlar_card_sort') || 'priority',
-    cardOrder: safeParseJSON('ashlar_card_order', []),
+    cardSort: localStorage.getItem('ashlr_card_sort') || 'priority',
+    cardOrder: safeParseJSON('ashlr_card_order', []),
     notificationLog: [],
     deepScrollPositions: new Map(), // agentId -> scrollTop
     currentUser: null, // {id, email, display_name, role, org_id}
@@ -6412,7 +6424,7 @@ const TASK_PLACEHOLDERS = {
 
 // ── Auth + API Wrapper ──
 
-let authToken = localStorage.getItem('ashlar_auth_token') || '';
+let authToken = localStorage.getItem('ashlr_auth_token') || '';
 
 async function apiFetch(url, options = {}) {
     if (authToken) {
@@ -7238,7 +7250,7 @@ function applyOutputFolding(container) {
 
 // ── WebSocket ──
 
-class AshlarSocket {
+class AshlrSocket {
     constructor() {
         this.ws = null;
         this.reconnectDelay = 1000;
@@ -7397,7 +7409,7 @@ class AshlarSocket {
     }
 }
 
-const socket = new AshlarSocket();
+const socket = new AshlrSocket();
 
 // ── Intelligence Status ──
 
@@ -7520,7 +7532,7 @@ async function handleSync(data) {
     state.pinnedAgents.forEach(id => {
         if (!state.agents.has(id)) { state.pinnedAgents.delete(id); pinsChanged = true; }
     });
-    if (pinsChanged) localStorage.setItem('ashlar_pinned', JSON.stringify([...state.pinnedAgents]));
+    if (pinsChanged) localStorage.setItem('ashlr_pinned', JSON.stringify([...state.pinnedAgents]));
     if (state.config.demo_mode) document.getElementById('demoBadge').style.display = '';
     // Show degraded-mode toast if DB unavailable
     if (data.db_available === false) {
@@ -7553,7 +7565,7 @@ async function handleSync(data) {
         state._showSyncSummary = false;
         const agents = [...state.agents.values()];
         if (agents.length === 0) {
-            showToast('Connected to Ashlar — no agents running', 'success');
+            showToast('Connected to Ashlr — no agents running', 'success');
         } else {
             const working = agents.filter(a => ['working', 'planning', 'reading'].includes(a.status)).length;
             const waiting = agents.filter(a => a.needs_input).length;
@@ -7705,11 +7717,11 @@ function handleAgentRemoved(agentId) {
     _outputMarks.delete(agentId);
     _lastOutputLineCount.delete(agentId);
     if (state.pinnedAgents.delete(agentId)) {
-        localStorage.setItem('ashlar_pinned', JSON.stringify([...state.pinnedAgents]));
+        localStorage.setItem('ashlr_pinned', JSON.stringify([...state.pinnedAgents]));
     }
     // Clean up per-agent localStorage entries
-    localStorage.removeItem(`ashlar_annot_${agentId}`);
-    localStorage.removeItem(`ashlar_pinned_${agentId}`);
+    localStorage.removeItem(`ashlr_annot_${agentId}`);
+    localStorage.removeItem(`ashlr_pinned_${agentId}`);
     if (state.view === 'deep' && state.focusedAgentId === agentId) closeDeepView();
     if (state.commandTargetId === agentId) clearCommandTarget();
     if (state.interactionAgentId === agentId) closeInteraction();
@@ -8057,7 +8069,7 @@ function renderAgentGrid() {
         if (!state.connected) {
             emptyState.innerHTML = '<div style="text-align:center;padding:80px 20px">' +
                 '<div style="font-size:32px;animation:skeleton-pulse 1.5s infinite">▣</div>' +
-                '<p style="color:var(--text-tertiary);margin-top:16px;font-size:14px">Connecting to Ashlar...</p></div>';
+                '<p style="color:var(--text-tertiary);margin-top:16px;font-size:14px">Connecting to Ashlr...</p></div>';
         } else if (!emptyState.querySelector('.empty-illustration')) {
             emptyState.innerHTML = EMPTY_STATE_HTML;
         }
@@ -8275,10 +8287,10 @@ function applyCardReorder(fromId, toId) {
     state.agents = reordered;
     // Save and switch to manual sort
     state.cardOrder = ids;
-    localStorage.setItem('ashlar_card_order', JSON.stringify(ids));
+    localStorage.setItem('ashlr_card_order', JSON.stringify(ids));
     if (state.cardSort !== 'manual') {
         state.cardSort = 'manual';
-        localStorage.setItem('ashlar_card_sort', 'manual');
+        localStorage.setItem('ashlr_card_sort', 'manual');
         const sel = document.getElementById('cardSortSelect');
         if (sel) sel.value = 'manual';
         showToast('Switched to manual sort order', 'info');
@@ -9077,7 +9089,7 @@ function openSpawnDialog() {
     // Load recent dirs
     const datalist = document.getElementById('recentDirs');
     datalist.innerHTML = '';
-    const recent = JSON.parse(localStorage.getItem('ashlar_recent_dirs') || '[]');
+    const recent = JSON.parse(localStorage.getItem('ashlr_recent_dirs') || '[]');
     recent.forEach(d => { const o = document.createElement('option'); o.value = d; datalist.appendChild(o); });
 
     const dirInput = document.getElementById('spawnDir');
@@ -9111,7 +9123,7 @@ function openSpawnDialog() {
 
     // Load recent tasks
     const recentTasksList = document.getElementById('recentTasksList');
-    const recentTasks = JSON.parse(localStorage.getItem('ashlar_recent_tasks') || '[]');
+    const recentTasks = JSON.parse(localStorage.getItem('ashlr_recent_tasks') || '[]');
     if (recentTasks.length > 0) {
         recentTasksList.style.display = '';
         recentTasksList.innerHTML = recentTasks.slice(0, 8).map(t => {
@@ -9390,15 +9402,15 @@ async function spawnAgent() {
 
         // Save dir to recent
         if (dir) {
-            const recent = JSON.parse(localStorage.getItem('ashlar_recent_dirs') || '[]');
+            const recent = JSON.parse(localStorage.getItem('ashlr_recent_dirs') || '[]');
             const updated = [dir, ...recent.filter(d => d !== dir)].slice(0, 10);
-            localStorage.setItem('ashlar_recent_dirs', JSON.stringify(updated));
+            localStorage.setItem('ashlr_recent_dirs', JSON.stringify(updated));
         }
         // Save task to recent
         if (task) {
-            const recentTasks = JSON.parse(localStorage.getItem('ashlar_recent_tasks') || '[]');
+            const recentTasks = JSON.parse(localStorage.getItem('ashlr_recent_tasks') || '[]');
             const updated = [{ task, role: state.selectedRole, dir }, ...recentTasks.filter(t => t.task !== task)].slice(0, 15);
-            localStorage.setItem('ashlar_recent_tasks', JSON.stringify(updated));
+            localStorage.setItem('ashlr_recent_tasks', JSON.stringify(updated));
         }
 
         document.getElementById('spawnName').value = '';
@@ -9466,9 +9478,9 @@ function openDeepView(agentId) {
 
     const terminal = document.getElementById('deepTerminal');
     // Defensive: clean up scroll handler from previous agent before reuse
-    if (terminal._ashlarScrollHandler) {
-        terminal.removeEventListener('scroll', terminal._ashlarScrollHandler);
-        terminal._ashlarScrollHandler = null;
+    if (terminal._ashlrScrollHandler) {
+        terminal.removeEventListener('scroll', terminal._ashlrScrollHandler);
+        terminal._ashlrScrollHandler = null;
     }
     terminal.innerHTML = '';
     terminal.style.whiteSpace = 'pre-wrap';
@@ -9554,8 +9566,8 @@ function openDeepView(agentId) {
     }
 
     // Remove old scroll handler to prevent leak, then add fresh one
-    if (terminal._ashlarScrollHandler) terminal.removeEventListener('scroll', terminal._ashlarScrollHandler);
-    terminal._ashlarScrollHandler = () => {
+    if (terminal._ashlrScrollHandler) terminal.removeEventListener('scroll', terminal._ashlrScrollHandler);
+    terminal._ashlrScrollHandler = () => {
         const isBottom = terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight < 40;
         deepAutoScroll = isBottom;
         document.getElementById('jumpToBottom').classList.toggle('visible', !isBottom);
@@ -9569,7 +9581,7 @@ function openDeepView(agentId) {
             }
         }
     };
-    terminal.addEventListener('scroll', terminal._ashlarScrollHandler);
+    terminal.addEventListener('scroll', terminal._ashlrScrollHandler);
 
     setTimeout(() => document.getElementById('deepInput').focus(), 100);
 
@@ -10061,9 +10073,9 @@ function closeDeepView() {
     if (state.focusedAgentId && terminal) {
         state.deepScrollPositions.set(state.focusedAgentId, terminal.scrollTop);
     }
-    if (terminal && terminal._ashlarScrollHandler) {
-        terminal.removeEventListener('scroll', terminal._ashlarScrollHandler);
-        terminal._ashlarScrollHandler = null;
+    if (terminal && terminal._ashlrScrollHandler) {
+        terminal.removeEventListener('scroll', terminal._ashlrScrollHandler);
+        terminal._ashlrScrollHandler = null;
     }
     document.getElementById('deepView').classList.remove('active', 'archived-view');
     closeDeepSearch();
@@ -10217,14 +10229,14 @@ const DEFAULT_REPLY_TEMPLATES = [
 
 function getReplyTemplates() {
     try {
-        const saved = localStorage.getItem('ashlar_reply_templates');
+        const saved = localStorage.getItem('ashlr_reply_templates');
         if (saved) return JSON.parse(saved);
     } catch (e) {}
     return DEFAULT_REPLY_TEMPLATES;
 }
 
 function saveReplyTemplates(templates) {
-    localStorage.setItem('ashlar_reply_templates', JSON.stringify(templates));
+    localStorage.setItem('ashlr_reply_templates', JSON.stringify(templates));
 }
 
 function renderQuickReplies() {
@@ -10298,7 +10310,7 @@ function saveTemplateEdits() {
 }
 
 function resetReplyTemplates() {
-    localStorage.removeItem('ashlar_reply_templates');
+    localStorage.removeItem('ashlr_reply_templates');
     document.getElementById('templateEditorInline')?.remove();
     renderQuickReplies();
     showToast('Templates reset to defaults', 'info');
@@ -10434,7 +10446,7 @@ async function deepExportJSON() {
     const exportData = {
         meta: {
             exported_at: new Date().toISOString(),
-            ashlar_version: 'Ashlar AO',
+            ashlr_version: 'Ashlr AO',
         },
         agent: {
             id: agent.id,
@@ -10979,7 +10991,7 @@ function _restoreTerminalContent() {
 let _virtualSearchMatches = []; // [{lineIdx, charIdx, length}]
 
 function getSearchHistory() {
-    try { return JSON.parse(localStorage.getItem('ashlar_search_history') || '[]'); } catch (e) { return []; }
+    try { return JSON.parse(localStorage.getItem('ashlr_search_history') || '[]'); } catch (e) { return []; }
 }
 
 function addToSearchHistory(query) {
@@ -10988,7 +11000,7 @@ function addToSearchHistory(query) {
     history = history.filter(h => h !== query);
     history.unshift(query);
     if (history.length > 15) history = history.slice(0, 15);
-    localStorage.setItem('ashlar_search_history', JSON.stringify(history));
+    localStorage.setItem('ashlr_search_history', JSON.stringify(history));
 }
 
 function showSearchHistory() {
@@ -12728,7 +12740,7 @@ function applyTailMode() {
 
 // ── Custom Highlight Rules ──
 
-let _highlightRules = JSON.parse(localStorage.getItem('ashlar_hl_rules') || '[]');
+let _highlightRules = JSON.parse(localStorage.getItem('ashlr_hl_rules') || '[]');
 
 function toggleHighlightPopover() {
     const pop = document.getElementById('highlightPopover');
@@ -12761,7 +12773,7 @@ function addHighlightRule() {
     if (!pattern) return;
     try { new RegExp(pattern, 'gi'); } catch (e) { showToast('Invalid regex pattern', 'error'); return; }
     _highlightRules.push({ pattern, color: colorInput.value });
-    localStorage.setItem('ashlar_hl_rules', JSON.stringify(_highlightRules));
+    localStorage.setItem('ashlr_hl_rules', JSON.stringify(_highlightRules));
     patternInput.value = '';
     renderHighlightRules();
     applyHighlightRules();
@@ -12769,7 +12781,7 @@ function addHighlightRule() {
 
 function removeHighlightRule(idx) {
     _highlightRules.splice(idx, 1);
-    localStorage.setItem('ashlar_hl_rules', JSON.stringify(_highlightRules));
+    localStorage.setItem('ashlr_hl_rules', JSON.stringify(_highlightRules));
     renderHighlightRules();
     applyHighlightRules();
 }
@@ -13135,7 +13147,7 @@ document.addEventListener('click', (e) => {
 function sendBrowserNotification(title, body, agentId) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (document.hasFocus()) return;
-    const n = new Notification(title, { body, icon: '/logo.png', tag: agentId || 'ashlar' });
+    const n = new Notification(title, { body, icon: '/logo.png', tag: agentId || 'ashlr' });
     n.onclick = () => { window.focus(); if (agentId) openDeepView(agentId); };
 }
 
@@ -13151,11 +13163,11 @@ function updateTabTitle() {
     const waiting = agents.filter(a => a.needs_input).length;
     const active = agents.filter(a => ['working', 'planning', 'reading', 'spawning'].includes(a.status)).length;
     if (waiting > 0) {
-        document.title = `(${waiting} waiting) Ashlar AO`;
+        document.title = `(${waiting} waiting) Ashlr AO`;
     } else if (active > 0) {
-        document.title = `${active} active — Ashlar AO`;
+        document.title = `${active} active — Ashlr AO`;
     } else {
-        document.title = 'Ashlar AO';
+        document.title = 'Ashlr AO';
     }
     updateFavicon(agents, waiting, active);
 }
@@ -13665,10 +13677,10 @@ setInterval(() => {
 
 function toggleTheme() {
     // Cycle: dark → light → auto → dark
-    const saved = localStorage.getItem('ashlar_theme') || 'dark';
+    const saved = localStorage.getItem('ashlr_theme') || 'dark';
     const cycle = { dark: 'light', light: 'auto', auto: 'dark' };
     const next = cycle[saved] || 'dark';
-    localStorage.setItem('ashlar_theme', next);
+    localStorage.setItem('ashlr_theme', next);
     applyTheme(next);
 }
 
@@ -13696,18 +13708,18 @@ function updateThemeIcon(pref) {
 
 // Restore saved theme on load + listen for system preference changes
 (function() {
-    const saved = localStorage.getItem('ashlar_theme') || 'dark';
+    const saved = localStorage.getItem('ashlr_theme') || 'dark';
     applyTheme(saved);
     // Listen for system preference changes (matters in auto mode)
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-        const current = localStorage.getItem('ashlar_theme') || 'dark';
+        const current = localStorage.getItem('ashlr_theme') || 'dark';
         if (current === 'auto') applyTheme('auto');
     });
 })();
 
 // Restore saved card sort
 (function() {
-    const saved = localStorage.getItem('ashlar_card_sort');
+    const saved = localStorage.getItem('ashlr_card_sort');
     if (saved) {
         setTimeout(() => {
             const sel = document.getElementById('cardSortSelect');
@@ -16214,7 +16226,7 @@ function getGridColumns() {
 
 function setViewMode(mode) {
     state.viewMode = mode;
-    localStorage.setItem('ashlar_view_mode', mode);
+    localStorage.setItem('ashlr_view_mode', mode);
     document.getElementById('viewGridBtn').classList.toggle('active', mode === 'grid');
     document.getElementById('viewCompactBtn').classList.toggle('active', mode === 'compact');
     document.getElementById('viewTableBtn').classList.toggle('active', mode === 'table');
@@ -16368,12 +16380,12 @@ openDeepView = function(agentId) {
         if (openDeepViewVirtual(agentId)) {
             const terminal = document.getElementById('deepTerminal');
             // Remove the normal scroll handler to prevent dual-handler firing
-            if (terminal._ashlarScrollHandler) {
-                terminal.removeEventListener('scroll', terminal._ashlarScrollHandler);
-                terminal._ashlarScrollHandler = null;
+            if (terminal._ashlrScrollHandler) {
+                terminal.removeEventListener('scroll', terminal._ashlrScrollHandler);
+                terminal._ashlrScrollHandler = null;
             }
-            if (terminal._ashlarVScrollHandler) terminal.removeEventListener('scroll', terminal._ashlarVScrollHandler);
-            terminal._ashlarVScrollHandler = () => {
+            if (terminal._ashlrVScrollHandler) terminal.removeEventListener('scroll', terminal._ashlrVScrollHandler);
+            terminal._ashlrVScrollHandler = () => {
                 renderVirtualRange(terminal);
                 // Also update auto-scroll state
                 const isBottom = terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight < 40;
@@ -16387,7 +16399,7 @@ openDeepView = function(agentId) {
                     }
                 }
             };
-            terminal.addEventListener('scroll', terminal._ashlarVScrollHandler);
+            terminal.addEventListener('scroll', terminal._ashlrVScrollHandler);
         }
     }
 };
@@ -16673,7 +16685,7 @@ function togglePin(id) {
     if (activeMenu) { activeMenu.classList.remove('active'); activeMenu = null; }
     if (state.pinnedAgents.has(id)) state.pinnedAgents.delete(id);
     else state.pinnedAgents.add(id);
-    localStorage.setItem('ashlar_pinned', JSON.stringify([...state.pinnedAgents]));
+    localStorage.setItem('ashlr_pinned', JSON.stringify([...state.pinnedAgents]));
     scheduleRender();
     if (state.viewMode === 'table') renderAgentTable();
 }
@@ -16763,7 +16775,7 @@ async function exportSettings() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'ashlar_config.json';
+        a.download = 'ashlr_config.json';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -16784,7 +16796,7 @@ async function exportFleetState() {
         const a = document.createElement('a');
         a.href = url;
         const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        a.download = `ashlar_fleet_${ts}.json`;
+        a.download = `ashlr_fleet_${ts}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -17539,7 +17551,7 @@ function _countAgentErrors(agent) {
 
 function setCardSort(mode) {
     state.cardSort = mode;
-    localStorage.setItem('ashlar_card_sort', mode);
+    localStorage.setItem('ashlr_card_sort', mode);
     scheduleRender();
     showToast(`Sorting by ${mode}`, 'info');
 }
@@ -17696,7 +17708,7 @@ function switchSplitTab(tab) {
 function loadSplitNotes() {
     const ta = document.getElementById('splitNotesTextarea');
     if (!ta || !state.focusedAgentId) return;
-    const key = `ashlar_notes_${state.focusedAgentId}`;
+    const key = `ashlr_notes_${state.focusedAgentId}`;
     ta.value = localStorage.getItem(key) || '';
 }
 
@@ -17705,7 +17717,7 @@ function debounceSplitNoteSave() {
     _splitNotesSaveTimer = setTimeout(() => {
         const ta = document.getElementById('splitNotesTextarea');
         if (ta && state.focusedAgentId) {
-            localStorage.setItem(`ashlar_notes_${state.focusedAgentId}`, ta.value);
+            localStorage.setItem(`ashlr_notes_${state.focusedAgentId}`, ta.value);
         }
     }, 500);
 }
@@ -17744,12 +17756,12 @@ function debounceSplitNoteSave() {
 // ── Line Annotations ──
 // ═══════════════════════════════════════════════════════════════════
 function getAnnotations(agentId) {
-    try { return JSON.parse(localStorage.getItem(`ashlar_annot_${agentId}`) || '{}'); }
+    try { return JSON.parse(localStorage.getItem(`ashlr_annot_${agentId}`) || '{}'); }
     catch { return {}; }
 }
 
 function saveAnnotations(agentId, annots) {
-    localStorage.setItem(`ashlar_annot_${agentId}`, JSON.stringify(annots));
+    localStorage.setItem(`ashlr_annot_${agentId}`, JSON.stringify(annots));
 }
 
 function addLineAnnotation(lineIdx) {
@@ -17874,12 +17886,12 @@ document.getElementById('deepTerminal')?.addEventListener('dblclick', (e) => {
 // ═══════════════════════════════════════════════════════════════════
 // ── Project Card Grouping ──
 // ═══════════════════════════════════════════════════════════════════
-let _groupByProject = safeParseJSON('ashlar_group_by_project', false);
-const _collapsedGroups = new Set(safeParseJSON('ashlar_collapsed_groups', []));
+let _groupByProject = safeParseJSON('ashlr_group_by_project', false);
+const _collapsedGroups = new Set(safeParseJSON('ashlr_collapsed_groups', []));
 
 function toggleGroupByProject() {
     _groupByProject = !_groupByProject;
-    localStorage.setItem('ashlar_group_by_project', JSON.stringify(_groupByProject));
+    localStorage.setItem('ashlr_group_by_project', JSON.stringify(_groupByProject));
     const btn = document.getElementById('groupByProjectBtn');
     if (btn) btn.classList.toggle('active', _groupByProject);
     scheduleRender();
@@ -17888,7 +17900,7 @@ function toggleGroupByProject() {
 function toggleProjectGroup(projectId) {
     if (_collapsedGroups.has(projectId)) _collapsedGroups.delete(projectId);
     else _collapsedGroups.add(projectId);
-    localStorage.setItem('ashlar_collapsed_groups', JSON.stringify([..._collapsedGroups]));
+    localStorage.setItem('ashlr_collapsed_groups', JSON.stringify([..._collapsedGroups]));
     scheduleRender();
 }
 
@@ -18260,7 +18272,7 @@ function updateFleetStatsPanel() {
 // ═══════════════════════════════════════════════════════════════════
 // ── Terminal Color Themes ──
 // ═══════════════════════════════════════════════════════════════════
-let _termTheme = localStorage.getItem('ashlar_term_theme') || 'default';
+let _termTheme = localStorage.getItem('ashlr_term_theme') || 'default';
 
 function toggleThemeSelector() {
     document.getElementById('themeSelector')?.classList.toggle('active');
@@ -18268,7 +18280,7 @@ function toggleThemeSelector() {
 
 function setTermTheme(theme) {
     _termTheme = theme;
-    localStorage.setItem('ashlar_term_theme', theme);
+    localStorage.setItem('ashlr_term_theme', theme);
     const terminal = document.getElementById('deepTerminal');
     if (!terminal) return;
     terminal.classList.remove('theme-solarized', 'theme-monokai', 'theme-dracula', 'theme-github-dark');
@@ -18456,12 +18468,12 @@ openDeepView = function(agentId) {
 // ── Pinned Messages Panel ──
 // ═══════════════════════════════════════════════════════════════════
 function getPinnedMessages(agentId) {
-    try { return JSON.parse(localStorage.getItem(`ashlar_pinned_${agentId}`) || '[]'); }
+    try { return JSON.parse(localStorage.getItem(`ashlr_pinned_${agentId}`) || '[]'); }
     catch { return []; }
 }
 
 function savePinnedMessages(agentId, pins) {
-    localStorage.setItem(`ashlar_pinned_${agentId}`, JSON.stringify(pins));
+    localStorage.setItem(`ashlr_pinned_${agentId}`, JSON.stringify(pins));
 }
 
 function pinLine(lineIdx) {

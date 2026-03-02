@@ -1,46 +1,46 @@
-# Ashlar AO — Agent Orchestrator
+# Ashlr AO — Agent Orchestrator
 
 ## What This Is
 
-Ashlar is a **local-first agent orchestration platform**. One developer, many AI coding agents (Claude Code, Codex, etc.), multiple repos, single command center.
+Ashlr is a **local-first agent orchestration platform**. One developer, many AI coding agents (Claude Code, Codex, etc.), multiple repos, single command center.
 
-**Current state**: Fully functional. Server (~10K lines) + dashboard (~9500 lines) + 987 tests. All 5 development phases + multi-user auth + deployment infra complete. Installable via `pip install ashlar-ao`. Ready for multi-user deployment.
+**Current state**: Fully functional. Server (~10K lines) + dashboard (~9500 lines) + 987 tests. All 5 development phases + multi-user auth + deployment infra complete. Installable via `pip install ashlr-ao`. Ready for multi-user deployment.
 
 ## Architecture
 
-**Two files. That's the entire application.** Packaged as `ashlar_ao` (pip-installable).
+**Two files. That's the entire application.** Packaged as `ashlr_ao` (pip-installable).
 
-- `ashlar_ao/server.py` — Python aiohttp server. Manages agents via tmux, serves dashboard, REST + WebSocket APIs, SQLite persistence, system metrics, LLM intelligence.
-- `ashlar_ao/dashboard.html` — Single HTML file served at `/`. All CSS + JS inline. No build step.
-- `ashlar_ao/logo.png` — Logo served at `/logo.png`.
-- `ashlar_ao/__init__.py` — Package init with `__version__` (single source of truth).
-- `ashlar_ao/__main__.py` — Enables `python -m ashlar_ao`.
+- `ashlr_ao/server.py` — Python aiohttp server. Manages agents via tmux, serves dashboard, REST + WebSocket APIs, SQLite persistence, system metrics, LLM intelligence.
+- `ashlr_ao/dashboard.html` — Single HTML file served at `/`. All CSS + JS inline. No build step.
+- `ashlr_ao/logo.png` — Logo served at `/logo.png`.
+- `ashlr_ao/__init__.py` — Package init with `__version__` (single source of truth).
+- `ashlr_ao/__main__.py` — Enables `python -m ashlr_ao`.
 
 ### Supporting files
 
-- `pyproject.toml` — Package metadata, dependencies, `ashlar` CLI entry point
-- `ashlar_server.py` — Backward-compat shim (re-exports from `ashlar_ao.server` so tests and old imports still work)
+- `pyproject.toml` — Package metadata, dependencies, `ashlr` CLI entry point
+- `ashlr_server.py` — Backward-compat shim (re-exports from `ashlr_ao.server` so tests and old imports still work)
 - `requirements.txt` — Reference copy of dependencies (canonical source is pyproject.toml)
 - `start.sh` — Launch script (creates venv, `pip install -e .`, checks tmux/backends, starts server)
-- `~/.ashlar/ashlar.yaml` — User config (auto-created on first run)
-- `~/.ashlar/ashlar.db` — SQLite database (agent history, projects, workflows)
+- `~/.ashlr/ashlr.yaml` — User config (auto-created on first run)
+- `~/.ashlr/ashlr.db` — SQLite database (agent history, projects, workflows)
 
 ## Quick Start
 
 ```bash
 # Install from pip
-pip install ashlar-ao
-ashlar
+pip install ashlr-ao
+ashlr
 
 # Or run from source
 ./start.sh
 
 # Optional: enable LLM-powered summaries + NLU command parsing
 export XAI_API_KEY="your-key"
-ashlar
+ashlr
 ```
 
-Dashboard opens at `http://127.0.0.1:5111`. Override port with `ASHLAR_PORT=8080`.
+Dashboard opens at `http://127.0.0.1:5111`. Override port with `ASHLR_PORT=8080`.
 
 ## Tech Stack
 
@@ -58,7 +58,7 @@ Dashboard opens at `http://127.0.0.1:5111`. Override port with `ASHLAR_PORT=8080
 
 Each agent is a tmux session running a CLI tool:
 
-1. **Spawn**: `tmux new-session -d -s ashlar-{id} -x 200 -y 50 -c {working_dir}` → sends CLI command
+1. **Spawn**: `tmux new-session -d -s ashlr-{id} -x 200 -y 50 -c {working_dir}` → sends CLI command
 2. **Capture**: `tmux capture-pane` every 1s → parse status, detect questions, extract summary
 3. **Interact**: `tmux send-keys` → sends user responses to agent's stdin
 4. **Kill**: `/exit` → wait 3s → `tmux kill-session`
@@ -238,7 +238,7 @@ Enhanced for Claude Code: `╭─`, `╰─`, `Press Enter to retry`, `Type your
 
 All roles use Lucide SVG icons (53 icons in ICONS object). No emoji in production UI.
 
-## Config (`~/.ashlar/ashlar.yaml`)
+## Config (`~/.ashlr/ashlr.yaml`)
 
 ```yaml
 server:
@@ -280,9 +280,9 @@ display:
 | Var | Required | Purpose |
 |-----|----------|---------|
 | `XAI_API_KEY` | No | All intelligence features (summaries, NLU, fleet analysis) via xAI Grok |
-| `ASHLAR_PORT` | No | Override port (default 5111) |
-| `ASHLAR_HOST` | No | Override bind host (default 127.0.0.1, use 0.0.0.0 for Docker) |
-| `ASHLAR_ALLOWED_ORIGINS` | No | CORS allowed origin (default `*`, set to domain for production) |
+| `ASHLR_PORT` | No | Override port (default 5111) |
+| `ASHLR_HOST` | No | Override bind host (default 127.0.0.1, use 0.0.0.0 for Docker) |
+| `ASHLR_ALLOWED_ORIGINS` | No | CORS allowed origin (default `*`, set to domain for production) |
 | `CLAUDECODE` | No | Force demo mode (dev/testing without real CLI) |
 
 ## Background Tasks (5, supervised with auto-restart)
@@ -319,19 +319,19 @@ Session-based authentication with bcrypt password hashing:
 
 ```bash
 # Local — pip install
-pip install ashlar-ao && ashlar
+pip install ashlr-ao && ashlr
 
 # Local — from source
 ./start.sh
 
 # Docker + HTTPS
-ASHLAR_DOMAIN=ashlar.yourdomain.com docker compose up -d
+ASHLR_DOMAIN=ashlr.yourdomain.com docker compose up -d
 ```
 
 Files: `Dockerfile`, `docker-compose.yml`, `Caddyfile`
 - Caddy auto-provisions Let's Encrypt HTTPS certificates
 - SQLite data persisted via Docker volume
-- Set `ASHLAR_ALLOWED_ORIGINS` to your domain for CORS in production
+- Set `ASHLR_ALLOWED_ORIGINS` to your domain for CORS in production
 
 ## Known Limitations
 

@@ -12,8 +12,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 with patch("psutil.cpu_percent", return_value=0.0):
-    import ashlar_server
-    from ashlar_server import (
+    import ashlr_server
+    from ashlr_server import (
         parse_agent_status,
         extract_summary,
         STATUS_PATTERNS,
@@ -262,20 +262,20 @@ class TestPauseResumeRestart:
     def test_pause_already_paused_agent(self, make_agent):
         """Pausing an already-paused agent should still return True."""
         agent = make_agent(status="paused")
-        manager = MagicMock(spec=ashlar_server.AgentManager)
+        manager = MagicMock(spec=ashlr_server.AgentManager)
         manager.agents = {agent.id: agent}
         manager._tmux_send_raw = AsyncMock()
-        result = asyncio.run(ashlar_server.AgentManager.pause(manager, agent.id))
+        result = asyncio.run(ashlr_server.AgentManager.pause(manager, agent.id))
         assert result is True
         assert agent.status == "paused"
 
     def test_resume_running_agent(self, make_agent):
         """Resuming a working agent should still succeed and send the message."""
         agent = make_agent(status="working")
-        manager = MagicMock(spec=ashlar_server.AgentManager)
+        manager = MagicMock(spec=ashlr_server.AgentManager)
         manager.agents = {agent.id: agent}
         manager._tmux_send_keys = AsyncMock()
-        result = asyncio.run(ashlar_server.AgentManager.resume(manager, agent.id))
+        result = asyncio.run(ashlr_server.AgentManager.resume(manager, agent.id))
         assert result is True
         assert agent.status == "working"
 
@@ -286,9 +286,9 @@ class TestPauseResumeRestart:
         async def _test():
             async with agent._restart_lock:
                 # Lock is held, so restart should return False
-                manager = MagicMock(spec=ashlar_server.AgentManager)
+                manager = MagicMock(spec=ashlr_server.AgentManager)
                 manager.agents = {agent.id: agent}
-                result = await ashlar_server.AgentManager.restart(manager, agent.id)
+                result = await ashlr_server.AgentManager.restart(manager, agent.id)
                 return result
         result = asyncio.run(_test())
         assert result is False
@@ -296,10 +296,10 @@ class TestPauseResumeRestart:
     def test_resume_with_custom_message(self, make_agent):
         """Resume should use the custom message if provided."""
         agent = make_agent(status="paused")
-        manager = MagicMock(spec=ashlar_server.AgentManager)
+        manager = MagicMock(spec=ashlr_server.AgentManager)
         manager.agents = {agent.id: agent}
         manager._tmux_send_keys = AsyncMock()
-        result = asyncio.run(ashlar_server.AgentManager.resume(manager, agent.id, message="yes, proceed"))
+        result = asyncio.run(ashlr_server.AgentManager.resume(manager, agent.id, message="yes, proceed"))
         assert result is True
         manager._tmux_send_keys.assert_called_once_with(agent.tmux_session, "yes, proceed")
 
@@ -311,7 +311,7 @@ class TestPauseResumeRestart:
 class TestSpawnValidation:
     def test_max_agents_config_exists(self):
         """Config should have a max_agents setting."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert hasattr(config, "max_agents")
         assert config.max_agents > 0
 
@@ -461,9 +461,9 @@ class TestHealthWarningFlags:
 class TestCaptureOutputReturnTypes:
     def test_capture_output_returns_none_for_missing_agent(self, make_agent):
         """capture_output should return None for non-existent agent."""
-        manager = MagicMock(spec=ashlar_server.AgentManager)
+        manager = MagicMock(spec=ashlr_server.AgentManager)
         manager.agents = {}
-        result = asyncio.run(ashlar_server.AgentManager.capture_output(manager, "nonexistent"))
+        result = asyncio.run(ashlr_server.AgentManager.capture_output(manager, "nonexistent"))
         assert result is None
 
     def test_status_patterns_planning_includes_thinking(self):
@@ -582,7 +582,7 @@ class TestPlanMode:
 class TestDatabaseDegradedMode:
     def test_save_agent_returns_on_no_db(self, make_agent):
         """save_agent should return early when _db is None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         agent = make_agent(status="working")
         # Should not raise
@@ -590,54 +590,54 @@ class TestDatabaseDegradedMode:
 
     def test_get_agent_history_returns_empty_on_no_db(self):
         """get_agent_history should return [] when _db is None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         result = asyncio.run(db.get_agent_history())
         assert result == []
 
     def test_get_agent_history_count_returns_zero_on_no_db(self):
         """get_agent_history_count should return 0 when _db is None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         result = asyncio.run(db.get_agent_history_count())
         assert result == 0
 
     def test_get_agent_history_item_returns_none_on_no_db(self):
         """get_agent_history_item should return None when _db is None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         result = asyncio.run(db.get_agent_history_item("abc1"))
         assert result is None
 
     def test_save_project_returns_on_no_db(self):
         """save_project should return early when _db is None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         asyncio.run(db.save_project({"id": "p1", "name": "test", "path": "/tmp"}))
 
     def test_get_projects_returns_empty_on_no_db(self):
         """get_projects should return [] when _db is None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         result = asyncio.run(db.get_projects())
         assert result == []
 
     def test_delete_project_returns_false_on_no_db(self):
         """delete_project should return False when _db is None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         result = asyncio.run(db.delete_project("p1"))
         assert result is False
 
     def test_save_workflow_returns_on_no_db(self):
         """save_workflow should return early when _db is None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         asyncio.run(db.save_workflow({"id": "w1", "name": "test"}))
 
     def test_get_workflows_returns_empty_on_no_db(self):
         """get_workflows should return [] when _db is None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         result = asyncio.run(db.get_workflows())
         assert result == []
@@ -651,10 +651,10 @@ class TestResumeSetStatus:
     def test_resume_uses_set_status(self, make_agent):
         """resume() should use set_status() not direct assignment for monotonic guard."""
         agent = make_agent(status="paused")
-        manager = MagicMock(spec=ashlar_server.AgentManager)
+        manager = MagicMock(spec=ashlr_server.AgentManager)
         manager.agents = {agent.id: agent}
         manager._tmux_send_keys = AsyncMock()
-        asyncio.run(ashlar_server.AgentManager.resume(manager, agent.id))
+        asyncio.run(ashlr_server.AgentManager.resume(manager, agent.id))
         assert agent.status == "working"
         # set_status updates _status_updated_at — verify it was bumped
         assert agent._status_updated_at > 0
@@ -664,10 +664,10 @@ class TestResumeSetStatus:
         agent = make_agent(status="paused")
         agent.needs_input = True
         agent.input_prompt = "Some prompt"
-        manager = MagicMock(spec=ashlar_server.AgentManager)
+        manager = MagicMock(spec=ashlr_server.AgentManager)
         manager.agents = {agent.id: agent}
         manager._tmux_send_keys = AsyncMock()
-        asyncio.run(ashlar_server.AgentManager.resume(manager, agent.id))
+        asyncio.run(ashlr_server.AgentManager.resume(manager, agent.id))
         assert agent.needs_input is False
         assert agent.input_prompt is None
 
@@ -702,7 +702,7 @@ class TestInjectRolePrompt:
 class TestExtensionScanner:
     def test_scan_returns_dict_with_expected_keys(self):
         """scan() should return dict with skills, mcp_servers, plugins, scanned_at."""
-        from ashlar_server import ExtensionScanner
+        from ashlr_server import ExtensionScanner
         scanner = ExtensionScanner()
         result = scanner.scan()
         assert "skills" in result
@@ -712,7 +712,7 @@ class TestExtensionScanner:
 
     def test_to_dict_structure(self):
         """to_dict should return correct structure even when empty."""
-        from ashlar_server import ExtensionScanner
+        from ashlr_server import ExtensionScanner
         scanner = ExtensionScanner()
         d = scanner.to_dict()
         assert d["skills"] == []
@@ -722,7 +722,7 @@ class TestExtensionScanner:
 
     def test_parse_skill_frontmatter(self, tmp_path):
         """Should parse YAML frontmatter from a skill .md file."""
-        from ashlar_server import ExtensionScanner
+        from ashlr_server import ExtensionScanner
         skill_file = tmp_path / "test-skill.md"
         skill_file.write_text("---\ndescription: Test skill\nargument-hint: <arg>\nallowed-tools: Bash\n---\n\n# Test")
         desc, hint, tools = ExtensionScanner._parse_skill_frontmatter(skill_file)
@@ -732,7 +732,7 @@ class TestExtensionScanner:
 
     def test_parse_skill_no_frontmatter(self, tmp_path):
         """Skills without frontmatter should return empty strings."""
-        from ashlar_server import ExtensionScanner
+        from ashlr_server import ExtensionScanner
         skill_file = tmp_path / "bare.md"
         skill_file.write_text("# Just a heading\nSome content")
         desc, hint, tools = ExtensionScanner._parse_skill_frontmatter(skill_file)
@@ -742,7 +742,7 @@ class TestExtensionScanner:
 
     def test_scan_skills_from_dir(self, tmp_path):
         """Should discover .md files recursively."""
-        from ashlar_server import ExtensionScanner
+        from ashlr_server import ExtensionScanner
         cmd_dir = tmp_path / ".claude" / "commands"
         cmd_dir.mkdir(parents=True)
         (cmd_dir / "commit.md").write_text("---\ndescription: Git commit\n---\n")
@@ -758,7 +758,7 @@ class TestExtensionScanner:
 
     def test_parse_mcp_dict(self):
         """Should parse MCP server configs from dict."""
-        from ashlar_server import ExtensionScanner
+        from ashlr_server import ExtensionScanner
         mcp_dict = {
             "my-server": {
                 "type": "stdio",
@@ -783,7 +783,7 @@ class TestExtensionScanner:
     def test_scan_plugins_from_settings(self, tmp_path):
         """Should parse plugins from settings.json."""
         import json
-        from ashlar_server import ExtensionScanner
+        from ashlr_server import ExtensionScanner
         settings = {"enabledPlugins": {"my-plugin@provider": True, "disabled-one@other": False}}
         settings_file = tmp_path / "settings.json"
         settings_file.write_text(json.dumps(settings))
@@ -794,7 +794,7 @@ class TestExtensionScanner:
             # Since _scan_plugins reads from ~/.claude/settings.json, we test _parse_mcp_dict instead
             pass
         # Test plugin info structure
-        from ashlar_server import PluginInfo
+        from ashlr_server import PluginInfo
         p = PluginInfo(name="test", provider="provider", enabled=True)
         assert p.to_dict() == {"name": "test", "provider": "provider", "enabled": True}
 
@@ -806,7 +806,7 @@ class TestExtensionScanner:
 class TestContextDetection:
     def _make_manager(self):
         """Create a minimal AgentManager for testing."""
-        from ashlar_server import AgentManager, Config
+        from ashlr_server import AgentManager, Config
         config = Config.__new__(Config)
         config.max_agents = 16
         config.default_backend = "claude-code"
@@ -962,7 +962,7 @@ class TestTaskQueue:
     def test_manager_has_task_queue(self):
         """AgentManager should have a task_queue list."""
         with patch.dict("os.environ", {"CLAUDECODE": "1"}):
-            from ashlar_server import Config, AgentManager
+            from ashlr_server import Config, AgentManager
             config = Config()
             manager = AgentManager(config)
             assert hasattr(manager, 'task_queue')
@@ -1036,7 +1036,7 @@ class TestOutputIntelligenceParser:
 
     def _make_agent(self, lines):
         import collections
-        from ashlar_server import OutputIntelligenceParser
+        from ashlr_server import OutputIntelligenceParser
         agent = MagicMock()
         agent.id = "test1"
         agent.output_lines = lines
@@ -1316,10 +1316,10 @@ class TestFleetAnalytics:
         defaults = dict(
             id="a001", name="test", role="backend", status="working",
             project_id=None, working_dir="/tmp", backend="claude-code",
-            task="test", tmux_session="ashlar-a001"
+            task="test", tmux_session="ashlr-a001"
         )
         defaults.update(kwargs)
-        return ashlar_server.Agent(**defaults)
+        return ashlr_server.Agent(**defaults)
 
     def test_cost_aggregation(self):
         """Total cost sums across all agents."""
@@ -1429,10 +1429,10 @@ class TestAgentNotesAndTags:
         defaults = dict(
             id="a001", name="test", role="backend", status="working",
             project_id=None, working_dir="/tmp", backend="claude-code",
-            task="test", tmux_session="ashlar-a001"
+            task="test", tmux_session="ashlr-a001"
         )
         defaults.update(kwargs)
-        return ashlar_server.Agent(**defaults)
+        return ashlr_server.Agent(**defaults)
 
     def test_default_notes_empty(self):
         agent = self._make_agent()
@@ -1480,10 +1480,10 @@ class TestAgentBookmarks:
         defaults = dict(
             id="a001", name="test", role="backend", status="working",
             project_id=None, working_dir="/tmp", backend="claude-code",
-            task="test", tmux_session="ashlar-a001"
+            task="test", tmux_session="ashlr-a001"
         )
         defaults.update(kwargs)
-        return ashlar_server.Agent(**defaults)
+        return ashlr_server.Agent(**defaults)
 
     def test_default_bookmarks_empty(self):
         agent = self._make_agent()
@@ -1578,11 +1578,11 @@ class TestProjectAutoAssignment:
 class TestFileConflicts:
     def test_write_write_conflict_detected(self, make_agent):
         """Two agents writing the same file should produce a conflict."""
-        manager = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        manager = ashlr_server.AgentManager.__new__(ashlr_server.AgentManager)
         manager.agents = {}
         manager.file_activity = {}
-        manager._FILE_WRITE_RE = ashlar_server.AgentManager._FILE_WRITE_RE
-        manager._FILE_READ_RE = ashlar_server.AgentManager._FILE_READ_RE
+        manager._FILE_WRITE_RE = ashlr_server.AgentManager._FILE_WRITE_RE
+        manager._FILE_READ_RE = ashlr_server.AgentManager._FILE_READ_RE
 
         a1 = make_agent(agent_id="aaaa", name="agent-a", status="working")
         a2 = make_agent(agent_id="bbbb", name="agent-b", status="working")
@@ -1607,7 +1607,7 @@ class TestFileConflicts:
 
     def test_no_conflict_on_separate_files(self, make_agent):
         """Agents working on different files should not produce conflicts."""
-        manager = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        manager = ashlr_server.AgentManager.__new__(ashlr_server.AgentManager)
         manager.agents = {}
         manager.file_activity = {
             "/src/main.py": {"aaaa": "write"},
@@ -1629,7 +1629,7 @@ class TestFileConflicts:
 
     def test_read_read_no_conflict(self, make_agent):
         """Two agents reading the same file is NOT a conflict."""
-        manager = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        manager = ashlr_server.AgentManager.__new__(ashlr_server.AgentManager)
         manager.file_activity = {
             "/src/main.py": {"aaaa": "read", "bbbb": "read"},
         }
@@ -1718,7 +1718,7 @@ class TestAgentModelDisplay:
 class TestConfigExportImport:
     def test_config_is_dict(self):
         """Config path should resolve to a valid YAML structure."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert config.host == "127.0.0.1"
         assert config.port == 5111
 
@@ -1854,13 +1854,13 @@ class TestGlobalSearch:
 class TestCostBudget:
     def test_default_cost_budget_zero(self):
         """Default cost budget is 0 (no limit)."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert config.cost_budget_usd == 0.0
         assert config.cost_budget_auto_pause is False
 
     def test_cost_budget_in_to_dict(self):
         """Cost budget fields should appear in config to_dict."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         config.cost_budget_usd = 5.0
         config.cost_budget_auto_pause = True
         d = config.to_dict()
@@ -1954,16 +1954,16 @@ class TestServerStats:
 
     def test_initial_stats_are_zero(self):
         """New AgentManager should have zero stats."""
-        config = ashlar_server.Config()
-        mgr = ashlar_server.AgentManager(config)
+        config = ashlr_server.Config()
+        mgr = ashlr_server.AgentManager(config)
         assert mgr._total_spawned == 0
         assert mgr._total_killed == 0
         assert mgr._total_messages_sent == 0
 
     def test_start_time_set(self):
         """AgentManager should record start time."""
-        config = ashlar_server.Config()
-        mgr = ashlar_server.AgentManager(config)
+        config = ashlr_server.Config()
+        mgr = ashlr_server.AgentManager(config)
         assert mgr._start_time > 0
         assert time.monotonic() - mgr._start_time < 2  # should be very recent
 
@@ -1972,10 +1972,10 @@ class TestOutputSnapshots:
     """Tests for OutputSnapshot creation and agent snapshot lifecycle."""
 
     def _make_agent(self):
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="snap1", name="test-snap", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test task",
-            summary="Doing things", tmux_session="ashlar-snap1",
+            summary="Doing things", tmux_session="ashlr-snap1",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent.output_lines.extend(["line 1", "line 2", "line 3"])
@@ -2047,20 +2047,20 @@ class TestCostBurnRate:
 
     def test_no_burn_rate_without_cost(self):
         """Should return None when no cost data exists."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="br01", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-br01",
+            summary="", tmux_session="ashlr-br01",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         assert agent._cost_burn_rate() is None
 
     def test_no_burn_rate_early(self):
         """Should return None when agent is <30s old (not enough data)."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="br02", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-br02",
+            summary="", tmux_session="ashlr-br02",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent._spawn_time = time.monotonic()  # Just spawned
@@ -2069,10 +2069,10 @@ class TestCostBurnRate:
 
     def test_burn_rate_calculation(self):
         """Should calculate cost_per_min and tokens_per_min correctly."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="br03", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
-            summary="", tmux_session="ashlar-br03",
+            summary="", tmux_session="ashlr-br03",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent._spawn_time = time.monotonic() - 120  # 2 minutes ago
@@ -2088,10 +2088,10 @@ class TestCostBurnRate:
 
     def test_burn_rate_in_to_dict(self):
         """Agent.to_dict should include cost_burn_rate field."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="br04", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-br04",
+            summary="", tmux_session="ashlr-br04",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         d = agent.to_dict()
@@ -2104,10 +2104,10 @@ class TestRestartWithTask:
 
     def test_restart_preserves_task_by_default(self):
         """Restart without new_task keeps the original task."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="rt01", name="test", role="backend", status="error",
             working_dir="/tmp", backend="demo", task="Original task",
-            summary="", tmux_session="ashlar-rt01",
+            summary="", tmux_session="ashlr-rt01",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         # Simulate what restart does with no new_task
@@ -2121,10 +2121,10 @@ class TestRestartWithTask:
 
     def test_restart_overrides_task(self):
         """Restart with new_task updates the agent's task."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="rt02", name="test", role="backend", status="error",
             working_dir="/tmp", backend="demo", task="Original task",
-            summary="", tmux_session="ashlar-rt02",
+            summary="", tmux_session="ashlr-rt02",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         new_task = "Modified task with fixes"
@@ -2137,10 +2137,10 @@ class TestRestartWithTask:
 
     def test_restart_empty_task_no_override(self):
         """Empty string new_task should not override."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="rt03", name="test", role="backend", status="error",
             working_dir="/tmp", backend="demo", task="Original task",
-            summary="", tmux_session="ashlar-rt03",
+            summary="", tmux_session="ashlr-rt03",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         new_task = ""
@@ -2157,14 +2157,14 @@ class TestHistoricalAnalytics:
 
     def test_historical_analytics_no_db(self):
         """With no DB, should return empty structure."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         result = asyncio.run(db.get_historical_analytics())
         assert result["total_historical"] == 0
 
     def test_historical_analytics_returns_dict(self):
         """Return value should be a dict with expected keys."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         result = asyncio.run(db.get_historical_analytics())
         assert isinstance(result, dict)
@@ -2176,10 +2176,10 @@ class TestStatusTimeline:
 
     def test_status_history_recorded(self):
         """set_status should record status transitions."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="st01", name="test", role="general", status="spawning",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-st01",
+            summary="", tmux_session="ashlr-st01",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent.set_status("planning")
@@ -2192,10 +2192,10 @@ class TestStatusTimeline:
 
     def test_status_history_no_duplicate(self):
         """Same status transition should not be recorded."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="st02", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-st02",
+            summary="", tmux_session="ashlr-st02",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent.set_status("working")  # Same status — should not record
@@ -2203,10 +2203,10 @@ class TestStatusTimeline:
 
     def test_status_timeline_in_to_dict(self):
         """to_dict should include status_timeline."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="st03", name="test", role="general", status="spawning",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-st03",
+            summary="", tmux_session="ashlr-st03",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent.set_status("working")
@@ -2216,10 +2216,10 @@ class TestStatusTimeline:
 
     def test_timeline_capped_at_100(self):
         """Status history should not exceed 100 entries."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="st04", name="test", role="general", status="spawning",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-st04",
+            summary="", tmux_session="ashlr-st04",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         for i in range(110):
@@ -2232,20 +2232,20 @@ class TestContextExhaustionWarning:
 
     def test_context_warning_flag_default(self):
         """_context_exhaustion_warned should default to False."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="ce01", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-ce01",
+            summary="", tmux_session="ashlr-ce01",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         assert not getattr(agent, '_context_exhaustion_warned', False)
 
     def test_context_warning_creates_snapshot(self):
         """Agent at 92%+ context should create snapshot when triggered."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="ce02", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="High context", tmux_session="ashlar-ce02",
+            summary="High context", tmux_session="ashlr-ce02",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent.context_pct = 0.95
@@ -2260,14 +2260,14 @@ class TestEfficiencyScore:
     """Tests for calculate_efficiency_score."""
 
     def test_returns_dict_with_required_keys(self):
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="ef01", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-ef01",
+            summary="", tmux_session="ashlr-ef01",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent._spawn_time = time.monotonic() - 60  # 1 min uptime
-        result = ashlar_server.calculate_efficiency_score(agent)
+        result = ashlr_server.calculate_efficiency_score(agent)
         assert isinstance(result, dict)
         assert "score" in result
         assert "tools_per_min" in result
@@ -2278,10 +2278,10 @@ class TestEfficiencyScore:
         assert 0.0 <= result["score"] <= 1.0
 
     def test_score_in_to_dict(self):
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="ef02", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-ef02",
+            summary="", tmux_session="ashlr-ef02",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent._spawn_time = time.monotonic() - 120
@@ -2292,14 +2292,14 @@ class TestEfficiencyScore:
 
     def test_new_agent_has_low_score(self):
         """Agent with no tools or files should have a low efficiency score."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="ef03", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-ef03",
+            summary="", tmux_session="ashlr-ef03",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent._spawn_time = time.monotonic() - 300
-        result = ashlar_server.calculate_efficiency_score(agent)
+        result = ashlr_server.calculate_efficiency_score(agent)
         assert result["score"] < 0.5
         assert result["tools_per_min"] == 0
 
@@ -2309,30 +2309,30 @@ class TestOutputBufferPagination:
 
     def test_output_deque_max_length(self):
         """Output lines deque has a max length of 2000."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="pg01", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-pg01",
+            summary="", tmux_session="ashlr-pg01",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         assert agent.output_lines.maxlen == 2000
 
     def test_archived_lines_starts_at_zero(self):
         """Archived lines counter starts at 0."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="pg02", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-pg02",
+            summary="", tmux_session="ashlr-pg02",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         assert agent._archived_lines == 0
 
     def test_total_output_lines_in_to_dict(self):
         """total_output_lines is included in to_dict."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="pg03", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-pg03",
+            summary="", tmux_session="ashlr-pg03",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent.total_output_lines = 500
@@ -2341,10 +2341,10 @@ class TestOutputBufferPagination:
 
     def test_output_overflow_tracking(self):
         """When output exceeds deque size, _archived_lines tracks overflow."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="pg04", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-pg04",
+            summary="", tmux_session="ashlr-pg04",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         # Fill beyond capacity
@@ -2361,20 +2361,20 @@ class TestBookmarkPersistence:
 
     def test_agent_bookmarks_start_empty(self):
         """Agent bookmarks list starts empty."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="bk01", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-bk01",
+            summary="", tmux_session="ashlr-bk01",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         assert agent.bookmarks == []
 
     def test_bookmark_in_memory(self):
         """Bookmarks can be added in memory."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="bk02", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-bk02",
+            summary="", tmux_session="ashlr-bk02",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent.bookmarks.append({"id": "abc", "line": 42, "text": "error line", "label": "Bug"})
@@ -2384,10 +2384,10 @@ class TestBookmarkPersistence:
 
     def test_bookmark_delete_by_id(self):
         """Bookmarks can be filtered by ID for deletion."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="bk03", name="test", role="general", status="working",
             working_dir="/tmp", backend="demo", task="test",
-            summary="", tmux_session="ashlar-bk03",
+            summary="", tmux_session="ashlr-bk03",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         agent.bookmarks.append({"id": "a1", "line": 10, "text": "line a", "label": ""})
@@ -2401,10 +2401,10 @@ class TestCollaborationGraph:
     """Tests for agent collaboration graph data computation."""
 
     def _make_agent(self, id, name="test", role="backend", project_id=None, files=None):
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id=id, name=name, role=role, status="working",
             working_dir="/tmp", backend="demo", task="test task",
-            summary="", tmux_session=f"ashlar-{id}",
+            summary="", tmux_session=f"ashlr-{id}",
             created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z",
         )
         if project_id:
@@ -2519,9 +2519,9 @@ class TestServerAuditFixes:
         agent = make_agent(status="error")
         async def _test():
             async with agent._restart_lock:
-                manager = MagicMock(spec=ashlar_server.AgentManager)
+                manager = MagicMock(spec=ashlr_server.AgentManager)
                 manager.agents = {agent.id: agent}
-                return await ashlar_server.AgentManager.restart(manager, agent.id)
+                return await ashlr_server.AgentManager.restart(manager, agent.id)
         result = asyncio.run(_test())
         assert result is False
 
@@ -2571,7 +2571,7 @@ class TestServerAuditFixes:
     def test_mcp_tool_pattern_detected(self):
         """Parser should detect MCP tool invocations."""
         import collections
-        from ashlar_server import OutputIntelligenceParser
+        from ashlr_server import OutputIntelligenceParser
         agent = MagicMock()
         agent.id = "test1"
         agent.output_lines = ['mcp__claude-in-chrome__computer("click")']
@@ -2590,7 +2590,7 @@ class TestServerAuditFixes:
     def test_skill_tool_pattern_detected(self):
         """Parser should detect Skill tool invocations."""
         import collections
-        from ashlar_server import OutputIntelligenceParser
+        from ashlr_server import OutputIntelligenceParser
         agent = MagicMock()
         agent.id = "test1"
         agent.output_lines = ['Skill("commit")']
@@ -2608,7 +2608,7 @@ class TestServerAuditFixes:
     def test_agent_tool_pattern_detected(self):
         """Parser should detect Agent tool invocations."""
         import collections
-        from ashlar_server import OutputIntelligenceParser
+        from ashlr_server import OutputIntelligenceParser
         agent = MagicMock()
         agent.id = "test1"
         agent.output_lines = ['Agent("search for patterns")']
@@ -2626,19 +2626,19 @@ class TestServerAuditFixes:
     def test_broadcast_timeout_is_2s(self):
         """WebSocket broadcast timeout should be 2 seconds (not 5)."""
         import inspect
-        src = inspect.getsource(ashlar_server.WebSocketHub.broadcast)
+        src = inspect.getsource(ashlr_server.WebSocketHub.broadcast)
         assert "timeout=2.0" in src
 
     def test_batch_spawn_agent_limit(self):
         """Batch spawn should check concurrent agent limit before spawning."""
         import inspect
-        src = inspect.getsource(ashlar_server.batch_spawn)
+        src = inspect.getsource(ashlr_server.batch_spawn)
         assert "available_slots" in src or "max_agents" in src
 
     def test_sync_handler_db_exception_guard(self):
         """Sync handler should catch DB exceptions for projects and workflows."""
         import inspect
-        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        src = inspect.getsource(ashlr_server.WebSocketHub.handle_ws)
         # After our fix, each DB call should be wrapped in try/except
         assert src.count("projects = await") >= 1
         assert src.count("workflows = await") >= 1
@@ -2693,39 +2693,39 @@ class TestOutputSearchEndpoint:
 
     def test_search_endpoint_exists(self):
         """search_agent_output function should exist."""
-        assert hasattr(ashlar_server, "search_agent_output")
-        assert asyncio.iscoroutinefunction(ashlar_server.search_agent_output)
+        assert hasattr(ashlr_server, "search_agent_output")
+        assert asyncio.iscoroutinefunction(ashlr_server.search_agent_output)
 
     def test_search_endpoint_registered(self):
         """Search endpoint should be registered in create_app route setup."""
         import inspect
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "/api/agents/{id}/output/search" in src
 
     def test_search_supports_regex_param(self):
         """search_agent_output should support regex query parameter."""
         import inspect
-        src = inspect.getsource(ashlar_server.search_agent_output)
+        src = inspect.getsource(ashlr_server.search_agent_output)
         assert "regex" in src
         assert "re.compile" in src
 
     def test_search_supports_context_lines(self):
         """search_agent_output should support context lines parameter."""
         import inspect
-        src = inspect.getsource(ashlar_server.search_agent_output)
+        src = inspect.getsource(ashlr_server.search_agent_output)
         assert "context" in src
         assert "context_lines" in src
 
     def test_search_limits_query_length(self):
         """Search query should be limited to 500 chars."""
         import inspect
-        src = inspect.getsource(ashlar_server.search_agent_output)
+        src = inspect.getsource(ashlr_server.search_agent_output)
         assert "500" in src
 
     def test_search_limits_result_count(self):
         """Search results should be limited."""
         import inspect
-        src = inspect.getsource(ashlar_server.search_agent_output)
+        src = inspect.getsource(ashlr_server.search_agent_output)
         assert "limit" in src
 
 
@@ -2734,14 +2734,14 @@ class TestPatternAlerting:
 
     def test_config_has_alert_patterns(self):
         """Config should have alert_patterns field with defaults."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert hasattr(config, "alert_patterns")
         assert isinstance(config.alert_patterns, list)
         assert len(config.alert_patterns) >= 5
 
     def test_alert_patterns_have_required_fields(self):
         """Each alert pattern should have pattern, severity, and label."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         for ap in config.alert_patterns:
             assert "pattern" in ap
             assert "severity" in ap
@@ -2750,7 +2750,7 @@ class TestPatternAlerting:
     def test_alert_patterns_are_valid_regex(self):
         """All default alert patterns should be valid regex."""
         import re
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         for ap in config.alert_patterns:
             try:
                 re.compile(ap["pattern"])
@@ -2759,7 +2759,7 @@ class TestPatternAlerting:
 
     def test_alert_patterns_in_to_dict(self):
         """alert_patterns should appear in Config.to_dict()."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         d = config.to_dict()
         assert "alert_patterns" in d
         assert len(d["alert_patterns"]) >= 5
@@ -2767,7 +2767,7 @@ class TestPatternAlerting:
     def test_alert_patterns_match_critical_errors(self):
         """Alert patterns should match critical error strings."""
         import re
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         test_lines = [
             "FATAL error in process",
             "out of memory",
@@ -2786,7 +2786,7 @@ class TestPatternAlerting:
     def test_alert_patterns_dont_match_normal_output(self):
         """Alert patterns should NOT match normal agent output."""
         import re
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         normal_lines = [
             "Reading file src/main.py",
             "Edit completed successfully",
@@ -2800,13 +2800,13 @@ class TestPatternAlerting:
 
     def test_alert_throttle_dict_exists(self):
         """Module-level _alert_throttle dict should exist."""
-        assert hasattr(ashlar_server, "_alert_throttle")
-        assert isinstance(ashlar_server._alert_throttle, dict)
+        assert hasattr(ashlr_server, "_alert_throttle")
+        assert isinstance(ashlr_server._alert_throttle, dict)
 
     def test_capture_loop_checks_alert_patterns(self):
         """Output capture loop should check alert patterns."""
         import inspect
-        src = inspect.getsource(ashlar_server.output_capture_loop)
+        src = inspect.getsource(ashlr_server.output_capture_loop)
         assert "pattern_alert" in src
         assert "_compiled_alert_patterns" in src
         assert "_alert_throttle" in src
@@ -2818,50 +2818,50 @@ class TestCriticalBugFixes:
     def test_health_detailed_uses_max_agents(self):
         """health_detailed should use config.max_agents, not max_concurrent_agents."""
         import inspect
-        src = inspect.getsource(ashlar_server.health_detailed)
+        src = inspect.getsource(ashlr_server.health_detailed)
         assert "max_concurrent_agents" not in src
         assert "max_agents" in src
 
     def test_db_save_message_null_guard(self):
         """save_message should guard against null db."""
         import inspect
-        src = inspect.getsource(ashlar_server.Database.save_message)
+        src = inspect.getsource(ashlr_server.Database.save_message)
         assert "if not self._db" in src
 
     def test_db_get_messages_for_agent_null_guard(self):
         """get_messages_for_agent should guard against null db."""
         import inspect
-        src = inspect.getsource(ashlar_server.Database.get_messages_for_agent)
+        src = inspect.getsource(ashlr_server.Database.get_messages_for_agent)
         assert "if not self._db" in src
 
     def test_db_get_messages_between_null_guard(self):
         """get_messages_between should guard against null db."""
         import inspect
-        src = inspect.getsource(ashlar_server.Database.get_messages_between)
+        src = inspect.getsource(ashlr_server.Database.get_messages_between)
         assert "if not self._db" in src
 
     def test_db_get_message_count_null_guard(self):
         """get_message_count_for_agent should guard against null db."""
         import inspect
-        src = inspect.getsource(ashlar_server.Database.get_message_count_for_agent)
+        src = inspect.getsource(ashlr_server.Database.get_message_count_for_agent)
         assert "if not self._db" in src
 
     def test_db_mark_messages_read_null_guard(self):
         """mark_messages_read should guard against null db."""
         import inspect
-        src = inspect.getsource(ashlar_server.Database.mark_messages_read)
+        src = inspect.getsource(ashlr_server.Database.mark_messages_read)
         assert "if not self._db" in src
 
     def test_db_get_unread_count_null_guard(self):
         """get_unread_count should guard against null db."""
         import inspect
-        src = inspect.getsource(ashlar_server.Database.get_unread_count)
+        src = inspect.getsource(ashlr_server.Database.get_unread_count)
         assert "if not self._db" in src
 
     def test_compiled_alert_patterns_in_create_app(self):
         """create_app should compile alert patterns at startup."""
         import inspect
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "_compiled_alert_patterns" in src
 
 
@@ -2871,38 +2871,38 @@ class TestConfigLoadingAndValidation:
     def test_load_config_parses_alert_patterns(self):
         """load_config should parse alert patterns from YAML alerts section."""
         import inspect
-        src = inspect.getsource(ashlar_server.load_config)
+        src = inspect.getsource(ashlr_server.load_config)
         assert "alert_patterns" in src
         assert "validated_alert_patterns" in src
 
     def test_load_config_validates_alert_regex(self):
         """load_config should validate alert pattern regex."""
         import inspect
-        src = inspect.getsource(ashlar_server.load_config)
+        src = inspect.getsource(ashlr_server.load_config)
         assert "re.compile" in src
         assert "re.error" in src
 
     def test_put_config_has_llm_meta_interval_validator(self):
         """put_config should validate llm_meta_interval field."""
         import inspect
-        src = inspect.getsource(ashlar_server.put_config)
+        src = inspect.getsource(ashlr_server.put_config)
         assert "llm_meta_interval" in src
 
     def test_put_config_maps_llm_meta_to_yaml(self):
         """put_config should map llm_meta_interval to YAML llm section."""
         import inspect
-        src = inspect.getsource(ashlar_server.put_config)
+        src = inspect.getsource(ashlr_server.put_config)
         assert "meta_interval_sec" in src
 
     def test_put_config_recompiles_alert_patterns(self):
         """put_config should recompile alert patterns when config changes."""
         import inspect
-        src = inspect.getsource(ashlar_server.put_config)
+        src = inspect.getsource(ashlr_server.put_config)
         assert "_compiled_alert_patterns" in src
 
     def test_default_config_has_alert_patterns(self):
         """Default Config should have 5 alert patterns."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert len(config.alert_patterns) == 5
         # All should have required fields
         for ap in config.alert_patterns:
@@ -2932,7 +2932,7 @@ class TestSessionPersistence:
             created_at="2026-01-01T00:00:00Z",
         )
         defaults.update(overrides)
-        return ashlar_server.Agent(**defaults)
+        return ashlr_server.Agent(**defaults)
 
     def test_resumable_flag_for_complete_status(self):
         """Agents with status 'complete' should be resumable."""
@@ -2982,89 +2982,89 @@ class TestSessionPersistence:
 
     def test_save_agent_includes_resumable_column(self):
         """save_agent() SQL should include resumable column."""
-        src = inspect.getsource(ashlar_server.Database.save_agent)
+        src = inspect.getsource(ashlr_server.Database.save_agent)
         assert "resumable" in src
 
     def test_save_agent_includes_system_prompt_column(self):
         """save_agent() SQL should include system_prompt column."""
-        src = inspect.getsource(ashlar_server.Database.save_agent)
+        src = inspect.getsource(ashlr_server.Database.save_agent)
         assert "system_prompt" in src
 
     def test_save_agent_includes_plan_mode_column(self):
         """save_agent() SQL should include plan_mode column."""
-        src = inspect.getsource(ashlar_server.Database.save_agent)
+        src = inspect.getsource(ashlr_server.Database.save_agent)
         assert "plan_mode" in src
 
     def test_get_resumable_sessions_method_exists(self):
         """Database should have get_resumable_sessions method."""
-        assert hasattr(ashlar_server.Database, "get_resumable_sessions")
-        assert callable(getattr(ashlar_server.Database, "get_resumable_sessions"))
+        assert hasattr(ashlr_server.Database, "get_resumable_sessions")
+        assert callable(getattr(ashlr_server.Database, "get_resumable_sessions"))
 
     def test_get_resumable_sessions_null_guard(self):
         """get_resumable_sessions() should return [] when db is None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         result = asyncio.run(db.get_resumable_sessions())
         assert result == []
 
     def test_get_resumable_sessions_filters_by_resumable(self):
         """get_resumable_sessions() SQL should filter WHERE resumable = 1."""
-        src = inspect.getsource(ashlar_server.Database.get_resumable_sessions)
+        src = inspect.getsource(ashlr_server.Database.get_resumable_sessions)
         assert "resumable = 1" in src
 
     def test_get_resumable_sessions_orders_by_completed_at(self):
         """get_resumable_sessions() should order by most recent first."""
-        src = inspect.getsource(ashlar_server.Database.get_resumable_sessions)
+        src = inspect.getsource(ashlr_server.Database.get_resumable_sessions)
         assert "ORDER BY completed_at DESC" in src
 
     def test_resume_endpoint_registered(self):
         """POST /api/sessions/{id}/resume should be registered."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "/api/sessions/{id}/resume" in src
 
     def test_resumable_sessions_endpoint_registered(self):
         """GET /api/sessions/resumable should be registered."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "/api/sessions/resumable" in src
 
     def test_resume_handler_checks_working_dir(self):
         """resume_from_history() should verify working directory exists."""
-        src = inspect.getsource(ashlar_server.resume_from_history)
+        src = inspect.getsource(ashlr_server.resume_from_history)
         assert "isdir" in src or "working_dir" in src
 
     def test_resume_handler_checks_agent_limit(self):
         """resume_from_history() should check max_agents limit."""
-        src = inspect.getsource(ashlar_server.resume_from_history)
+        src = inspect.getsource(ashlr_server.resume_from_history)
         assert "max_agents" in src
 
     def test_resume_handler_supports_task_override(self):
         """resume_from_history() should allow overriding the task."""
-        src = inspect.getsource(ashlar_server.resume_from_history)
+        src = inspect.getsource(ashlr_server.resume_from_history)
         assert "task" in src
 
     def test_resume_handler_supports_continue_message(self):
         """resume_from_history() should support continue_message field."""
-        src = inspect.getsource(ashlar_server.resume_from_history)
+        src = inspect.getsource(ashlr_server.resume_from_history)
         assert "continue_message" in src
 
     def test_db_migration_adds_resumable_column(self):
         """DB init should add resumable column to agents_history."""
-        src = inspect.getsource(ashlar_server.Database.init)
+        src = inspect.getsource(ashlr_server.Database.init)
         assert "resumable" in src
 
     def test_db_migration_adds_system_prompt_column(self):
         """DB init should add system_prompt column to agents_history."""
-        src = inspect.getsource(ashlar_server.Database.init)
+        src = inspect.getsource(ashlr_server.Database.init)
         assert "system_prompt" in src
 
     def test_db_migration_adds_plan_mode_column(self):
         """DB init should add plan_mode column to agents_history."""
-        src = inspect.getsource(ashlar_server.Database.init)
+        src = inspect.getsource(ashlr_server.Database.init)
         assert "plan_mode" in src
 
     def test_resumable_statuses_are_correct(self):
         """The resumable status check should match the expected set."""
-        src = inspect.getsource(ashlar_server.Database.save_agent)
+        src = inspect.getsource(ashlr_server.Database.save_agent)
         # Verify the exact status set used for resumable flag
         for status in ("complete", "working", "planning", "idle"):
             assert status in src
@@ -3079,62 +3079,62 @@ class TestBugFixesAndFleetExport:
 
     def test_spawn_cleanup_logs_on_failure(self):
         """Spawn tmux cleanup should log warnings, not silently pass."""
-        src = inspect.getsource(ashlar_server.AgentManager.spawn)
+        src = inspect.getsource(ashlr_server.AgentManager.spawn)
         # Should contain log.warning for cleanup failures, not bare pass
         assert "cleanup_err" in src
         assert "log.warning" in src
 
     def test_broadcast_catches_cancelled_error(self):
         """WebSocket broadcast should catch asyncio.CancelledError."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.broadcast)
+        src = inspect.getsource(ashlr_server.WebSocketHub.broadcast)
         assert "CancelledError" in src
 
     def test_alert_throttle_cleanup_in_health_loop(self):
         """Health loop should periodically clean up stale alert throttle entries."""
-        src = inspect.getsource(ashlar_server.health_check_loop)
+        src = inspect.getsource(ashlr_server.health_check_loop)
         assert "_alert_throttle" in src
         # Verify both stale eviction and cap enforcement
         assert "120.0" in src or "stale_keys" in src
 
     def test_alert_throttle_capped_at_500(self):
         """Alert throttle cleanup should enforce max 500 entries."""
-        src = inspect.getsource(ashlar_server.health_check_loop)
+        src = inspect.getsource(ashlr_server.health_check_loop)
         assert "500" in src
 
     def test_fleet_export_endpoint_registered(self):
         """GET /api/fleet/export should be registered."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "/api/fleet/export" in src
 
     def test_fleet_export_handler_exists(self):
         """export_fleet_state handler function should exist."""
-        assert hasattr(ashlar_server, "export_fleet_state")
-        assert callable(getattr(ashlar_server, "export_fleet_state"))
+        assert hasattr(ashlr_server, "export_fleet_state")
+        assert callable(getattr(ashlr_server, "export_fleet_state"))
 
     def test_fleet_export_includes_agents(self):
         """Fleet export should include agents data."""
-        src = inspect.getsource(ashlar_server.export_fleet_state)
+        src = inspect.getsource(ashlr_server.export_fleet_state)
         assert "agents" in src
         assert "agents_count" in src
 
     def test_fleet_export_includes_projects(self):
         """Fleet export should include projects."""
-        src = inspect.getsource(ashlar_server.export_fleet_state)
+        src = inspect.getsource(ashlr_server.export_fleet_state)
         assert "projects" in src
 
     def test_fleet_export_includes_config_summary(self):
         """Fleet export should include config summary."""
-        src = inspect.getsource(ashlar_server.export_fleet_state)
+        src = inspect.getsource(ashlr_server.export_fleet_state)
         assert "config_summary" in src
 
     def test_fleet_export_includes_version(self):
         """Fleet export should include version for future compatibility."""
-        src = inspect.getsource(ashlar_server.export_fleet_state)
+        src = inspect.getsource(ashlr_server.export_fleet_state)
         assert "version" in src
 
     def test_fleet_export_includes_timestamp(self):
         """Fleet export should include exported_at timestamp."""
-        src = inspect.getsource(ashlar_server.export_fleet_state)
+        src = inspect.getsource(ashlr_server.export_fleet_state)
         assert "exported_at" in src
 
 
@@ -3153,13 +3153,13 @@ class TestWorkflowDeadlockAndTimeout:
             {"role": "tester", "depends_on": [0]},
             {"role": "reviewer", "depends_on": [1]},
         ]
-        result = ashlar_server.WorkflowRun.detect_circular_deps(specs)
+        result = ashlr_server.WorkflowRun.detect_circular_deps(specs)
         assert result is None
 
     def test_no_deps_returns_none(self):
         """Specs with no depends_on at all should return None."""
         specs = [{"role": "backend"}, {"role": "frontend"}, {"role": "tester"}]
-        result = ashlar_server.WorkflowRun.detect_circular_deps(specs)
+        result = ashlr_server.WorkflowRun.detect_circular_deps(specs)
         assert result is None
 
     def test_simple_cycle_detected(self):
@@ -3168,7 +3168,7 @@ class TestWorkflowDeadlockAndTimeout:
             {"role": "backend", "depends_on": [1]},
             {"role": "tester", "depends_on": [0]},
         ]
-        result = ashlar_server.WorkflowRun.detect_circular_deps(specs)
+        result = ashlr_server.WorkflowRun.detect_circular_deps(specs)
         assert result is not None
         assert len(result) >= 1
 
@@ -3179,13 +3179,13 @@ class TestWorkflowDeadlockAndTimeout:
             {"role": "b", "depends_on": [0]},
             {"role": "c", "depends_on": [1]},
         ]
-        result = ashlar_server.WorkflowRun.detect_circular_deps(specs)
+        result = ashlr_server.WorkflowRun.detect_circular_deps(specs)
         assert result is not None
 
     def test_self_loop_detected(self):
         """A node depending on itself should be detected."""
         specs = [{"role": "backend", "depends_on": [0]}]
-        result = ashlar_server.WorkflowRun.detect_circular_deps(specs)
+        result = ashlr_server.WorkflowRun.detect_circular_deps(specs)
         assert result is not None
 
     def test_out_of_range_dep_detected(self):
@@ -3193,7 +3193,7 @@ class TestWorkflowDeadlockAndTimeout:
         specs = [
             {"role": "backend", "depends_on": [5]},
         ]
-        result = ashlar_server.WorkflowRun.detect_circular_deps(specs)
+        result = ashlr_server.WorkflowRun.detect_circular_deps(specs)
         assert result is not None
         assert result[0] == [0, 5]
 
@@ -3202,12 +3202,12 @@ class TestWorkflowDeadlockAndTimeout:
         specs = [
             {"role": "backend", "depends_on": [-1]},
         ]
-        result = ashlar_server.WorkflowRun.detect_circular_deps(specs)
+        result = ashlr_server.WorkflowRun.detect_circular_deps(specs)
         assert result is not None
 
     def test_empty_specs_returns_none(self):
         """Empty spec list should return None (no cycles)."""
-        result = ashlar_server.WorkflowRun.detect_circular_deps([])
+        result = ashlr_server.WorkflowRun.detect_circular_deps([])
         assert result is None
 
     def test_mixed_valid_and_cycle(self):
@@ -3218,14 +3218,14 @@ class TestWorkflowDeadlockAndTimeout:
             {"role": "c", "depends_on": [3]},
             {"role": "d", "depends_on": [2]},
         ]
-        result = ashlar_server.WorkflowRun.detect_circular_deps(specs)
+        result = ashlr_server.WorkflowRun.detect_circular_deps(specs)
         assert result is not None
 
     # ── WorkflowRun fields ──
 
     def test_stage_timeout_sec_default(self):
         """Default stage_timeout_sec should be 1800.0 (30 min)."""
-        wf = ashlar_server.WorkflowRun(
+        wf = ashlr_server.WorkflowRun(
             id="wf1", workflow_id="w1", workflow_name="test",
             agent_specs=[], agent_map={}, pending_indices=set(),
         )
@@ -3233,7 +3233,7 @@ class TestWorkflowDeadlockAndTimeout:
 
     def test_stage_started_at_default_empty(self):
         """Default stage_started_at should be empty dict."""
-        wf = ashlar_server.WorkflowRun(
+        wf = ashlr_server.WorkflowRun(
             id="wf1", workflow_id="w1", workflow_name="test",
             agent_specs=[], agent_map={}, pending_indices=set(),
         )
@@ -3241,7 +3241,7 @@ class TestWorkflowDeadlockAndTimeout:
 
     def test_stage_timeout_sec_in_to_dict(self):
         """to_dict() should include stage_timeout_sec."""
-        wf = ashlar_server.WorkflowRun(
+        wf = ashlr_server.WorkflowRun(
             id="wf1", workflow_id="w1", workflow_name="test",
             agent_specs=[], agent_map={}, pending_indices=set(),
             stage_timeout_sec=600.0,
@@ -3254,17 +3254,17 @@ class TestWorkflowDeadlockAndTimeout:
 
     def test_check_timeouts_no_workflows(self):
         """No workflows running should return empty list."""
-        config = ashlar_server.Config()
-        manager = ashlar_server.AgentManager(config)
+        config = ashlr_server.Config()
+        manager = ashlr_server.AgentManager(config)
         result = manager.check_stage_timeouts()
         assert result == []
 
     def test_check_timeouts_not_expired(self):
         """Running workflow with recent stage_started_at should not timeout."""
         import time
-        config = ashlar_server.Config()
-        manager = ashlar_server.AgentManager(config)
-        wf = ashlar_server.WorkflowRun(
+        config = ashlr_server.Config()
+        manager = ashlr_server.AgentManager(config)
+        wf = ashlr_server.WorkflowRun(
             id="wf1", workflow_id="w1", workflow_name="test",
             agent_specs=[{"role": "backend"}], agent_map={0: "a001"},
             pending_indices=set(), running_ids={"a001"},
@@ -3278,9 +3278,9 @@ class TestWorkflowDeadlockAndTimeout:
     def test_check_timeouts_expired(self):
         """Running workflow with expired stage should return timed-out agents."""
         import time
-        config = ashlar_server.Config()
-        manager = ashlar_server.AgentManager(config)
-        wf = ashlar_server.WorkflowRun(
+        config = ashlr_server.Config()
+        manager = ashlr_server.AgentManager(config)
+        wf = ashlr_server.WorkflowRun(
             id="wf1", workflow_id="w1", workflow_name="test",
             agent_specs=[{"role": "backend"}], agent_map={0: "a001"},
             pending_indices=set(), running_ids={"a001"},
@@ -3295,9 +3295,9 @@ class TestWorkflowDeadlockAndTimeout:
     def test_check_timeouts_skips_completed_workflows(self):
         """Completed workflows should not be checked for timeouts."""
         import time
-        config = ashlar_server.Config()
-        manager = ashlar_server.AgentManager(config)
-        wf = ashlar_server.WorkflowRun(
+        config = ashlr_server.Config()
+        manager = ashlr_server.AgentManager(config)
+        wf = ashlr_server.WorkflowRun(
             id="wf1", workflow_id="w1", workflow_name="test",
             agent_specs=[{"role": "backend"}], agent_map={0: "a001"},
             pending_indices=set(), running_ids={"a001"},
@@ -3312,9 +3312,9 @@ class TestWorkflowDeadlockAndTimeout:
     def test_check_timeouts_agent_name_fallback(self):
         """When agent not in manager.agents, should use agent_id as name."""
         import time
-        config = ashlar_server.Config()
-        manager = ashlar_server.AgentManager(config)
-        wf = ashlar_server.WorkflowRun(
+        config = ashlr_server.Config()
+        manager = ashlr_server.AgentManager(config)
+        wf = ashlr_server.WorkflowRun(
             id="wf1", workflow_id="w1", workflow_name="test",
             agent_specs=[{"role": "backend"}], agent_map={0: "a001"},
             pending_indices=set(), running_ids={"a001"},
@@ -3330,35 +3330,35 @@ class TestWorkflowDeadlockAndTimeout:
 
     def test_circular_dep_check_in_run_workflow(self):
         """run_workflow handler should call detect_circular_deps."""
-        src = inspect.getsource(ashlar_server.run_workflow)
+        src = inspect.getsource(ashlr_server.run_workflow)
         assert "detect_circular_deps" in src
 
     def test_circular_dep_returns_400(self):
         """run_workflow should return 400 when circular deps found."""
-        src = inspect.getsource(ashlar_server.run_workflow)
+        src = inspect.getsource(ashlr_server.run_workflow)
         assert "400" in src
         assert "Circular dependency" in src
 
     def test_stage_timeout_from_request_body(self):
         """run_workflow should accept stage_timeout_sec from request body."""
-        src = inspect.getsource(ashlar_server.run_workflow)
+        src = inspect.getsource(ashlr_server.run_workflow)
         assert "stage_timeout_sec" in src
 
     def test_stage_timeout_clamped(self):
         """Stage timeout should be clamped between 60 and 7200."""
-        src = inspect.getsource(ashlar_server.run_workflow)
+        src = inspect.getsource(ashlr_server.run_workflow)
         assert "60.0" in src or "60" in src
         assert "7200.0" in src or "7200" in src
 
     def test_timeout_enforcement_in_health_loop(self):
         """Health check loop should enforce stage timeouts."""
-        src = inspect.getsource(ashlar_server.health_check_loop)
+        src = inspect.getsource(ashlr_server.health_check_loop)
         assert "check_stage_timeouts" in src
         assert "workflow_stage_timeout" in src
 
     def test_stage_start_tracked_in_resolve_deps(self):
         """resolve_workflow_deps should track stage start time."""
-        src = inspect.getsource(ashlar_server.AgentManager.resolve_workflow_deps)
+        src = inspect.getsource(ashlr_server.AgentManager.resolve_workflow_deps)
         assert "stage_started_at" in src
 
 
@@ -3372,44 +3372,44 @@ class TestCascadeProtection:
 
     def test_config_system_cpu_pressure_threshold(self):
         """Default system CPU pressure threshold should be 90%."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert config.system_cpu_pressure_threshold == 90.0
 
     def test_config_system_memory_pressure_threshold(self):
         """Default system memory pressure threshold should be 90%."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert config.system_memory_pressure_threshold == 90.0
 
     def test_config_spawn_pressure_block(self):
         """Spawn pressure block should be enabled by default."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert config.spawn_pressure_block is True
 
     def test_config_agent_memory_pause_pct(self):
         """Agent memory pause should default to 85% of limit."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert config.agent_memory_pause_pct == 0.85
 
     def test_config_context_auto_pause_threshold(self):
         """Context auto-pause threshold should default to 0.95."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert config.context_auto_pause_threshold == 0.95
 
     def test_config_pathological_error_window(self):
         """Pathological error window should default to 60s."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert config.pathological_error_window_sec == 60.0
 
     def test_config_max_pathological_restarts(self):
         """Max pathological restarts should default to 1."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert config.max_pathological_restarts == 1
 
     # ── Agent fields ──
 
     def test_agent_pathological_default_false(self):
         """Agent._pathological should default to False."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="t001", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -3417,7 +3417,7 @@ class TestCascadeProtection:
 
     def test_agent_context_auto_paused_default_false(self):
         """Agent._context_auto_paused should default to False."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="t001", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -3425,7 +3425,7 @@ class TestCascadeProtection:
 
     def test_agent_pressure_paused_default_false(self):
         """Agent._pressure_paused should default to False."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="t001", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -3435,14 +3435,14 @@ class TestCascadeProtection:
 
     def test_get_agent_cpu_exists(self):
         """AgentManager should have get_agent_cpu method."""
-        assert hasattr(ashlar_server.AgentManager, 'get_agent_cpu')
+        assert hasattr(ashlr_server.AgentManager, 'get_agent_cpu')
 
     def test_get_agent_cpu_no_pid(self):
         """get_agent_cpu should return 0.0 for agent without PID."""
         import asyncio
-        config = ashlar_server.Config()
-        manager = ashlar_server.AgentManager(config)
-        agent = ashlar_server.Agent(
+        config = ashlr_server.Config()
+        manager = ashlr_server.AgentManager(config)
+        agent = ashlr_server.Agent(
             id="t001", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -3453,8 +3453,8 @@ class TestCascadeProtection:
     def test_get_agent_cpu_missing_agent(self):
         """get_agent_cpu should return 0.0 for nonexistent agent."""
         import asyncio
-        config = ashlar_server.Config()
-        manager = ashlar_server.AgentManager(config)
+        config = ashlr_server.Config()
+        manager = ashlr_server.AgentManager(config)
         result = asyncio.run(manager.get_agent_cpu("nonexistent"))
         assert result == 0.0
 
@@ -3462,7 +3462,7 @@ class TestCascadeProtection:
 
     def test_cpu_tracked_in_metrics_loop(self):
         """metrics_loop should update agent.cpu_pct."""
-        src = inspect.getsource(ashlar_server.metrics_loop)
+        src = inspect.getsource(ashlr_server.metrics_loop)
         assert "cpu_pct" in src
         assert "get_agent_cpu" in src
 
@@ -3470,12 +3470,12 @@ class TestCascadeProtection:
 
     def test_check_system_pressure_exists(self):
         """AgentManager should have check_system_pressure method."""
-        assert hasattr(ashlar_server.AgentManager, 'check_system_pressure')
+        assert hasattr(ashlr_server.AgentManager, 'check_system_pressure')
 
     def test_check_system_pressure_returns_dict(self):
         """check_system_pressure should return a dict with expected keys."""
-        config = ashlar_server.Config()
-        manager = ashlar_server.AgentManager(config)
+        config = ashlr_server.Config()
+        manager = ashlr_server.AgentManager(config)
         result = manager.check_system_pressure()
         assert isinstance(result, dict)
         assert "cpu_pressure" in result
@@ -3485,7 +3485,7 @@ class TestCascadeProtection:
 
     def test_spawn_checks_system_pressure(self):
         """spawn() should check system pressure before spawning."""
-        src = inspect.getsource(ashlar_server.AgentManager.spawn)
+        src = inspect.getsource(ashlr_server.AgentManager.spawn)
         assert "check_system_pressure" in src
         assert "spawn_pressure_block" in src
 
@@ -3493,21 +3493,21 @@ class TestCascadeProtection:
 
     def test_pathological_detection_in_health_loop(self):
         """Health check loop should detect pathological error loops."""
-        src = inspect.getsource(ashlar_server.health_check_loop)
+        src = inspect.getsource(ashlr_server.health_check_loop)
         assert "_pathological" in src
         assert "agent_pathological" in src
         assert "pathological_error_window_sec" in src
 
     def test_pathological_limits_restarts(self):
         """Health loop should limit max_restarts for pathological agents."""
-        src = inspect.getsource(ashlar_server.health_check_loop)
+        src = inspect.getsource(ashlr_server.health_check_loop)
         assert "max_pathological_restarts" in src
 
     # ── Context auto-pause ──
 
     def test_context_auto_pause_in_health_loop(self):
         """Health check loop should auto-pause agents at context threshold."""
-        src = inspect.getsource(ashlar_server.health_check_loop)
+        src = inspect.getsource(ashlr_server.health_check_loop)
         assert "context_auto_pause_threshold" in src
         assert "_context_auto_paused" in src
         assert "agent_context_auto_paused" in src
@@ -3516,14 +3516,14 @@ class TestCascadeProtection:
 
     def test_fleet_pressure_response_in_health_loop(self):
         """Health check loop should respond to system pressure."""
-        src = inspect.getsource(ashlar_server.health_check_loop)
+        src = inspect.getsource(ashlr_server.health_check_loop)
         assert "fleet_pressure_response" in src
         assert "_fleet_pressure_warned" in src
         assert "_pressure_paused" in src
 
     def test_pressure_relief_resumes_agents(self):
         """Health loop should resume pressure-paused agents when pressure relieved."""
-        src = inspect.getsource(ashlar_server.health_check_loop)
+        src = inspect.getsource(ashlr_server.health_check_loop)
         assert "_pressure_paused" in src
         # Check that there's logic to resume when pressure is relieved
         assert "Pressure relieved" in src or "_fleet_pressure_warned" in src
@@ -3532,14 +3532,14 @@ class TestCascadeProtection:
 
     def test_memory_watchdog_graduated_response(self):
         """Memory watchdog should pause before kill (graduated response)."""
-        src = inspect.getsource(ashlar_server.memory_watchdog_loop)
+        src = inspect.getsource(ashlr_server.memory_watchdog_loop)
         assert "agent_memory_paused" in src
         assert "pause_threshold" in src
         assert "agent_memory_pause_pct" in src
 
     def test_memory_watchdog_still_kills_at_limit(self):
         """Memory watchdog should still kill agents exceeding full limit."""
-        src = inspect.getsource(ashlar_server.memory_watchdog_loop)
+        src = inspect.getsource(ashlr_server.memory_watchdog_loop)
         assert "agent.memory_mb > limit" in src
         assert "agent_killed" in src
 
@@ -3552,14 +3552,14 @@ class TestRateLimiting:
 
     def test_rate_limiter_allows_burst(self):
         """RateLimiter should allow initial burst of requests."""
-        rl = ashlar_server.RateLimiter()
+        rl = ashlr_server.RateLimiter()
         for _ in range(5):
             allowed, _ = rl.check("127.0.0.1", cost=1.0, rate=1.0, burst=5.0)
             assert allowed
 
     def test_rate_limiter_blocks_after_burst(self):
         """RateLimiter should block after burst is exhausted."""
-        rl = ashlar_server.RateLimiter()
+        rl = ashlr_server.RateLimiter()
         for _ in range(10):
             rl.check("127.0.0.1", cost=1.0, rate=1.0, burst=10.0)
         allowed, retry_after = rl.check("127.0.0.1", cost=1.0, rate=1.0, burst=10.0)
@@ -3568,7 +3568,7 @@ class TestRateLimiting:
 
     def test_rate_limiter_per_ip(self):
         """Different IPs should have separate buckets."""
-        rl = ashlar_server.RateLimiter()
+        rl = ashlr_server.RateLimiter()
         for _ in range(5):
             rl.check("1.1.1.1", cost=1.0, rate=1.0, burst=5.0)
         # IP 1 is exhausted
@@ -3580,7 +3580,7 @@ class TestRateLimiting:
 
     def test_rate_limiter_cleanup_stale(self):
         """cleanup_stale should remove old bucket entries."""
-        rl = ashlar_server.RateLimiter()
+        rl = ashlr_server.RateLimiter()
         rl.check("old_ip", cost=1.0)
         # Artificially age the bucket
         rl._buckets["old_ip"]["last_refill"] = time.monotonic() - 500
@@ -3589,38 +3589,38 @@ class TestRateLimiting:
 
     def test_rate_limit_tiers_exist(self):
         """Rate limit tier definitions should exist."""
-        assert "spawn" in ashlar_server._RATE_LIMIT_TIERS
-        assert "bulk" in ashlar_server._RATE_LIMIT_TIERS
-        assert "default" in ashlar_server._RATE_LIMIT_TIERS
-        assert "fleet-export" in ashlar_server._RATE_LIMIT_TIERS
+        assert "spawn" in ashlr_server._RATE_LIMIT_TIERS
+        assert "bulk" in ashlr_server._RATE_LIMIT_TIERS
+        assert "default" in ashlr_server._RATE_LIMIT_TIERS
+        assert "fleet-export" in ashlr_server._RATE_LIMIT_TIERS
 
     def test_get_rate_tier_spawn(self):
         """POST /api/agents should use spawn tier."""
-        tier = ashlar_server._get_rate_tier("/api/agents", "POST")
+        tier = ashlr_server._get_rate_tier("/api/agents", "POST")
         assert tier == "spawn"
 
     def test_get_rate_tier_bulk(self):
         """POST with bulk in path should use bulk tier."""
-        tier = ashlar_server._get_rate_tier("/api/agents/bulk", "POST")
+        tier = ashlr_server._get_rate_tier("/api/agents/bulk", "POST")
         assert tier == "bulk"
 
     def test_get_rate_tier_default(self):
         """GET /api/agents should use default tier."""
-        tier = ashlar_server._get_rate_tier("/api/agents", "GET")
+        tier = ashlr_server._get_rate_tier("/api/agents", "GET")
         assert tier == "default"
 
     def test_get_rate_tier_fleet_export(self):
         """Fleet export should use fleet-export tier."""
-        tier = ashlar_server._get_rate_tier("/api/fleet/export", "GET")
+        tier = ashlr_server._get_rate_tier("/api/fleet/export", "GET")
         assert tier == "fleet-export"
 
     def test_rate_limit_middleware_exists(self):
         """rate_limit_middleware should exist as a function."""
-        assert callable(ashlar_server.rate_limit_middleware)
+        assert callable(ashlr_server.rate_limit_middleware)
 
     def test_middleware_registered_in_create_app(self):
         """create_app should include rate_limit_middleware."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "rate_limit_middleware" in src
 
 
@@ -3633,33 +3633,33 @@ class TestBinaryGarbageDetection:
     def test_normal_text_not_garbage(self):
         """Normal text output should not be flagged as garbage."""
         lines = ["Hello world", "Processing file.py", "Done."]
-        assert not ashlar_server.AgentManager._is_binary_garbage(lines)
+        assert not ashlr_server.AgentManager._is_binary_garbage(lines)
 
     def test_empty_lines_not_garbage(self):
         """Empty lines should not be flagged as garbage."""
-        assert not ashlar_server.AgentManager._is_binary_garbage([])
-        assert not ashlar_server.AgentManager._is_binary_garbage([""])
+        assert not ashlr_server.AgentManager._is_binary_garbage([])
+        assert not ashlr_server.AgentManager._is_binary_garbage([""])
 
     def test_ansi_colored_text_not_garbage(self):
         """Text with ANSI color codes should not be flagged."""
         lines = ["\x1b[32mSuccess\x1b[0m", "\x1b[1;31mError\x1b[0m: something failed"]
-        assert not ashlar_server.AgentManager._is_binary_garbage(lines)
+        assert not ashlr_server.AgentManager._is_binary_garbage(lines)
 
     def test_binary_content_is_garbage(self):
         """Binary content (mostly non-printable) should be flagged."""
         binary_line = "".join(chr(i) for i in range(0, 32) if i not in (9, 10, 13)) * 5
         lines = [binary_line, binary_line]
-        assert ashlar_server.AgentManager._is_binary_garbage(lines)
+        assert ashlr_server.AgentManager._is_binary_garbage(lines)
 
     def test_mixed_with_threshold(self):
         """Mixed content below threshold should not be flagged."""
         # Mostly printable with a few non-printable chars
         lines = ["Normal text with a \x00 byte here"]
-        assert not ashlar_server.AgentManager._is_binary_garbage(lines)
+        assert not ashlr_server.AgentManager._is_binary_garbage(lines)
 
     def test_garbage_detection_in_capture_output(self):
         """capture_output should call _is_binary_garbage."""
-        src = inspect.getsource(ashlar_server.AgentManager.capture_output)
+        src = inspect.getsource(ashlr_server.AgentManager.capture_output)
         assert "_is_binary_garbage" in src
         assert "binary garbage" in src
 
@@ -3672,28 +3672,28 @@ class TestWebSocketDisconnectCleanup:
 
     def test_ws_heartbeat_enabled(self):
         """WebSocket should have heartbeat=30.0 for ping/pong."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        src = inspect.getsource(ashlr_server.WebSocketHub.handle_ws)
         assert "heartbeat=30.0" in src
 
     def test_ws_disconnect_cleans_sync_time(self):
         """Disconnect should clean up _last_sync_time entry."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        src = inspect.getsource(ashlr_server.WebSocketHub.handle_ws)
         assert "_last_sync_time.pop" in src
 
     def test_ws_disconnect_cleans_rate_limiter(self):
         """Disconnect should clean up rate limiter entries for client IP."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        src = inspect.getsource(ashlr_server.WebSocketHub.handle_ws)
         assert "rate_limiter" in src
         assert "stale_keys" in src
 
     def test_ws_disconnect_discards_client(self):
         """Disconnect should remove client from set."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        src = inspect.getsource(ashlr_server.WebSocketHub.handle_ws)
         assert "clients.discard(ws)" in src
 
     def test_ws_max_clients_limit(self):
         """WebSocketHub should enforce max_clients connection limit."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.handle_ws)
+        src = inspect.getsource(ashlr_server.WebSocketHub.handle_ws)
         assert "max_clients" in src
         assert "1013" in src  # HTTP status for "Try Again Later"
 
@@ -3706,7 +3706,7 @@ class TestLineTruncation:
 
     def test_truncation_in_capture_output(self):
         """capture_output should truncate long lines."""
-        src = inspect.getsource(ashlar_server.AgentManager.capture_output)
+        src = inspect.getsource(ashlr_server.AgentManager.capture_output)
         assert "max_line_len" in src
         assert "[truncated]" in src
         assert "5000" in src
@@ -3736,27 +3736,27 @@ class TestCompressionMiddleware:
 
     def test_compression_middleware_exists(self):
         """compression_middleware should exist as a callable."""
-        assert callable(ashlar_server.compression_middleware)
+        assert callable(ashlr_server.compression_middleware)
 
     def test_compression_registered_in_create_app(self):
         """create_app should include compression_middleware."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "compression_middleware" in src
 
     def test_compression_only_for_api(self):
         """Compression should only apply to /api/ paths."""
-        src = inspect.getsource(ashlar_server.compression_middleware)
+        src = inspect.getsource(ashlr_server.compression_middleware)
         assert "/api/" in src
 
     def test_compression_checks_accept_encoding(self):
         """Compression should check Accept-Encoding header."""
-        src = inspect.getsource(ashlar_server.compression_middleware)
+        src = inspect.getsource(ashlr_server.compression_middleware)
         assert "Accept-Encoding" in src
         assert "gzip" in src
 
     def test_compression_min_size(self):
         """Compression should only apply to responses > 1KB."""
-        src = inspect.getsource(ashlar_server.compression_middleware)
+        src = inspect.getsource(ashlr_server.compression_middleware)
         assert "1024" in src
 
 
@@ -3768,39 +3768,39 @@ class TestDiagnosticEndpoint:
 
     def test_diagnostic_handler_exists(self):
         """run_diagnostic handler should exist."""
-        assert callable(ashlar_server.run_diagnostic)
+        assert callable(ashlr_server.run_diagnostic)
 
     def test_diagnostic_route_registered(self):
         """Diagnostic route should be registered in create_app."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "diagnostic" in src
 
     def test_diagnostic_checks_tmux(self):
         """Diagnostic should test tmux availability."""
-        src = inspect.getsource(ashlar_server.run_diagnostic)
+        src = inspect.getsource(ashlr_server.run_diagnostic)
         assert "tmux" in src
         assert "-V" in src
 
     def test_diagnostic_checks_disk(self):
         """Diagnostic should check disk space."""
-        src = inspect.getsource(ashlar_server.run_diagnostic)
+        src = inspect.getsource(ashlr_server.run_diagnostic)
         assert "disk_usage" in src
 
     def test_diagnostic_checks_database(self):
         """Diagnostic should test database write/read."""
-        src = inspect.getsource(ashlar_server.run_diagnostic)
+        src = inspect.getsource(ashlr_server.run_diagnostic)
         assert "_diagnostic_test" in src
         assert "INSERT" in src
 
     def test_diagnostic_checks_backends(self):
         """Diagnostic should report backend availability."""
-        src = inspect.getsource(ashlar_server.run_diagnostic)
+        src = inspect.getsource(ashlr_server.run_diagnostic)
         assert "backend_configs" in src
         assert "available" in src
 
     def test_diagnostic_returns_status(self):
         """Diagnostic should return ok/degraded status."""
-        src = inspect.getsource(ashlar_server.run_diagnostic)
+        src = inspect.getsource(ashlr_server.run_diagnostic)
         assert "degraded" in src
         assert "all_ok" in src
 
@@ -3813,30 +3813,30 @@ class TestDiagnosticEndpoint:
 class TestOutputMaxLines:
     def test_config_default(self):
         """Default output_max_lines should be 2000."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert config.output_max_lines == 2000
 
     def test_config_custom_value(self):
         """Config should accept custom output_max_lines."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         config.output_max_lines = 500
         assert config.output_max_lines == 500
 
     def test_spawn_applies_custom_maxlen(self):
         """Spawn should apply custom deque maxlen when output_max_lines != 2000."""
-        src = inspect.getsource(ashlar_server.AgentManager.spawn)
+        src = inspect.getsource(ashlr_server.AgentManager.spawn)
         assert "output_max_lines" in src
         assert "maxlen" in src
 
     def test_default_deque_unchanged(self):
         """When output_max_lines == 2000, no custom deque is created."""
-        src = inspect.getsource(ashlar_server.AgentManager.spawn)
+        src = inspect.getsource(ashlr_server.AgentManager.spawn)
         # The condition checks != 2000 before creating custom deque
         assert "!= 2000" in src
 
     def test_agent_deque_default_maxlen(self):
         """Agent output_lines default deque should have maxlen 2000."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="test", name="test", role="general",
             status="idle", working_dir="/tmp",
             backend="claude-code", task="test",
@@ -3852,39 +3852,39 @@ class TestOutputMaxLines:
 class TestRequestLoggingMiddleware:
     def test_middleware_exists(self):
         """request_logging_middleware should be defined."""
-        assert hasattr(ashlar_server, 'request_logging_middleware')
-        assert callable(ashlar_server.request_logging_middleware)
+        assert hasattr(ashlr_server, 'request_logging_middleware')
+        assert callable(ashlr_server.request_logging_middleware)
 
     def test_middleware_skips_non_api(self):
         """Middleware should skip non-API paths."""
-        src = inspect.getsource(ashlar_server.request_logging_middleware)
+        src = inspect.getsource(ashlr_server.request_logging_middleware)
         assert "/api/" in src
 
     def test_middleware_logs_slow_requests(self):
         """Middleware should warn on requests slower than 1s."""
-        src = inspect.getsource(ashlar_server.request_logging_middleware)
+        src = inspect.getsource(ashlr_server.request_logging_middleware)
         assert "SLOW" in src
         assert "1.0" in src
 
     def test_middleware_registered(self):
         """Middleware should be registered in create_app."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "request_logging_middleware" in src
 
     def test_middleware_first_in_chain(self):
         """request_logging_middleware should be first middleware (outermost)."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         # Find the middlewares list line
         assert "middlewares = [request_logging_middleware" in src
 
     def test_middleware_handles_http_exceptions(self):
         """Middleware should handle HTTPException gracefully."""
-        src = inspect.getsource(ashlar_server.request_logging_middleware)
+        src = inspect.getsource(ashlr_server.request_logging_middleware)
         assert "HTTPException" in src
 
     def test_middleware_handles_generic_exceptions(self):
         """Middleware should catch and log generic exceptions."""
-        src = inspect.getsource(ashlar_server.request_logging_middleware)
+        src = inspect.getsource(ashlr_server.request_logging_middleware)
         assert "except Exception" in src
 
 
@@ -3896,67 +3896,67 @@ class TestRequestLoggingMiddleware:
 class TestSpawnValidation:
     def test_handler_exists(self):
         """validate_spawn handler should exist."""
-        assert hasattr(ashlar_server, 'validate_spawn')
-        assert callable(ashlar_server.validate_spawn)
+        assert hasattr(ashlr_server, 'validate_spawn')
+        assert callable(ashlr_server.validate_spawn)
 
     def test_route_registered(self):
         """Route /api/agents/validate should be registered."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "/api/agents/validate" in src
         assert "validate_spawn" in src
 
     def test_validates_role(self):
         """Validation should check role against BUILTIN_ROLES."""
-        src = inspect.getsource(ashlar_server.validate_spawn)
+        src = inspect.getsource(ashlr_server.validate_spawn)
         assert "BUILTIN_ROLES" in src
         assert "Unknown role" in src
 
     def test_validates_name(self):
         """Validation should sanitize and check name."""
-        src = inspect.getsource(ashlar_server.validate_spawn)
+        src = inspect.getsource(ashlr_server.validate_spawn)
         assert "sanitiz" in src.lower() or "name" in src
 
     def test_validates_backend(self):
         """Validation should check backend availability."""
-        src = inspect.getsource(ashlar_server.validate_spawn)
+        src = inspect.getsource(ashlr_server.validate_spawn)
         assert "backend" in src
         assert "available" in src
 
     def test_validates_working_dir(self):
         """Validation should check working directory."""
-        src = inspect.getsource(ashlar_server.validate_spawn)
+        src = inspect.getsource(ashlr_server.validate_spawn)
         assert "working_dir" in src
         assert "isdir" in src
 
     def test_validates_task_length(self):
         """Validation should check task length limit."""
-        src = inspect.getsource(ashlar_server.validate_spawn)
+        src = inspect.getsource(ashlr_server.validate_spawn)
         assert "10000" in src
 
     def test_checks_capacity(self):
         """Validation should check agent capacity."""
-        src = inspect.getsource(ashlar_server.validate_spawn)
+        src = inspect.getsource(ashlr_server.validate_spawn)
         assert "max_agents" in src
 
     def test_checks_system_pressure(self):
         """Validation should check system pressure."""
-        src = inspect.getsource(ashlar_server.validate_spawn)
+        src = inspect.getsource(ashlr_server.validate_spawn)
         assert "check_system_pressure" in src
 
     def test_returns_resolved_fields(self):
         """Validation should return resolved field values."""
-        src = inspect.getsource(ashlar_server.validate_spawn)
+        src = inspect.getsource(ashlr_server.validate_spawn)
         assert "resolved" in src
         assert '"valid"' in src or "'valid'" in src
 
     def test_returns_warnings(self):
         """Validation should return warnings for non-blocking issues."""
-        src = inspect.getsource(ashlar_server.validate_spawn)
+        src = inspect.getsource(ashlr_server.validate_spawn)
         assert "warnings" in src
 
     def test_returns_errors(self):
         """Validation should return errors list for blocking issues."""
-        src = inspect.getsource(ashlar_server.validate_spawn)
+        src = inspect.getsource(ashlr_server.validate_spawn)
         assert "errors" in src
 
 
@@ -3968,7 +3968,7 @@ class TestSpawnValidation:
 class TestStaleInputClearOnError:
     def test_error_clears_needs_input(self):
         """Transitioning to error should clear needs_input flag."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="test", name="test", role="general",
             status="waiting", working_dir="/tmp",
             backend="claude-code", task="test",
@@ -3981,7 +3981,7 @@ class TestStaleInputClearOnError:
 
     def test_paused_clears_needs_input(self):
         """Transitioning to paused should clear needs_input flag."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="test", name="test", role="general",
             status="waiting", working_dir="/tmp",
             backend="claude-code", task="test",
@@ -3994,7 +3994,7 @@ class TestStaleInputClearOnError:
 
     def test_working_preserves_needs_input_false(self):
         """Transitioning to working with no needs_input should be fine."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="test", name="test", role="general",
             status="idle", working_dir="/tmp",
             backend="claude-code", task="test",
@@ -4005,7 +4005,7 @@ class TestStaleInputClearOnError:
 
     def test_non_error_preserves_needs_input(self):
         """Transitioning to working should NOT clear needs_input."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="test", name="test", role="general",
             status="waiting", working_dir="/tmp",
             backend="claude-code", task="test",
@@ -4025,27 +4025,27 @@ class TestStaleInputClearOnError:
 class TestDBCleanupOnKill:
     def test_kill_calls_release_file_locks(self):
         """Kill should release DB file locks for the agent."""
-        src = inspect.getsource(ashlar_server.AgentManager.kill)
+        src = inspect.getsource(ashlr_server.AgentManager.kill)
         assert "release_file_locks" in src
 
     def test_kill_handles_missing_db(self):
         """Kill should handle missing db gracefully."""
-        src = inspect.getsource(ashlar_server.AgentManager.kill)
+        src = inspect.getsource(ashlr_server.AgentManager.kill)
         assert "self.db" in src
         # Should have a try/except around DB cleanup
         assert "except Exception" in src
 
     def test_manager_has_db_attribute(self):
         """AgentManager should have db attribute initialized to None."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         config.demo_mode = True
-        manager = ashlar_server.AgentManager(config)
+        manager = ashlr_server.AgentManager(config)
         assert hasattr(manager, 'db')
         assert manager.db is None
 
     def test_create_app_sets_manager_db(self):
         """create_app should set manager.db reference."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "manager.db = db" in src
 
 
@@ -4057,13 +4057,13 @@ class TestDBCleanupOnKill:
 class TestWSBroadcastSafety:
     def test_broadcast_snapshots_clients(self):
         """Broadcast should snapshot clients set before iterating."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.broadcast)
+        src = inspect.getsource(ashlr_server.WebSocketHub.broadcast)
         assert "clients_snapshot" in src
         assert "set(self.clients)" in src
 
     def test_broadcast_iterates_snapshot(self):
         """Broadcast gather should iterate over snapshot, not live set."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.broadcast)
+        src = inspect.getsource(ashlr_server.WebSocketHub.broadcast)
         assert "clients_snapshot" in src
         # The gather should use clients_snapshot
         assert "for ws in clients_snapshot" in src
@@ -4077,12 +4077,12 @@ class TestWSBroadcastSafety:
 class TestTmuxSessionCollisionCheck:
     def test_spawn_checks_existing_session(self):
         """Spawn should check for existing tmux session before creating."""
-        src = inspect.getsource(ashlar_server.AgentManager.spawn)
+        src = inspect.getsource(ashlr_server.AgentManager.spawn)
         assert "has-session" in src
 
     def test_spawn_kills_orphan_before_create(self):
         """Spawn should kill orphaned session if found."""
-        src = inspect.getsource(ashlar_server.AgentManager.spawn)
+        src = inspect.getsource(ashlr_server.AgentManager.spawn)
         assert "Orphaned tmux session" in src
         assert "kill-session" in src
 
@@ -4095,33 +4095,33 @@ class TestTmuxSessionCollisionCheck:
 class TestDatabaseCommitTimeouts:
     def test_safe_commit_method_exists(self):
         """Database should have _safe_commit method."""
-        assert hasattr(ashlar_server.Database, '_safe_commit')
-        assert callable(ashlar_server.Database._safe_commit)
+        assert hasattr(ashlr_server.Database, '_safe_commit')
+        assert callable(ashlr_server.Database._safe_commit)
 
     def test_safe_commit_uses_wait_for(self):
         """_safe_commit should use asyncio.wait_for with timeout."""
-        src = inspect.getsource(ashlar_server.Database._safe_commit)
+        src = inspect.getsource(ashlr_server.Database._safe_commit)
         assert "wait_for" in src
         assert "timeout" in src
 
     def test_safe_commit_handles_timeout(self):
         """_safe_commit should catch TimeoutError gracefully."""
-        src = inspect.getsource(ashlar_server.Database._safe_commit)
+        src = inspect.getsource(ashlr_server.Database._safe_commit)
         assert "TimeoutError" in src
 
     def test_safe_commit_null_guard(self):
         """_safe_commit should check for None db."""
-        src = inspect.getsource(ashlar_server.Database._safe_commit)
+        src = inspect.getsource(ashlr_server.Database._safe_commit)
         assert "not self._db" in src
 
     def test_safe_commit_default_timeout(self):
         """_safe_commit should have a reasonable default timeout."""
-        src = inspect.getsource(ashlar_server.Database._safe_commit)
+        src = inspect.getsource(ashlr_server.Database._safe_commit)
         assert "3.0" in src
 
     def test_all_commits_use_safe_commit(self):
         """All database commits should use _safe_commit, not raw _db.commit()."""
-        src = inspect.getsource(ashlar_server.Database)
+        src = inspect.getsource(ashlr_server.Database)
         # There should be no direct _db.commit() calls except inside _safe_commit itself
         lines = src.split('\n')
         direct_commits = [
@@ -4141,12 +4141,12 @@ class TestDatabaseCommitTimeouts:
 class TestRoleValidationGuard:
     def test_role_injection_logs_fallback(self):
         """Role injection should log when falling back to general."""
-        src = inspect.getsource(ashlar_server.AgentManager.spawn)
+        src = inspect.getsource(ashlr_server.AgentManager.spawn)
         assert "not in BUILTIN_ROLES" in src or "falling back" in src.lower()
 
     def test_role_injection_explicit_check(self):
         """Role injection should explicitly check role existence before using it."""
-        src = inspect.getsource(ashlar_server.AgentManager.spawn)
+        src = inspect.getsource(ashlr_server.AgentManager.spawn)
         # Should use .get(role) without fallback, then check
         assert "BUILTIN_ROLES.get(role)" in src
 
@@ -4159,59 +4159,59 @@ class TestRoleValidationGuard:
 class TestArchiveRotation:
     def test_rotate_archive_method_exists(self):
         """Database should have rotate_archive method."""
-        assert hasattr(ashlar_server.Database, 'rotate_archive')
-        assert callable(ashlar_server.Database.rotate_archive)
+        assert hasattr(ashlr_server.Database, 'rotate_archive')
+        assert callable(ashlr_server.Database.rotate_archive)
 
     def test_cleanup_old_archives_method_exists(self):
         """Database should have cleanup_old_archives method."""
-        assert hasattr(ashlar_server.Database, 'cleanup_old_archives')
-        assert callable(ashlar_server.Database.cleanup_old_archives)
+        assert hasattr(ashlr_server.Database, 'cleanup_old_archives')
+        assert callable(ashlr_server.Database.cleanup_old_archives)
 
     def test_config_archive_max_rows(self):
         """Config should have archive_max_rows_per_agent with default 50000."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert hasattr(config, 'archive_max_rows_per_agent')
         assert config.archive_max_rows_per_agent == 50000
 
     def test_config_archive_retention_hours(self):
         """Config should have archive_retention_hours with default 48."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert hasattr(config, 'archive_retention_hours')
         assert config.archive_retention_hours == 48
 
     def test_rotate_archive_null_guard(self):
         """rotate_archive should return 0 when DB is None."""
-        db = ashlar_server.Database()
+        db = ashlr_server.Database()
         # _db is None before init
         result = asyncio.run(db.rotate_archive("test-agent"))
         assert result == 0
 
     def test_rotate_archive_zero_max_rows(self):
         """rotate_archive should return 0 when max_rows <= 0."""
-        db = ashlar_server.Database()
+        db = ashlr_server.Database()
         result = asyncio.run(db.rotate_archive("test-agent", max_rows=0))
         assert result == 0
 
     def test_cleanup_old_archives_null_guard(self):
         """cleanup_old_archives should return 0 when DB is None."""
-        db = ashlar_server.Database()
+        db = ashlr_server.Database()
         result = asyncio.run(db.cleanup_old_archives())
         assert result == 0
 
     def test_cleanup_old_archives_zero_retention(self):
         """cleanup_old_archives should return 0 when retention_hours <= 0."""
-        db = ashlar_server.Database()
+        db = ashlr_server.Database()
         result = asyncio.run(db.cleanup_old_archives(retention_hours=0))
         assert result == 0
 
     def test_rotate_archive_uses_safe_commit(self):
         """rotate_archive should use _safe_commit for timeout protection."""
-        src = inspect.getsource(ashlar_server.Database.rotate_archive)
+        src = inspect.getsource(ashlr_server.Database.rotate_archive)
         assert "_safe_commit" in src
 
     def test_cleanup_old_archives_uses_safe_commit(self):
         """cleanup_old_archives should use _safe_commit for timeout protection."""
-        src = inspect.getsource(ashlar_server.Database.cleanup_old_archives)
+        src = inspect.getsource(ashlr_server.Database.cleanup_old_archives)
         assert "_safe_commit" in src
 
 
@@ -4223,54 +4223,54 @@ class TestArchiveRotation:
 class TestServerStats:
     def test_handler_exists(self):
         """get_server_stats handler should exist."""
-        assert hasattr(ashlar_server, 'get_server_stats')
-        assert callable(ashlar_server.get_server_stats)
+        assert hasattr(ashlr_server, 'get_server_stats')
+        assert callable(ashlr_server.get_server_stats)
 
     def test_route_registered(self):
         """Route /api/stats should be registered."""
-        src = inspect.getsource(ashlar_server.create_app)
+        src = inspect.getsource(ashlr_server.create_app)
         assert "/api/stats" in src
         assert "get_server_stats" in src
 
     def test_returns_uptime(self):
         """Stats endpoint should return uptime fields."""
-        src = inspect.getsource(ashlar_server.get_server_stats)
+        src = inspect.getsource(ashlr_server.get_server_stats)
         assert "uptime_sec" in src
         assert "uptime_human" in src
 
     def test_returns_agent_stats(self):
         """Stats endpoint should return agent statistics."""
-        src = inspect.getsource(ashlar_server.get_server_stats)
+        src = inspect.getsource(ashlr_server.get_server_stats)
         assert "total_spawned" in src
         assert "total_killed" in src
         assert "total_messages_sent" in src
 
     def test_returns_db_size(self):
         """Stats endpoint should return database size info."""
-        src = inspect.getsource(ashlar_server.get_server_stats)
+        src = inspect.getsource(ashlr_server.get_server_stats)
         assert "db_size_mb" in src
 
     def test_returns_request_count(self):
         """Stats endpoint should return request count."""
-        src = inspect.getsource(ashlar_server.get_server_stats)
+        src = inspect.getsource(ashlr_server.get_server_stats)
         assert "request_count" in src
 
     def test_manager_has_api_request_counter(self):
         """AgentManager should have _total_api_requests counter."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         config.demo_mode = True
-        manager = ashlar_server.AgentManager(config)
+        manager = ashlr_server.AgentManager(config)
         assert hasattr(manager, '_total_api_requests')
         assert manager._total_api_requests == 0
 
     def test_middleware_increments_manager_counter(self):
         """Request logging middleware should increment manager._total_api_requests."""
-        src = inspect.getsource(ashlar_server.request_logging_middleware)
+        src = inspect.getsource(ashlr_server.request_logging_middleware)
         assert "_total_api_requests" in src
 
     def test_stats_returns_archive_config(self):
         """Stats endpoint should include archive configuration."""
-        src = inspect.getsource(ashlar_server.get_server_stats)
+        src = inspect.getsource(ashlr_server.get_server_stats)
         assert "archive_max_rows_per_agent" in src
         assert "archive_retention_hours" in src
 
@@ -4283,121 +4283,121 @@ class TestServerStats:
 class TestExtendedSecretRedaction:
     def test_redact_secrets_exists(self):
         """redact_secrets function should exist."""
-        assert hasattr(ashlar_server, 'redact_secrets')
-        assert callable(ashlar_server.redact_secrets)
+        assert hasattr(ashlr_server, 'redact_secrets')
+        assert callable(ashlr_server.redact_secrets)
 
     def test_redact_openai_key(self):
         """Should redact OpenAI/Anthropic sk- keys."""
         text = "Using key sk-abcdefghijklmnopqrstuvwx in the config"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "sk-" not in result
         assert "REDACTED" in result
 
     def test_redact_github_pat_classic(self):
         """Should redact classic GitHub PATs (ghp_)."""
         text = "Token: ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLm"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "ghp_" not in result
         assert "REDACTED" in result
 
     def test_redact_github_pat_fine_grained(self):
         """Should redact fine-grained GitHub PATs (github_pat_)."""
         text = "Token: github_pat_aBcDeFgHiJkLmNoPqRsTuVw"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "github_pat_" not in result
         assert "REDACTED" in result
 
     def test_redact_aws_access_key(self):
         """Should redact AWS access keys (AKIA...)."""
         text = "aws_access_key_id = AKIAIOSFODNN7EXAMPLE"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "AKIAIOSFODNN7EXAMPLE" not in result
         assert "REDACTED" in result
 
     def test_redact_slack_bot_token(self):
         """Should redact Slack bot tokens (xoxb-)."""
         text = "SLACK_TOKEN=xoxb-12345678901-12345678901-abcdef"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "xoxb-" not in result
         assert "REDACTED" in result
 
     def test_redact_sendgrid_key(self):
         """Should redact SendGrid API keys (SG.xxxxx.xxxxx)."""
         text = "key: SG.aBcDeFgHiJkLmNoPqRsTuVw.xYzAbCdEfGhIjKlMnOpQrSt"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "SG." not in result
         assert "REDACTED" in result
 
     def test_redact_password_field(self):
         """Should redact password= fields."""
         text = "password=MyS3cretP@ss"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "MyS3cretP@ss" not in result
         assert "REDACTED" in result
 
     def test_redact_jwt_token(self):
         """Should redact JWT tokens (eyJ...)."""
         text = "auth: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "eyJhbGciOiJIUzI1NiJ9" not in result
         assert "REDACTED" in result
 
     def test_redact_mongodb_connection_string(self):
         """Should redact MongoDB connection strings."""
         text = "DB_URL=mongodb+srv://user:pass@cluster.mongodb.net/db"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "mongodb+srv://" not in result
         assert "REDACTED" in result
 
     def test_redact_postgres_connection_string(self):
         """Should redact PostgreSQL connection strings."""
         text = "DATABASE_URL=postgresql://user:pass@host:5432/mydb"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "postgresql://" not in result
         assert "REDACTED" in result
 
     def test_redact_redis_connection_string(self):
         """Should redact Redis connection strings."""
         text = "REDIS_URL=redis://default:pass@redis-host:6379"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "redis://" not in result
         assert "REDACTED" in result
 
     def test_no_false_positive_on_normal_text(self):
         """Should not redact normal text without secrets."""
         text = "Hello world, this is a normal log line with no secrets"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert result == text
 
     def test_pattern_count(self):
         """Should have at least 20 secret patterns (expanded from original 7)."""
-        assert len(ashlar_server._SECRET_PATTERNS) >= 20
+        assert len(ashlr_server._SECRET_PATTERNS) >= 20
 
     def test_redact_xai_key(self):
         """Should redact xAI API keys."""
         text = "XAI_KEY=xai-aBcDeFgHiJkLmNoPqRsTuVw"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "xai-" not in result
         assert "REDACTED" in result
 
     def test_redact_npm_token(self):
         """Should redact npm tokens."""
         text = "NPM_TOKEN=np_aBcDeFgHiJkLmNoPqRsTuVw"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "np_" not in result
         assert "REDACTED" in result
 
     def test_redact_bearer_token(self):
         """Should redact Bearer tokens."""
         text = "Authorization: Bearer eyAbCdEfGhIjKlMnOpQr"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "Bearer eyAbCdEfGhIjKlMnOpQr" not in result
         assert "REDACTED" in result
 
     def test_redact_api_key_field(self):
         """Should redact api_key= fields."""
         text = "api_key=abc123def456ghi789jkl012"
-        result = ashlar_server.redact_secrets(text)
+        result = ashlr_server.redact_secrets(text)
         assert "abc123def456ghi789jkl012" not in result
         assert "REDACTED" in result
 
@@ -4410,23 +4410,23 @@ class TestExtendedSecretRedaction:
 class TestWSMessageValidation:
     def test_ws_send_has_length_check(self):
         """WS 'send' case should enforce message length limit."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.handle_message)
+        src = inspect.getsource(ashlr_server.WebSocketHub.handle_message)
         # Find the send case section
         assert "50_000" in src or "50000" in src
 
     def test_ws_send_returns_error_on_overlength(self):
         """WS 'send' case should return error for oversized messages."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.handle_message)
+        src = inspect.getsource(ashlr_server.WebSocketHub.handle_message)
         assert "Message too long" in src
 
     def test_ws_agent_message_validates_from_id(self):
         """WS 'agent_message' case should validate from_agent_id exists."""
-        src = inspect.getsource(ashlar_server.WebSocketHub.handle_message)
+        src = inspect.getsource(ashlr_server.WebSocketHub.handle_message)
         assert "Source agent" in src
 
     def test_restart_handles_json_decode_error(self):
         """Restart endpoint should return 400 on malformed JSON."""
-        src = inspect.getsource(ashlar_server.restart_agent)
+        src = inspect.getsource(ashlr_server.restart_agent)
         assert "JSONDecodeError" in src or "json.JSONDecodeError" in src
 
 
@@ -4438,7 +4438,7 @@ class TestWSMessageValidation:
 class TestOutputFloodProtection:
     def test_agent_has_flood_fields(self):
         """Agent should have flood detection fields."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="f1", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -4449,7 +4449,7 @@ class TestOutputFloodProtection:
 
     def test_config_flood_threshold(self):
         """Config should have flood threshold settings."""
-        config = ashlar_server.Config()
+        config = ashlr_server.Config()
         assert hasattr(config, 'flood_threshold_lines_per_min')
         assert config.flood_threshold_lines_per_min == 3000
         assert hasattr(config, 'flood_sustained_ticks')
@@ -4457,7 +4457,7 @@ class TestOutputFloodProtection:
 
     def test_flood_detected_in_to_dict(self):
         """Agent.to_dict() should include flood_detected."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="f2", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -4467,7 +4467,7 @@ class TestOutputFloodProtection:
 
     def test_flood_flag_changes_to_dict(self):
         """flood_detected should reflect in to_dict when set."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="f3", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -4477,27 +4477,27 @@ class TestOutputFloodProtection:
 
     def test_capture_loop_has_flood_detection(self):
         """Output capture loop should contain flood detection logic."""
-        src = inspect.getsource(ashlar_server.output_capture_loop)
+        src = inspect.getsource(ashlr_server.output_capture_loop)
         assert "flood_threshold" in src
         assert "_flood_detected" in src
         assert "agent_flood" in src
 
     def test_flood_broadcasts_event(self):
         """Flood detection should broadcast an agent_flood event."""
-        src = inspect.getsource(ashlar_server.output_capture_loop)
+        src = inspect.getsource(ashlr_server.output_capture_loop)
         assert "agent_flood" in src
         assert "excessive output" in src.lower()
 
     def test_flood_throttles_broadcast(self):
         """When flood is detected, output broadcast should be throttled."""
-        src = inspect.getsource(ashlar_server.output_capture_loop)
+        src = inspect.getsource(ashlr_server.output_capture_loop)
         assert "flood_detected" in src
         # Should have conditional broadcast
         assert "lines suppressed" in src.lower() or "suppressed" in src.lower()
 
     def test_flood_ticks_decrement(self):
         """Flood ticks should decrement when rate drops below threshold."""
-        src = inspect.getsource(ashlar_server.output_capture_loop)
+        src = inspect.getsource(ashlr_server.output_capture_loop)
         # Should have decrement logic
         assert "_flood_ticks - 1" in src or "flood_ticks -= 1" in src or "flood_ticks - 1" in src
 
@@ -4510,7 +4510,7 @@ class TestOutputFloodProtection:
 class TestSummaryOutputCache:
     def test_agent_has_summary_output_hash(self):
         """Agent should have _summary_output_hash field."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="sc1", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -4519,24 +4519,24 @@ class TestSummaryOutputCache:
 
     def test_capture_loop_checks_output_hash_before_llm(self):
         """Capture loop should check output hash before calling LLM summarizer."""
-        src = inspect.getsource(ashlar_server.output_capture_loop)
+        src = inspect.getsource(ashlr_server.output_capture_loop)
         assert "_summary_output_hash" in src
 
     def test_capture_loop_updates_hash_after_summary(self):
         """Capture loop should store output hash after successful summary."""
-        src = inspect.getsource(ashlar_server.output_capture_loop)
+        src = inspect.getsource(ashlr_server.output_capture_loop)
         # Should set the hash after getting summary
         assert "_summary_output_hash = current_hash" in src or "_summary_output_hash =" in src
 
     def test_capture_loop_skips_unchanged_output(self):
         """Capture loop should skip LLM call when output hash matches."""
-        src = inspect.getsource(ashlar_server.output_capture_loop)
+        src = inspect.getsource(ashlr_server.output_capture_loop)
         # Should compare current hash with stored hash
         assert "current_hash != agent._summary_output_hash" in src or "current_hash ==" in src
 
     def test_summary_hash_default_differs_from_output_hash(self):
         """Default summary hash (0) should differ from initial output hash (0) to ensure first summary runs."""
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="sc2", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -4554,8 +4554,8 @@ class TestSummaryOutputCache:
 class TestActivityPerformanceTiming:
     def test_activity_summary_includes_timing(self):
         """Activity summary should include timing field."""
-        parser = ashlar_server.OutputIntelligenceParser()
-        agent = ashlar_server.Agent(
+        parser = ashlr_server.OutputIntelligenceParser()
+        agent = ashlr_server.Agent(
             id="pt1", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -4564,8 +4564,8 @@ class TestActivityPerformanceTiming:
 
     def test_timing_with_no_invocations(self):
         """Timing should return zeros with no invocations."""
-        parser = ashlar_server.OutputIntelligenceParser()
-        agent = ashlar_server.Agent(
+        parser = ashlr_server.OutputIntelligenceParser()
+        agent = ashlr_server.Agent(
             id="pt2", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -4575,15 +4575,15 @@ class TestActivityPerformanceTiming:
 
     def test_timing_with_invocations(self):
         """Timing should compute intervals between invocations."""
-        parser = ashlar_server.OutputIntelligenceParser()
-        agent = ashlar_server.Agent(
+        parser = ashlr_server.OutputIntelligenceParser()
+        agent = ashlr_server.Agent(
             id="pt3", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
         # Add invocations with known timestamps
         now = time.monotonic()
         for i in range(5):
-            agent._tool_invocations.append(ashlar_server.ToolInvocation(
+            agent._tool_invocations.append(ashlr_server.ToolInvocation(
                 agent_id="pt3", tool="Read", args=f"file{i}.py",
                 timestamp=now - 20 + (i * 5), line_index=i,
             ))
@@ -4596,14 +4596,14 @@ class TestActivityPerformanceTiming:
 
     def test_timing_tools_per_min(self):
         """Timing should compute tools_per_min from recent invocations."""
-        parser = ashlar_server.OutputIntelligenceParser()
-        agent = ashlar_server.Agent(
+        parser = ashlr_server.OutputIntelligenceParser()
+        agent = ashlr_server.Agent(
             id="pt4", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
         now = time.monotonic()
         for i in range(10):
-            agent._tool_invocations.append(ashlar_server.ToolInvocation(
+            agent._tool_invocations.append(ashlr_server.ToolInvocation(
                 agent_id="pt4", tool="Edit", args=f"file{i}.py",
                 timestamp=now - 60 + (i * 6), line_index=i,
             ))
@@ -4612,19 +4612,19 @@ class TestActivityPerformanceTiming:
 
     def test_compute_timing_method_exists(self):
         """OutputIntelligenceParser should have _compute_timing method."""
-        assert hasattr(ashlar_server.OutputIntelligenceParser, '_compute_timing')
+        assert hasattr(ashlr_server.OutputIntelligenceParser, '_compute_timing')
 
     def test_timing_avg_by_tool(self):
         """Timing should break down average intervals by tool type."""
-        parser = ashlar_server.OutputIntelligenceParser()
-        agent = ashlar_server.Agent(
+        parser = ashlr_server.OutputIntelligenceParser()
+        agent = ashlr_server.Agent(
             id="pt5", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
         now = time.monotonic()
         tools = ["Read", "Edit", "Read", "Bash", "Edit"]
         for i, tool in enumerate(tools):
-            agent._tool_invocations.append(ashlar_server.ToolInvocation(
+            agent._tool_invocations.append(ashlr_server.ToolInvocation(
                 agent_id="pt5", tool=tool, args=f"arg{i}",
                 timestamp=now - 25 + (i * 5), line_index=i,
             ))
@@ -4640,7 +4640,7 @@ class TestActivityPerformanceTiming:
 
 def _make_intel_config(enabled=True, api_key="test-key"):
     """Create a Config with LLM fields set for testing IntelligenceClient."""
-    cfg = ashlar_server.Config()
+    cfg = ashlr_server.Config()
     cfg.llm_enabled = enabled
     cfg.llm_api_key = api_key
     cfg.llm_model = "grok-4-1-fast-reasoning"
@@ -4738,7 +4738,7 @@ class TestOutputIntelligenceParserExtended:
     """Tests for MCP tool parsing, tool result status, Jest/Mocha frameworks."""
 
     def _make_agent(self, lines):
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id="pe1", name="test", role="general", status="working",
             working_dir="/tmp", backend="claude-code", task="test",
         )
@@ -4880,7 +4880,7 @@ class TestSpawnTimeout:
     """Tests for spawn timeout detection in output_capture_loop."""
 
     def _make_agent(self, status="spawning", spawn_time=None):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(
             id="t001", name="timeout-test", role="general", status="spawning",
             backend="claude-code", task="test", working_dir="/tmp",
@@ -4919,7 +4919,7 @@ class TestFloodDetection:
     """Tests for output flood detection logic."""
 
     def _make_agent(self):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(
             id="f001", name="flood-test", role="general", status="working",
             backend="claude-code", task="test", working_dir="/tmp",
@@ -4974,7 +4974,7 @@ class TestHealthCheckPathological:
     """Tests for pathological error loop detection in health_check_loop."""
 
     def _make_agent(self, restart_count=1, error_time=None, restart_time=None):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(
             id="p001", name="patho-test", role="general", status="error",
             backend="claude-code", task="test", working_dir="/tmp",
@@ -5032,7 +5032,7 @@ class TestExponentialBackoff:
         assert 5.0 * (2 ** 3) == 40.0  # Fourth restart: 40s
 
     def test_restart_allowed_after_backoff(self):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(id="b001", name="backoff", role="general", status="error", backend="claude-code", task="t", working_dir="/tmp")
         agent.status = "error"
         agent._error_entered_at = time.monotonic() - 15  # Error 15s ago
@@ -5043,7 +5043,7 @@ class TestExponentialBackoff:
         assert time_since >= backoff  # Should be allowed
 
     def test_restart_blocked_during_backoff(self):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(id="b002", name="backoff2", role="general", status="error", backend="claude-code", task="t", working_dir="/tmp")
         agent.status = "error"
         agent._error_entered_at = time.monotonic() - 3  # Error 3s ago
@@ -5058,7 +5058,7 @@ class TestMaxRestartExhaustion:
     """Tests for max restart exhaustion notification logic."""
 
     def test_exhausted_clears_error_entered_at(self):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(id="m001", name="maxed", role="general", status="error", backend="claude-code", task="t", working_dir="/tmp")
         agent.status = "error"
         agent.restart_count = 3
@@ -5070,7 +5070,7 @@ class TestMaxRestartExhaustion:
         assert agent._error_entered_at == 0
 
     def test_not_exhausted_when_under_limit(self):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(id="m002", name="notmaxed", role="general", status="error", backend="claude-code", task="t", working_dir="/tmp")
         agent.status = "error"
         agent.restart_count = 1
@@ -5086,7 +5086,7 @@ class TestIdleReaping:
     """Tests for idle agent reaping logic."""
 
     def test_idle_detected_after_ttl(self):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(id="i001", name="idle", role="general", status="idle", backend="claude-code", task="t", working_dir="/tmp")
         agent.status = "idle"
         agent.last_output_time = max(time.monotonic() - 600, 1.0)  # 10 min ago
@@ -5100,7 +5100,7 @@ class TestIdleReaping:
         assert should_reap is True
 
     def test_not_reaped_within_ttl(self):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(id="i002", name="fresh", role="general", status="idle", backend="claude-code", task="t", working_dir="/tmp")
         agent.status = "idle"
         agent.last_output_time = time.monotonic() - 60  # 1 min ago
@@ -5114,7 +5114,7 @@ class TestIdleReaping:
         assert should_reap is False
 
     def test_working_agents_not_reaped(self):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(id="i003", name="working", role="general", status="working", backend="claude-code", task="t", working_dir="/tmp")
         agent.status = "working"
         agent.last_output_time = max(time.monotonic() - 600, 1.0)
@@ -5128,7 +5128,7 @@ class TestIdleReaping:
         assert should_reap is False
 
     def test_zero_ttl_disables_reaping(self):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(id="i004", name="noReap", role="general", status="idle", backend="claude-code", task="t", working_dir="/tmp")
         agent.status = "idle"
         agent.last_output_time = max(time.monotonic() - 9999, 1.0)
@@ -5164,7 +5164,7 @@ class TestWorkflowRunGetReadyIndices:
     def _make_manager(self):
         """Create a minimal AgentManager mock with _get_ready_indices."""
         mgr = MagicMock()
-        mgr._get_ready_indices = ashlar_server.AgentManager._get_ready_indices.__get__(mgr)
+        mgr._get_ready_indices = ashlr_server.AgentManager._get_ready_indices.__get__(mgr)
         return mgr
 
     def test_no_deps_all_ready(self):
@@ -5240,7 +5240,7 @@ class TestWorkflowRunGetReadyIndices:
 class TestOnAgentComplete:
     def _make_manager(self):
         mgr = MagicMock()
-        mgr.on_agent_complete = ashlar_server.AgentManager.on_agent_complete.__get__(mgr)
+        mgr.on_agent_complete = ashlr_server.AgentManager.on_agent_complete.__get__(mgr)
         mgr.workflow_runs = {}
         return mgr
 
@@ -5279,7 +5279,7 @@ class TestOnAgentComplete:
 class TestOnAgentFailed:
     def _make_manager(self):
         mgr = MagicMock()
-        mgr.on_agent_failed = ashlar_server.AgentManager.on_agent_failed.__get__(mgr)
+        mgr.on_agent_failed = ashlr_server.AgentManager.on_agent_failed.__get__(mgr)
         mgr.workflow_runs = {}
         return mgr
 
@@ -5517,7 +5517,7 @@ class TestWorkflowRunToDict:
 
 class TestSafeEvalCondition:
     def _eval(self, expr, ctx=None):
-        return ashlar_server.AgentManager._safe_eval_condition(expr, ctx or {})
+        return ashlr_server.AgentManager._safe_eval_condition(expr, ctx or {})
 
     def test_equals_true(self):
         assert self._eval("prev.status == 'complete'", {"prev.status": "complete"}) is True
@@ -5549,10 +5549,10 @@ class TestFileConflictRegex:
     """Test the regex patterns used for file conflict detection."""
 
     def _write_re(self):
-        return ashlar_server.AgentManager._FILE_WRITE_RE
+        return ashlr_server.AgentManager._FILE_WRITE_RE
 
     def _read_re(self):
-        return ashlar_server.AgentManager._FILE_READ_RE
+        return ashlr_server.AgentManager._FILE_READ_RE
 
     def test_write_writing_pattern(self):
         m = self._write_re().search("Writing src/auth.ts")
@@ -5605,7 +5605,7 @@ class TestFileConflictRegex:
 
 class TestCalculateEfficiencyScore:
     def _make_agent(self, **overrides):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(
             id="eff01", name="eff-test", role="backend",
             status="working", backend="claude-code",
@@ -5681,7 +5681,7 @@ class TestCalculateEfficiencyScore:
 
 class TestCostBurnRate:
     def _make_agent(self, **overrides):
-        from ashlar_server import Agent
+        from ashlr_server import Agent
         agent = Agent(
             id="br01", name="burn-test", role="backend",
             status="working", backend="claude-code",
@@ -5755,19 +5755,19 @@ class TestCheckFileConflictsReal:
 
     def _make_manager(self, agents_dict):
         """Create an AgentManager with mocked internals and given agents."""
-        manager = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        manager = ashlr_server.AgentManager.__new__(ashlr_server.AgentManager)
         manager.agents = agents_dict
         manager.file_activity = {}
         manager.backend_configs = {}
         return manager
 
     def _make_agent_for_mgr(self, agent_id="aaaa", name="test", status="working", role="backend"):
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id=agent_id, name=name, role=role, status=status,
             task="test task", backend="claude-code",
-            working_dir="/tmp", tmux_session=f"ashlar-{agent_id}",
+            working_dir="/tmp", tmux_session=f"ashlr-{agent_id}",
         )
-        agent.created_at = ashlar_server.datetime.now(ashlar_server.timezone.utc).isoformat()
+        agent.created_at = ashlr_server.datetime.now(ashlr_server.timezone.utc).isoformat()
         agent._spawn_time = time.monotonic() - 60
         agent.last_output_time = time.monotonic() - 5
         return agent
@@ -5842,7 +5842,7 @@ class TestCleanupFileActivity:
     """Tests for AgentManager._cleanup_file_activity()."""
 
     def _make_manager(self):
-        manager = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        manager = ashlr_server.AgentManager.__new__(ashlr_server.AgentManager)
         manager.agents = {}
         manager.file_activity = {}
         manager.backend_configs = {}
@@ -5896,19 +5896,19 @@ class TestDetectStatusMethod:
     """Tests for AgentManager.detect_status() — the orchestration wrapper."""
 
     def _make_manager_with_agent(self, agent):
-        manager = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        manager = ashlr_server.AgentManager.__new__(ashlr_server.AgentManager)
         manager.agents = {agent.id: agent}
         manager.backend_configs = {}
         return manager
 
     def _make_agent(self, agent_id="aaaa", status="working", plan_mode=False):
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id=agent_id, name="test", role="general", status=status,
             task="test task", backend="claude-code",
-            working_dir="/tmp", tmux_session=f"ashlar-{agent_id}",
+            working_dir="/tmp", tmux_session=f"ashlr-{agent_id}",
         )
         agent.plan_mode = plan_mode
-        agent.created_at = ashlar_server.datetime.now(ashlar_server.timezone.utc).isoformat()
+        agent.created_at = ashlr_server.datetime.now(ashlr_server.timezone.utc).isoformat()
         agent._spawn_time = time.monotonic() - 60
         agent.last_output_time = time.monotonic() - 5
         return agent
@@ -5957,7 +5957,7 @@ class TestDetectStatusMethod:
         assert result != "planning"
 
     def test_nonexistent_agent_returns_error(self):
-        manager = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        manager = ashlr_server.AgentManager.__new__(ashlr_server.AgentManager)
         manager.agents = {}
         manager.backend_configs = {}
         result = asyncio.run(manager.detect_status("nonexistent"))
@@ -5972,21 +5972,21 @@ class TestEvaluateSkipIf:
     """Test AgentManager._evaluate_skip_if() branch coverage."""
 
     def _make_manager(self, agents=None):
-        mgr = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        mgr = ashlr_server.AgentManager.__new__(ashlr_server.AgentManager)
         mgr.agents = agents or {}
-        mgr._evaluate_skip_if = ashlar_server.AgentManager._evaluate_skip_if.__get__(mgr)
-        mgr._safe_eval_condition = ashlar_server.AgentManager._safe_eval_condition
-        mgr._resolve_skip_val = ashlar_server.AgentManager._resolve_skip_val
+        mgr._evaluate_skip_if = ashlr_server.AgentManager._evaluate_skip_if.__get__(mgr)
+        mgr._safe_eval_condition = ashlr_server.AgentManager._safe_eval_condition
+        mgr._resolve_skip_val = ashlr_server.AgentManager._resolve_skip_val
         return mgr
 
     def _make_agent(self, agent_id="dep1", status="idle", summary="All done"):
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id=agent_id, name="dep-agent", role="backend",
             status=status, task="dep task", backend="claude-code",
-            working_dir="/tmp", tmux_session=f"ashlar-{agent_id}",
+            working_dir="/tmp", tmux_session=f"ashlr-{agent_id}",
         )
         agent.summary = summary
-        agent.created_at = ashlar_server.datetime.now(ashlar_server.timezone.utc).isoformat()
+        agent.created_at = ashlr_server.datetime.now(ashlr_server.timezone.utc).isoformat()
         agent._spawn_time = time.monotonic() - 60
         agent.last_output_time = time.monotonic() - 5
         return agent
@@ -6116,21 +6116,21 @@ class TestBuildDepContext:
     """Test AgentManager._build_dep_context() branch coverage."""
 
     def _make_manager(self, agents=None, file_activity=None):
-        mgr = ashlar_server.AgentManager.__new__(ashlar_server.AgentManager)
+        mgr = ashlr_server.AgentManager.__new__(ashlr_server.AgentManager)
         mgr.agents = agents or {}
         mgr.file_activity = file_activity or {}
-        mgr._build_dep_context = ashlar_server.AgentManager._build_dep_context.__get__(mgr)
+        mgr._build_dep_context = ashlr_server.AgentManager._build_dep_context.__get__(mgr)
         return mgr
 
     def _make_agent(self, agent_id="dep1", name="dep-agent", role="backend",
                     summary="Finished building API", output_lines=None):
-        agent = ashlar_server.Agent(
+        agent = ashlr_server.Agent(
             id=agent_id, name=name, role=role,
             status="idle", task="Build the API", backend="claude-code",
-            working_dir="/tmp", tmux_session=f"ashlar-{agent_id}",
+            working_dir="/tmp", tmux_session=f"ashlr-{agent_id}",
         )
         agent.summary = summary
-        agent.created_at = ashlar_server.datetime.now(ashlar_server.timezone.utc).isoformat()
+        agent.created_at = ashlr_server.datetime.now(ashlr_server.timezone.utc).isoformat()
         agent._spawn_time = time.monotonic() - 60
         agent.last_output_time = time.monotonic() - 5
         if output_lines:
@@ -6315,7 +6315,7 @@ class TestDatabaseCloseNullsDb:
 
     def test_close_nulls_db(self):
         """After close(), _db should be None so all guards short-circuit."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         mock_conn = AsyncMock()
         db._db = mock_conn
         asyncio.run(db.close())
@@ -6324,7 +6324,7 @@ class TestDatabaseCloseNullsDb:
 
     def test_close_noop_when_none(self):
         """close() should be safe to call when _db is already None."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         asyncio.run(db.close())  # Should not raise
         assert db._db is None
@@ -6335,7 +6335,7 @@ class TestDatabaseInitSafety:
 
     def test_init_closes_existing_on_retry(self):
         """If init() is called when _db already has a connection, it should close first."""
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         old_conn = AsyncMock()
         db._db = old_conn
         db.db_path = Path("/tmp/test_nonexistent.db")
@@ -6353,7 +6353,7 @@ class TestDatabaseWriteErrorHandling:
     """Tests that write methods catch exceptions gracefully."""
 
     def _make_db(self):
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = AsyncMock()
         db._db.execute = AsyncMock(side_effect=Exception("disk full"))
         return db
@@ -6412,7 +6412,7 @@ class TestDatabaseReadErrorHandling:
     """Tests that read methods return fallbacks on DB errors."""
 
     def _make_db(self):
-        db = ashlar_server.Database.__new__(ashlar_server.Database)
+        db = ashlr_server.Database.__new__(ashlr_server.Database)
         mock_conn = MagicMock()
         # Make execute raise when used as async context manager
         mock_ctx = AsyncMock()
@@ -6442,14 +6442,14 @@ class TestResumeFromHistoryNoProjectId:
 
     def test_spawn_signature_has_no_project_id(self):
         """Verify AgentManager.spawn() does not accept project_id as a kwarg."""
-        sig = inspect.signature(ashlar_server.AgentManager.spawn)
+        sig = inspect.signature(ashlr_server.AgentManager.spawn)
         assert "project_id" not in sig.parameters
 
     def test_resume_sets_project_id_after_spawn(self):
         """The resume handler should set project_id on the agent after spawn(), not as a kwarg."""
         # Verify the source code pattern: project_id should NOT be in the spawn() call
         import inspect
-        source = inspect.getsource(ashlar_server.resume_from_history)
+        source = inspect.getsource(ashlr_server.resume_from_history)
         # The fix: project_id should NOT appear in manager.spawn() kwargs
         assert "project_id=session" not in source
 
@@ -6459,12 +6459,12 @@ class TestQueueValidation:
 
     def test_queue_source_validates_role(self):
         """The add_to_queue handler should check role against BUILTIN_ROLES."""
-        source = inspect.getsource(ashlar_server.add_to_queue)
+        source = inspect.getsource(ashlr_server.add_to_queue)
         assert "BUILTIN_ROLES" in source
 
     def test_queue_source_validates_backend(self):
         """The add_to_queue handler should check backend against KNOWN_BACKENDS."""
-        source = inspect.getsource(ashlar_server.add_to_queue)
+        source = inspect.getsource(ashlr_server.add_to_queue)
         assert "KNOWN_BACKENDS" in source
 
 
@@ -6473,12 +6473,12 @@ class TestHandoffValidation:
 
     def test_handoff_validates_files_modified_type(self):
         """The handoff handler should validate files_modified is a list."""
-        source = inspect.getsource(ashlar_server.handoff_agent)
+        source = inspect.getsource(ashlr_server.handoff_agent)
         assert "isinstance(files_modified, list)" in source
 
     def test_handoff_truncates_key_findings(self):
         """key_findings should be truncated to 5000 chars."""
-        source = inspect.getsource(ashlar_server.handoff_agent)
+        source = inspect.getsource(ashlr_server.handoff_agent)
         assert "[:5000]" in source
 
 
@@ -6487,7 +6487,7 @@ class TestMigrationIndividualAlters:
 
     def test_migration_uses_loop(self):
         """init() should use a for loop with individual try/except for ALTERs."""
-        source = inspect.getsource(ashlar_server.Database.init)
+        source = inspect.getsource(ashlr_server.Database.init)
         assert "for col_sql in [" in source
 
 
@@ -6500,7 +6500,7 @@ class TestWorkflowValidation:
 
     def test_self_dependency_rejected(self):
         specs = [{"role": "backend", "depends_on": [0]}]
-        error = ashlar_server._validate_workflow_specs(specs)
+        error = ashlr_server._validate_workflow_specs(specs)
         assert error is not None
         assert "cannot reference itself" in error
 
@@ -6509,7 +6509,7 @@ class TestWorkflowValidation:
             {"role": "backend", "depends_on": [1]},
             {"role": "frontend", "depends_on": [0]},
         ]
-        error = ashlar_server._validate_workflow_specs(specs)
+        error = ashlr_server._validate_workflow_specs(specs)
         assert error is not None
         assert "Circular dependency" in error
 
@@ -6519,7 +6519,7 @@ class TestWorkflowValidation:
             {"role": "frontend", "depends_on": [0]},
             {"role": "tester", "depends_on": [0, 1]},
         ]
-        error = ashlar_server._validate_workflow_specs(specs)
+        error = ashlr_server._validate_workflow_specs(specs)
         assert error is None
 
 
@@ -6531,14 +6531,14 @@ class TestSafeCommitReturn:
     """Tests that _safe_commit returns bool."""
 
     def test_returns_false_when_no_db(self):
-        db = ashlar_server.Database()
+        db = ashlr_server.Database()
         db._db = None
         result = asyncio.run(db._safe_commit())
         assert result is False
 
     def test_returns_bool_type(self):
         """_safe_commit should return bool, not None."""
-        source = inspect.getsource(ashlar_server.Database._safe_commit)
+        source = inspect.getsource(ashlr_server.Database._safe_commit)
         assert "-> bool" in source
         assert "return True" in source
         assert "return False" in source
@@ -6552,7 +6552,7 @@ class TestHistoricalAnalyticsErrorHandling:
     """Tests that get_historical_analytics handles errors gracefully."""
 
     def test_returns_empty_dict_when_no_db(self):
-        db = ashlar_server.Database()
+        db = ashlr_server.Database()
         db._db = None
         result = asyncio.run(db.get_historical_analytics())
         assert isinstance(result, dict)
@@ -6569,10 +6569,10 @@ class TestCreateProjectPathValidation:
 
     def test_source_has_isdir_check(self):
         """create_project should validate path is a directory."""
-        source = inspect.getsource(ashlar_server.create_project)
+        source = inspect.getsource(ashlr_server.create_project)
         assert "os.path.isdir" in source
 
     def test_source_has_home_check(self):
         """create_project should validate path is under home or /tmp."""
-        source = inspect.getsource(ashlar_server.create_project)
+        source = inspect.getsource(ashlr_server.create_project)
         assert "Path.home()" in source or "startswith" in source

@@ -1,6 +1,6 @@
 # Reference Patterns — Proven Code From Prior Work
 
-These are battle-tested patterns extracted from the existing Ashlar codebase. Use these as a starting point — don't copy verbatim, but use the patterns and approaches.
+These are battle-tested patterns extracted from the existing Ashlr codebase. Use these as a starting point — don't copy verbatim, but use the patterns and approaches.
 
 ---
 
@@ -15,7 +15,7 @@ import shutil
 class TmuxManager:
     """Manages tmux sessions for agent processes."""
 
-    def __init__(self, prefix: str = "ashlar"):
+    def __init__(self, prefix: str = "ashlr"):
         self.prefix = prefix
         self.available = shutil.which("tmux") is not None
 
@@ -108,7 +108,7 @@ class TmuxManager:
         return None
 
     def list_sessions(self) -> list[str]:
-        """List all ashlar tmux sessions."""
+        """List all ashlr tmux sessions."""
         try:
             result = subprocess.run(
                 ["tmux", "list-sessions", "-F", "#{session_name}"],
@@ -121,7 +121,7 @@ class TmuxManager:
         return []
 
     def cleanup_all(self):
-        """Kill all ashlar sessions. Called on shutdown."""
+        """Kill all ashlr sessions. Called on shutdown."""
         for session_name in self.list_sessions():
             try:
                 subprocess.run(
@@ -140,7 +140,7 @@ class TmuxManager:
 
 ---
 
-## 2. System Metrics Collection (from battery_monitor.py + ashlar_server.py)
+## 2. System Metrics Collection (from battery_monitor.py + ashlr_server.py)
 
 ```python
 import psutil
@@ -244,7 +244,7 @@ async def create_app():
 
     # Serve dashboard
     async def serve_dashboard(request):
-        dashboard_path = Path(__file__).parent / "ashlar_dashboard.html"
+        dashboard_path = Path(__file__).parent / "ashlr_dashboard.html"
         return web.FileResponse(dashboard_path)
 
     app.router.add_get("/", serve_dashboard)
@@ -288,7 +288,7 @@ import asyncio
 def setup_signal_handlers(agent_manager):
     """Ensure all tmux sessions are cleaned up on exit."""
     def handle_shutdown(signum, frame):
-        print("\n→ Shutting down Ashlar...")
+        print("\n→ Shutting down Ashlr...")
         agent_manager.cleanup_all()
         print("✓ All agent sessions cleaned up")
         raise SystemExit(0)
@@ -324,9 +324,9 @@ DEFAULT_CONFIG = {
 }
 
 def load_config() -> dict:
-    config_dir = Path.home() / ".ashlar"
+    config_dir = Path.home() / ".ashlr"
     config_dir.mkdir(exist_ok=True)
-    config_path = config_dir / "ashlar.yaml"
+    config_path = config_dir / "ashlr.yaml"
 
     if config_path.exists():
         with open(config_path) as f:
@@ -395,7 +395,7 @@ function ansiToHtml(text) {
 
 ## 7. Role Definitions (Condensed)
 
-The prior code had massive system prompts (150+ lines each). For Ashlar AO, keep them short and effective — the agent is already Claude Code, it doesn't need extensive instructions. Just give it a persona and focus area:
+The prior code had massive system prompts (150+ lines each). For Ashlr AO, keep them short and effective — the agent is already Claude Code, it doesn't need extensive instructions. Just give it a persona and focus area:
 
 ```python
 BUILTIN_ROLES = {

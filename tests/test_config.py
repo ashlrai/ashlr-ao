@@ -11,7 +11,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 with patch("psutil.cpu_percent", return_value=0.0):
-    from ashlar_server import Config, load_config, deep_merge, DEFAULT_CONFIG, ASHLAR_DIR, KNOWN_BACKENDS, BackendConfig, BUILTIN_ROLES
+    from ashlr_server import Config, load_config, deep_merge, DEFAULT_CONFIG, ASHLR_DIR, KNOWN_BACKENDS, BackendConfig, BUILTIN_ROLES
 
 
 # ─────────────────────────────────────────────
@@ -60,9 +60,9 @@ class TestConfigValidation:
 
     def test_loads_with_valid_yaml(self, tmp_path):
         """Valid YAML should load without warnings."""
-        config_dir = tmp_path / ".ashlar"
+        config_dir = tmp_path / ".ashlr"
         config_dir.mkdir()
-        config_path = config_dir / "ashlar.yaml"
+        config_path = config_dir / "ashlr.yaml"
 
         valid_config = {
             "server": {"host": "127.0.0.1", "port": 5000},
@@ -72,8 +72,8 @@ class TestConfigValidation:
             yaml.dump(valid_config, f)
 
         with patch.object(Path, "exists", return_value=True), \
-             patch("ashlar_server.ASHLAR_DIR", config_dir), \
-             patch("builtins.open", side_effect=lambda p, *a, **k: open(config_path, *a, **k) if str(p) == str(config_dir / "ashlar.yaml") else open(p, *a, **k)):
+             patch("ashlr_server.ASHLR_DIR", config_dir), \
+             patch("builtins.open", side_effect=lambda p, *a, **k: open(config_path, *a, **k) if str(p) == str(config_dir / "ashlr.yaml") else open(p, *a, **k)):
             # This is complex to mock — test the validation logic directly instead
             pass
 

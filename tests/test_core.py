@@ -1,4 +1,4 @@
-"""Tests for core pure functions and utilities in ashlar_server.py."""
+"""Tests for core pure functions and utilities in ashlr_server.py."""
 
 import sys
 from pathlib import Path
@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 with patch("psutil.cpu_percent", return_value=0.0):
-    from ashlar_server import (
+    from ashlr_server import (
         _strip_ansi,
         redact_secrets,
         deep_merge,

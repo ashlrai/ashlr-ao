@@ -1,4 +1,4 @@
-"""Integration tests for Ashlar AO — WebSocket + REST API via aiohttp test client.
+"""Integration tests for Ashlr AO — WebSocket + REST API via aiohttp test client.
 
 Tests exercise the full server stack (routes, handlers, WebSocket hub) with
 mocked tmux/subprocess calls to avoid spawning real processes.
@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 TEST_WORKING_DIR = str(Path.home())
 
 with patch("psutil.cpu_percent", return_value=0.0):
-    import ashlar_server
+    import ashlr_server
 
 
 def _make_mock_db():
@@ -41,7 +41,7 @@ def _make_mock_db():
     db.get_agent_history_count = AsyncMock(return_value=0)
     db.get_historical_analytics = AsyncMock(return_value={})
     db.get_scratchpad = AsyncMock(return_value=[])
-    db.db_path = Path("/tmp/test-ashlar.db")  # fake path for stats endpoint
+    db.db_path = Path("/tmp/test-ashlr.db")  # fake path for stats endpoint
     db.find_similar_tasks = AsyncMock(return_value=[])
     db.get_resumable_sessions = AsyncMock(return_value=[])
     db.archive_output = AsyncMock()
@@ -69,11 +69,11 @@ def _make_mock_db():
 
 def _make_test_app():
     """Create a test app with DB and background tasks disabled."""
-    config = ashlar_server.Config()
+    config = ashlr_server.Config()
     config.demo_mode = True  # avoid needing real claude CLI
     config.spawn_pressure_block = False  # disable for tests — host CPU/memory can trigger false 503s
 
-    app = ashlar_server.create_app(config)
+    app = ashlr_server.create_app(config)
     # Replace the real DB with a mock so WS handlers don't crash
     mock_db = _make_mock_db()
     app["db"] = mock_db
@@ -93,7 +93,7 @@ def _make_test_app():
 
 @pytest.fixture
 def cli(event_loop, aiohttp_client):
-    """Create a test client for the Ashlar app."""
+    """Create a test client for the Ashlr app."""
     app = _make_test_app()
     return event_loop.run_until_complete(aiohttp_client(app))
 

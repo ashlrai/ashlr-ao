@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ashlar-ao"
+name = "ashlr-ao"
 dynamic = ["version"]
 description = "Local-first agent orchestration platform — one developer, many AI coding agents, single command center."
 readme = "README.md"
@@ -34,20 +34,20 @@ dependencies = [
 dev = ["pytest>=7.0"]
 
 [project.scripts]
-ashlar = "ashlar_ao.server:main"
+ashlr = "ashlr_ao.server:main"
 
 [project.urls]
 Homepage = "https://github.com/Ashlar-inc/ashlar-ao"
 Repository = "https://github.com/Ashlar-inc/ashlar-ao"
 
 [tool.setuptools.dynamic]
-version = { attr = "ashlar_ao.__version__" }
+version = { attr = "ashlr_ao.__version__" }
 
 [tool.setuptools.packages.find]
-include = ["ashlar_ao*"]
+include = ["ashlr_ao*"]
 
 [tool.setuptools.package-data]
-ashlar_ao = ["dashboard.html", "logo.png"]
+ashlr_ao = ["dashboard.html", "logo.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

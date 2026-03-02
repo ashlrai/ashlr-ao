@@ -11,7 +11,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 with patch("psutil.cpu_percent", return_value=0.0):
-    from ashlar_server import (
+    from ashlr_server import (
         Database, Agent, User, Organization,
         _check_agent_ownership, _make_slug, _extract_session_cookie,
     )
@@ -70,7 +70,7 @@ class TestOrganizationDataclass:
 
 class TestMakeSlug:
     def test_simple_name(self):
-        assert _make_slug("Ashlar Inc") == "ashlar-inc"
+        assert _make_slug("Ashlr Inc") == "ashlr-inc"
 
     def test_special_chars(self):
         assert _make_slug("My Team!! #1") == "my-team-1"
@@ -94,12 +94,12 @@ class TestExtractSessionCookie:
 
     def test_short_cookie_rejected(self):
         request = MagicMock()
-        request.cookies = {"ashlar_session": "short"}
+        request.cookies = {"ashlr_session": "short"}
         assert _extract_session_cookie(request) == ""
 
     def test_valid_cookie_returned(self):
         request = MagicMock()
-        request.cookies = {"ashlar_session": "a" * 64}
+        request.cookies = {"ashlr_session": "a" * 64}
         assert _extract_session_cookie(request) == "a" * 64
 
 

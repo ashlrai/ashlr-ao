@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 with patch("psutil.cpu_percent", return_value=0.0):
-    from ashlar_server import (
+    from ashlr_server import (
         parse_agent_status,
         extract_summary,
         detect_phase,

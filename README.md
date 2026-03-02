@@ -1,4 +1,4 @@
-# Ashlar AO
+# Ashlr AO
 
 A local-first agent orchestration platform. Manage multiple AI coding agents (Claude Code, Codex, etc.) across projects from a single browser-based command center.
 
@@ -7,13 +7,13 @@ Spawn agents, monitor their status in real time, approve plans, respond to quest
 ## Installation
 
 ```bash
-pip install ashlar-ao
+pip install ashlr-ao
 ```
 
 Then run:
 
 ```bash
-ashlar
+ashlr
 ```
 
 ### Prerequisites
@@ -48,31 +48,31 @@ Open **http://127.0.0.1:5111** in your browser.
 
 ### Port Conflicts
 
-Port 5000 conflicts with macOS AirPlay Receiver. Ashlar defaults to port 5111 to avoid this. To use a different port:
+Port 5000 conflicts with macOS AirPlay Receiver. Ashlr defaults to port 5111 to avoid this. To use a different port:
 
 ```bash
-ASHLAR_PORT=8080 ashlar
+ASHLR_PORT=8080 ashlr
 ```
 
 ## Configuration
 
-Config lives at `~/.ashlar/ashlar.yaml` (auto-created on first run). Defaults work out of the box.
+Config lives at `~/.ashlr/ashlr.yaml` (auto-created on first run). Defaults work out of the box.
 
 ### Optional Environment Variables
 
 | Variable | Purpose |
 |----------|---------|
-| `ASHLAR_PORT` | Override server port (default: 5111) |
+| `ASHLR_PORT` | Override server port (default: 5111) |
 | `XAI_API_KEY` | Enable LLM-powered agent summaries via xAI Grok |
 
 ## Architecture
 
-Two files make up the core application, packaged as `ashlar_ao`:
+Two files make up the core application, packaged as `ashlr_ao`:
 
-- **`ashlar_ao/server.py`** — Python aiohttp server. Manages agents via tmux, serves the dashboard, provides REST + WebSocket APIs, collects system metrics.
-- **`ashlar_ao/dashboard.html`** — Single HTML file with all CSS and JS inline. No build step, no bundler, no node_modules.
+- **`ashlr_ao/server.py`** — Python aiohttp server. Manages agents via tmux, serves the dashboard, provides REST + WebSocket APIs, collects system metrics.
+- **`ashlr_ao/dashboard.html`** — Single HTML file with all CSS and JS inline. No build step, no bundler, no node_modules.
 
-Data is persisted in SQLite at `~/.ashlar/ashlar.db`.
+Data is persisted in SQLite at `~/.ashlr/ashlr.db`.
 
 ## Usage
 

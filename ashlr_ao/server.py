@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ashlar AO — Agent Orchestration Server
+Ashlr AO — Agent Orchestration Server
 
 Single-file aiohttp server that manages AI coding agents via tmux,
 serves the web dashboard, and provides REST + WebSocket APIs.
@@ -10,6 +10,7 @@ serves the web dashboard, and provides REST + WebSocket APIs.
 # Section 1: Imports, Logging, Banner
 # ─────────────────────────────────────────────
 
+import argparse
 import asyncio
 import collections
 import json
@@ -40,8 +41,23 @@ import yaml
 
 # ── Logging ──
 
-ASHLAR_DIR = Path.home() / ".ashlar"
-ASHLAR_DIR.mkdir(exist_ok=True)
+ASHLR_DIR = Path.home() / ".ashlr"
+
+# ── Migration: ~/.ashlar → ~/.ashlr (one-time) ──
+_LEGACY_DIR = Path.home() / ".ashlar"
+if _LEGACY_DIR.is_dir() and not ASHLR_DIR.exists():
+    _LEGACY_DIR.rename(ASHLR_DIR)
+    # Rename files inside
+    for _old_name, _new_name in [
+        ("ashlar.yaml", "ashlr.yaml"),
+        ("ashlar.db", "ashlr.db"),
+        ("ashlar.log", "ashlr.log"),
+    ]:
+        _old = ASHLR_DIR / _old_name
+        if _old.exists():
+            _old.rename(ASHLR_DIR / _new_name)
+
+ASHLR_DIR.mkdir(exist_ok=True)
 
 LOG_COLORS = {
     "DEBUG": "\033[36m",     # cyan
@@ -71,13 +87,13 @@ def setup_logging(level: str = "INFO") -> None:
 
     # File handler with rotation (10 MB max, 5 backups)
     fh = logging.handlers.RotatingFileHandler(
-        ASHLAR_DIR / "ashlar.log", maxBytes=10 * 1024 * 1024, backupCount=5
+        ASHLR_DIR / "ashlr.log", maxBytes=10 * 1024 * 1024, backupCount=5
     )
     fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
     root.addHandler(fh)
 
 
-log = logging.getLogger("ashlar")
+log = logging.getLogger("ashlr")
 
 # ── Module-level ANSI stripping utility ──
 
@@ -127,10 +143,10 @@ def redact_secrets(text: str) -> str:
 
 
 def print_banner() -> None:
-    from ashlar_ao import __version__
+    from ashlr_ao import __version__
     print("\n\033[36m", end="")
     print("  ╔═══════════════════════════════════╗")
-    print("  ║         A S H L A R   A O        ║")
+    print("  ║          A S H L R   A O         ║")
     print("  ║     Agent Orchestration Platform   ║")
     print("  ╚═══════════════════════════════════╝")
     print(f"  v{__version__}\033[0m")
@@ -314,12 +330,12 @@ class Config:
 
 
 def load_config(has_claude: bool = True) -> Config:
-    config_dir = ASHLAR_DIR
+    config_dir = ASHLR_DIR
     config_dir.mkdir(exist_ok=True)
-    config_path = config_dir / "ashlar.yaml"
+    config_path = config_dir / "ashlr.yaml"
 
     # Also check for config in the project directory
-    local_config = Path(__file__).parent / "ashlar.yaml"
+    local_config = Path(__file__).parent / "ashlr.yaml"
 
     raw = DEFAULT_CONFIG.copy()
 
@@ -331,7 +347,7 @@ def load_config(has_claude: bool = True) -> Config:
         except Exception as e:
             log.warning(f"Failed to load config from {config_path}: {e}")
     elif local_config.exists():
-        # Copy local config to ~/.ashlar/ on first run
+        # Copy local config to ~/.ashlr/ on first run
         try:
             shutil.copy2(local_config, config_path)
             with open(config_path) as f:
@@ -445,19 +461,19 @@ def load_config(has_claude: bool = True) -> Config:
         except Exception:
             pass
 
-    # ASHLAR_PORT env var overrides config file
-    port_raw = os.environ.get("ASHLAR_PORT")
+    # ASHLR_PORT env var overrides config file
+    port_raw = os.environ.get("ASHLR_PORT")
     if port_raw is not None:
         try:
             port = int(port_raw)
         except ValueError:
-            log.warning(f"Invalid ASHLAR_PORT '{port_raw}', using default")
+            log.warning(f"Invalid ASHLR_PORT '{port_raw}', using default")
             port = server.get("port", 5111)
     else:
         port = server.get("port", 5111)
 
-    # ASHLAR_HOST env var overrides config file (use 0.0.0.0 for Docker/deployment)
-    host = os.environ.get("ASHLAR_HOST", server.get("host", "127.0.0.1"))
+    # ASHLR_HOST env var overrides config file (use 0.0.0.0 for Docker/deployment)
+    host = os.environ.get("ASHLR_HOST", server.get("host", "127.0.0.1"))
 
     return Config(
         host=host,
@@ -990,7 +1006,7 @@ class OutputSnapshot:
 
 @dataclass
 class Organization:
-    """A team/company that shares an Ashlar instance."""
+    """A team/company that shares an Ashlr instance."""
     id: str
     name: str
     slug: str
@@ -1542,7 +1558,7 @@ class AgentManager:
     def __init__(self, config: Config):
         self.config = config
         self.agents: dict[str, Agent] = {}
-        self.tmux_prefix = "ashlar"
+        self.tmux_prefix = "ashlr"
         self._loop: asyncio.AbstractEventLoop | None = None
         self.db: "Database | None" = None  # Set after creation by create_app()
         # Rich backend configs
@@ -1769,12 +1785,12 @@ class AgentManager:
         if working_dir:
             working_dir = os.path.abspath(os.path.expanduser(working_dir))
             home_dir = str(Path.home())
-            config_dirs = [str(ASHLAR_DIR)]
+            config_dirs = [str(ASHLR_DIR)]
             allowed_prefixes = [home_dir] + config_dirs
             if not any(working_dir.startswith(prefix) for prefix in allowed_prefixes):
                 raise ValueError(
                     f"Working directory '{working_dir}' is outside allowed paths. "
-                    f"Must be under home directory or Ashlar config dir."
+                    f"Must be under home directory or Ashlr config dir."
                 )
 
         # Generate ID
@@ -2100,7 +2116,7 @@ class AgentManager:
         script_lines = [
             '#!/bin/bash',
             f'echo "╭──────────────────────────────────────────╮"',
-            f'echo "│ [{role_obj.icon}] Ashlar Agent (Demo Mode)          │"',
+            f'echo "│ [{role_obj.icon}] Ashlr Agent (Demo Mode)          │"',
             f'echo "│ Role: {role_obj.name:<34}│"',
             f'echo "╰──────────────────────────────────────────╯"',
             f'echo ""',
@@ -2223,7 +2239,7 @@ class AgentManager:
             ])
 
         # Write to temp file and execute
-        script_path = Path(tempfile.gettempdir()) / f"ashlar_demo_{uuid.uuid4().hex[:8]}.sh"
+        script_path = Path(tempfile.gettempdir()) / f"ashlr_demo_{uuid.uuid4().hex[:8]}.sh"
         script_path.write_text("\n".join(script_lines))
         script_path.chmod(0o755)
         if agent:
@@ -3104,7 +3120,7 @@ class AgentManager:
                 del self.file_activity[file_path]
 
     def cleanup_all(self) -> None:
-        """Kill all ashlar tmux sessions and clean temp files. Synchronous for shutdown."""
+        """Kill all ashlr tmux sessions and clean temp files. Synchronous for shutdown."""
         # Clean up temp demo scripts
         for agent in list(self.agents.values()):
             if agent.script_path:
@@ -3133,7 +3149,7 @@ class AgentManager:
         log.info("All agent sessions cleaned up")
 
     def cleanup_orphaned_sessions(self) -> int:
-        """Kill any ashlar-* tmux sessions left from previous ungraceful shutdowns. Returns count killed."""
+        """Kill any ashlr-* tmux sessions left from previous ungraceful shutdowns. Returns count killed."""
         killed = 0
         try:
             result = subprocess.run(
@@ -3142,7 +3158,8 @@ class AgentManager:
             )
             if result.returncode == 0:
                 for session_name in result.stdout.strip().split("\n"):
-                    if session_name.startswith(self.tmux_prefix + "-"):
+                    # Clean up current prefix and legacy "ashlar-" sessions
+                    if session_name.startswith(self.tmux_prefix + "-") or session_name.startswith("ashlar-"):
                         try:
                             subprocess.run(
                                 ["tmux", "kill-session", "-t", session_name],
@@ -3867,7 +3884,7 @@ class IntelligenceClient:
         response = await self._call(
             messages=[
                 {"role": "system", "content": (
-                    "You are a command parser for an AI agent orchestration platform called Ashlar.\n"
+                    "You are a command parser for an AI agent orchestration platform called Ashlr.\n"
                     "Parse the user's natural language command into a JSON intent.\n\n"
                     f"Current agents:\n{agent_list}\n\n"
                     "Respond with ONLY a JSON object:\n"
@@ -4139,7 +4156,7 @@ class Database:
     """Async SQLite layer for agent history, projects, and workflows."""
 
     def __init__(self, db_path: Path | None = None):
-        self.db_path = db_path or (ASHLAR_DIR / "ashlar.db")
+        self.db_path = db_path or (ASHLR_DIR / "ashlr.db")
         self._db: aiosqlite.Connection | None = None
 
     async def _safe_commit(self, timeout: float = 3.0) -> bool:
@@ -5808,8 +5825,8 @@ async def auth_middleware(request: web.Request, handler) -> web.Response:
 
 
 def _extract_session_cookie(request: web.Request) -> str:
-    """Extract ashlar_session cookie value from request."""
-    cookie = request.cookies.get("ashlar_session", "")
+    """Extract ashlr_session cookie value from request."""
+    cookie = request.cookies.get("ashlr_session", "")
     return cookie if cookie and len(cookie) >= 32 else ""
 
 
@@ -5830,7 +5847,7 @@ def _set_session_cookie(response: web.Response, session_id: str, request: web.Re
     # Use Secure flag if behind HTTPS reverse proxy
     if request and request.headers.get("X-Forwarded-Proto") == "https":
         cookie_opts["secure"] = True
-    response.set_cookie("ashlar_session", session_id, **cookie_opts)
+    response.set_cookie("ashlr_session", session_id, **cookie_opts)
 
 
 async def auth_status(request: web.Request) -> web.Response:
@@ -5950,7 +5967,7 @@ async def auth_logout(request: web.Request) -> web.Response:
         await db.delete_session(session_id)
 
     resp = web.json_response({"ok": True})
-    resp.del_cookie("ashlar_session", path="/")
+    resp.del_cookie("ashlr_session", path="/")
     return resp
 
 
@@ -7092,7 +7109,7 @@ async def export_agent_output(request: web.Request) -> web.Response:
     clean = [ansi_re.sub('', line) for line in all_lines]
     text = "\n".join(clean)
 
-    filename = f"ashlar-{agent.name}-{agent_id}.log"
+    filename = f"ashlr-{agent.name}-{agent_id}.log"
     return web.Response(
         text=text,
         content_type="text/plain",
@@ -7143,7 +7160,7 @@ async def get_config(request: web.Request) -> web.Response:
 
 
 async def put_config(request: web.Request) -> web.Response:
-    """Update runtime config and save to ashlar.yaml."""
+    """Update runtime config and save to ashlr.yaml."""
     config: Config = request.app["config"]
     try:
         data = await request.json()
@@ -7217,7 +7234,7 @@ async def put_config(request: web.Request) -> web.Response:
             yaml_update.setdefault("alerts", {})[alert_keys[key]] = value
 
     # FIRST: write YAML to disk. Only update in-memory config on success.
-    config_path = ASHLAR_DIR / "ashlar.yaml"
+    config_path = ASHLR_DIR / "ashlr.yaml"
     try:
         raw = DEFAULT_CONFIG.copy()
         if config_path.exists():
@@ -8555,17 +8572,17 @@ async def delete_bookmark(request: web.Request) -> web.Response:
 # ── Config Import/Export endpoints ──
 
 async def export_config(request: web.Request) -> web.Response:
-    """GET /api/config/export — download full ashlar.yaml as JSON."""
+    """GET /api/config/export — download full ashlr.yaml as JSON."""
     if r := _check_rate(request, cost=1):
         return r
-    config_path = ASHLAR_DIR / "ashlar.yaml"
+    config_path = ASHLR_DIR / "ashlr.yaml"
     if not config_path.exists():
         return web.json_response({"error": "Config file not found"}, status=404)
     try:
         with open(config_path) as f:
             raw = yaml.safe_load(f) or {}
         return web.json_response(raw, headers={
-            "Content-Disposition": "attachment; filename=ashlar_config.json"
+            "Content-Disposition": "attachment; filename=ashlr_config.json"
         })
     except Exception as e:
         return web.json_response({"error": f"Failed to read config: {e}"}, status=500)
@@ -8584,7 +8601,7 @@ async def import_config(request: web.Request) -> web.Response:
         return web.json_response({"error": "Config must be a JSON object"}, status=400)
 
     # Read current config for diff
-    config_path = ASHLAR_DIR / "ashlar.yaml"
+    config_path = ASHLR_DIR / "ashlr.yaml"
     current = {}
     if config_path.exists():
         try:
@@ -10334,8 +10351,8 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/extensions", get_extensions)
     app.router.add_post("/api/extensions/refresh", refresh_extensions)
 
-    # CORS — restrict origins in production via ASHLAR_ALLOWED_ORIGINS env var
-    allowed_origin = os.environ.get("ASHLAR_ALLOWED_ORIGINS", "*")
+    # CORS — restrict origins in production via ASHLR_ALLOWED_ORIGINS env var
+    allowed_origin = os.environ.get("ASHLR_ALLOWED_ORIGINS", "*")
     cors = aiohttp_cors.setup(app, defaults={
         allowed_origin: aiohttp_cors.ResourceOptions(
             allow_credentials=True,
@@ -10358,7 +10375,7 @@ def create_app(config: Config) -> web.Application:
 
 def setup_signal_handlers(agent_manager: AgentManager) -> None:
     def handle_shutdown(signum: int, frame: Any) -> None:
-        print("\n\033[33m→ Shutting down Ashlar...\033[0m")
+        print("\n\033[33m→ Shutting down Ashlr...\033[0m")
         agent_manager.cleanup_all()
         print("\033[32m✓ All agent sessions cleaned up\033[0m")
         # Raise KeyboardInterrupt so aiohttp's run_app() runs its cleanup hooks
@@ -10370,9 +10387,36 @@ def setup_signal_handlers(agent_manager: AgentManager) -> None:
 
 
 def main() -> None:
+    from ashlr_ao import __version__
+
+    parser = argparse.ArgumentParser(
+        prog="ashlr",
+        description="Ashlr AO — Agent Orchestration Platform",
+    )
+    parser.add_argument("-V", "--version", action="version", version=f"ashlr {__version__}")
+    parser.add_argument("-p", "--port", type=int, help="server port (default: 5111)")
+    parser.add_argument("-H", "--host", help="bind host (default: 127.0.0.1)")
+    parser.add_argument("--demo", action="store_true", help="force demo mode")
+    parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], help="log level")
+    args = parser.parse_args()
+
     print_banner()
     has_claude = check_dependencies()
+
+    # --demo flag forces demo mode via env var (same mechanism as CLAUDECODE)
+    if args.demo:
+        os.environ["CLAUDECODE"] = "1"
+
     config = load_config(has_claude)
+
+    # CLI args > env vars > config file
+    if args.port is not None:
+        config.port = args.port
+    if args.host is not None:
+        config.host = args.host
+    if args.log_level is not None:
+        config.log_level = args.log_level
+
     setup_logging(config.log_level)
 
     app = create_app(config)
@@ -10397,8 +10441,8 @@ def main() -> None:
     except OSError as e:
         if "Address already in use" in str(e) or getattr(e, 'errno', None) == 48:
             log.error(f"Port {config.port} is already in use.")
-            log.error(f"  → Set ASHLAR_PORT=8080 to use a different port")
-            log.error(f"  → On macOS, AirPlay Receiver may use port 5000 (Ashlar defaults to 5111 to avoid this)")
+            log.error(f"  → Set ASHLR_PORT=8080 to use a different port")
+            log.error(f"  → On macOS, AirPlay Receiver may use port 5000 (Ashlr defaults to 5111 to avoid this)")
             log.error(f"    System Settings > General > AirDrop & Handoff > AirPlay Receiver → off")
             sys.exit(1)
         raise

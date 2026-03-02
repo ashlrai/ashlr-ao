@@ -6,7 +6,7 @@
 
 ---
 
-## File 1: ashlar_server.py
+## File 1: ashlr_server.py
 
 ### Section 1: Imports & Setup (~50 lines)
 
@@ -22,7 +22,7 @@ import psutil
 import yaml
 ```
 
-- Colored console logging + file logging to ~/.ashlar/ashlar.log
+- Colored console logging + file logging to ~/.ashlr/ashlr.log
 - ASCII banner on startup
 - Check for tmux (required), claude CLI (optional, warn if missing)
 
@@ -43,7 +43,7 @@ class Config:
     demo_mode: bool = False  # True if claude CLI not found
 ```
 
-- Load from ~/.ashlar/ashlar.yaml (create with defaults if missing)
+- Load from ~/.ashlr/ashlr.yaml (create with defaults if missing)
 - Expand ~ in paths
 - Set demo_mode=True if claude CLI not found
 
@@ -77,7 +77,7 @@ class AgentManager:
     def __init__(self, config: Config):
         self.config = config
         self.agents: dict[str, Agent] = {}
-        self.tmux_prefix = "ashlar"
+        self.tmux_prefix = "ashlr"
 
     async def spawn(self, role: str, name: str | None, working_dir: str,
                     task: str, plan_mode: bool = False) -> Agent:
@@ -85,7 +85,7 @@ class AgentManager:
         # 1. Generate ID (4 hex chars)
         # 2. Generate name if not provided (role + short descriptor)
         # 3. Create tmux session:
-        #    tmux new-session -d -s ashlar-{id} -x 200 -y 50 -c {working_dir}
+        #    tmux new-session -d -s ashlr-{id} -x 200 -y 50 -c {working_dir}
         # 4. If demo_mode: send 'bash' to tmux
         #    Else: send 'claude {args}' to tmux
         #    If plan_mode, add '--plan' flag or send /plan after startup
@@ -99,12 +99,12 @@ class AgentManager:
         """Kill an agent gracefully."""
         # 1. Send '/exit' to tmux session
         # 2. Wait 3 seconds
-        # 3. tmux kill-session -t ashlar-{id}
+        # 3. tmux kill-session -t ashlr-{id}
         # 4. Remove from self.agents
 
     async def pause(self, agent_id: str) -> bool:
         """Pause agent by sending Ctrl+C."""
-        # tmux send-keys -t ashlar-{id} C-c
+        # tmux send-keys -t ashlr-{id} C-c
         # Set agent.status = "paused"
 
     async def resume(self, agent_id: str, message: str | None = None) -> bool:
@@ -115,12 +115,12 @@ class AgentManager:
 
     async def send_message(self, agent_id: str, message: str) -> bool:
         """Send a message/command to an agent's tmux session."""
-        # tmux send-keys -t ashlar-{id} '{message}' Enter
+        # tmux send-keys -t ashlr-{id} '{message}' Enter
         # Handle multi-line by splitting on \n and sending each line
 
     async def capture_output(self, agent_id: str) -> list[str]:
         """Capture recent terminal output from agent's tmux pane."""
-        # tmux capture-pane -t ashlar-{id} -p -S -200
+        # tmux capture-pane -t ashlr-{id} -p -S -200
         # Parse output, strip empty trailing lines
         # Update agent.output_lines (keep last 500 lines as ring buffer)
         # Return new lines since last capture
@@ -139,7 +139,7 @@ class AgentManager:
 
     def cleanup_all(self):
         """Kill all tmux sessions on shutdown. Called synchronously."""
-        # List all tmux sessions starting with 'ashlar-'
+        # List all tmux sessions starting with 'ashlr-'
         # Kill each one
 ```
 
@@ -149,7 +149,7 @@ class AgentManager:
 
 2. For output capture, `tmux capture-pane -p` outputs to stdout. Capture with `subprocess.run(..., capture_output=True, text=True)`.
 
-3. PID detection: After spawning, run `tmux list-panes -t ashlar-{id} -F '#{pane_pid}'` to get the shell PID, then use psutil to find the claude child process.
+3. PID detection: After spawning, run `tmux list-panes -t ashlr-{id} -F '#{pane_pid}'` to get the shell PID, then use psutil to find the claude child process.
 
 4. Demo mode: Instead of `claude`, spawn `bash` and echo simulated output periodically using a small shell script that mimics agent behavior.
 
@@ -325,7 +325,7 @@ def main():
 
 ---
 
-## File 2: ashlar_dashboard.html
+## File 2: ashlr_dashboard.html
 
 ### Structure
 
@@ -334,7 +334,7 @@ def main():
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Ashlar AO</title>
+    <title>Ashlr AO</title>
     <style>/* ALL CSS HERE */</style>
 </head>
 <body>
@@ -386,7 +386,7 @@ const state = {
 
 #### WebSocket Connection (~100 lines)
 ```javascript
-class AshlarSocket {
+class AshlrSocket {
     constructor() {
         this.ws = null;
         this.reconnectDelay = 1000;
@@ -531,7 +531,7 @@ Modal with:
 After building, run these checks:
 ```bash
 # Server starts without errors
-python ashlar_server.py &
+python ashlr_server.py &
 sleep 2
 
 # Health check

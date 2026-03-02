@@ -1,8 +1,8 @@
 # ╔═══════════════════════════════════════╗
-# ║        Ashlar AO Configuration        ║
+# ║         Ashlr AO Configuration        ║
 # ╚═══════════════════════════════════════╝
-# This file is auto-copied to ~/.ashlar/ashlar.yaml on first run.
-# Edit the one in ~/.ashlar/ to persist changes across updates.
+# This file is auto-copied to ~/.ashlr/ashlr.yaml on first run.
+# Edit the one in ~/.ashlr/ to persist changes across updates.
 
 server:
   host: "127.0.0.1"

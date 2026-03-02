@@ -9,7 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 with patch("psutil.cpu_percent", return_value=0.0):
-    from ashlar_server import calculate_health_score, RateLimiter
+    from ashlr_server import calculate_health_score, RateLimiter
 
 
 # ─────────────────────────────────────────────
