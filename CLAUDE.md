@@ -4,7 +4,7 @@
 
 Ashlr is a **local-first agent orchestration platform**. One developer, many AI coding agents (Claude Code, Codex, etc.), multiple repos, single command center.
 
-**Current state**: Fully functional. Server (~10K lines) + dashboard (~9500 lines) + 987 tests. All 5 development phases + multi-user auth + deployment infra complete. Installable via `pip install ashlr-ao`. Ready for multi-user deployment.
+**Current state**: Fully functional. Server (~10K lines) + dashboard (~9500 lines) + 1195 tests. All 5 development phases + multi-user auth + deployment infra + production hardening complete. Installable via `pip install ashlr-ao`. Ready for multi-user deployment.
 
 ## Architecture
 
@@ -77,7 +77,8 @@ Each agent is a tmux session running a CLI tool:
 # Agents
 GET    /api/agents              List all agents
 POST   /api/agents              Spawn agent (role, task, working_dir, backend, plan_mode, project_id, model, tools)
-GET    /api/agents/{id}         Agent details + output
+GET    /api/agents/{id}         Agent details + output (includes git_branch)
+GET    /api/agents?branch=x     Filter agents by git branch (also ?project_id=, ?status=)
 DELETE /api/agents/{id}         Kill agent
 POST   /api/agents/{id}/send    Send message to agent (max 50K chars)
 POST   /api/agents/{id}/pause   Pause (SIGTSTP)
@@ -88,6 +89,7 @@ POST   /api/agents/bulk         Bulk action (pause/resume/kill/restart) on multi
 # Projects
 GET    /api/projects            List projects
 POST   /api/projects            Add project (name, path — must be real directory under ~/ or /tmp)
+PUT    /api/projects/{id}       Update project (name, path, description)
 DELETE /api/projects/{id}       Delete project
 
 # Workflows
@@ -146,13 +148,14 @@ POST   /api/agents/{id}/summarize   Trigger LLM summary
 ## Dashboard Features
 
 ### Agent Card Grid
-- Cards show: role icon, name, project, live summary, context bar, status badge
+- Cards show: role icon, name, project, git branch badge, live summary, context bar, status badge
 - Status-based styling: working (role color pulse), waiting (orange attention), error (red), planning (yellow)
 - Click card → deep view. Click waiting card → inline interaction sheet.
-- Filter by: project dropdown, status chips, text search
+- Filter by: project dropdown, branch dropdown, status chips, text search
 - Dynamic grid layout adapts to agent count
 
 ### Spawn Dialog
+- Resume Previous Session section — shows resumable sessions from history, click to pre-fill form
 - 9 built-in roles with icons
 - Project selector, working dir with autocomplete, backend selector
 - Plan mode toggle, model selector, tools restriction
@@ -285,13 +288,14 @@ display:
 | `ASHLR_ALLOWED_ORIGINS` | No | CORS allowed origin (default `*`, set to domain for production) |
 | `CLAUDECODE` | No | Force demo mode (dev/testing without real CLI) |
 
-## Background Tasks (5, supervised with auto-restart)
+## Background Tasks (6, supervised with auto-restart)
 
 1. **Output capture** (1s) — tmux pane capture, status detection, summary generation
 2. **Metrics** (2s) — CPU, memory, per-agent resource tracking
 3. **Health check** (5s) — stall detection, hung agent detection, memory pressure
 4. **Memory watchdog** (10s) — per-agent memory limits, system pressure response
 5. **Meta-agent** (30s, optional) — fleet analysis via LLM, conflict detection
+6. **Archive cleanup** (1hr) — purges archived agent records older than 48 hours
 
 ## Coding Standards
 
@@ -302,8 +306,8 @@ display:
 - Startup: clean orphaned tmux sessions from prior crashes
 - NEVER crash — try/except with meaningful error handling
 - All dict iterations use `list()` snapshots (prevent RuntimeError during async)
-- Security: working_dir restricted to home/tmp, message size limits, rate limiting
-- 987 pytest tests across 8 test files
+- Security: working_dir restricted to home/tmp, message size limits, rate limiting, CSP headers, request size limits, ownership enforcement on all mutation endpoints
+- 1195 pytest tests across 11 test files
 
 ## Multi-User Auth
 
@@ -337,7 +341,4 @@ Files: `Dockerfile`, `docker-compose.yml`, `Caddyfile`
 
 1. **File conflict detection only** — warns when two agents edit the same file, but doesn't prevent it. Watch the activity feed.
 2. **Cost tracking is estimated** — heuristic based on character count, not real API metering.
-3. **Session resume starts fresh** — `--resume` flag support exists in code but isn't wired through the UI. Agents restart with same task but lose conversation context.
-4. **No git branch tracking** — git operations are parsed from output but branch isn't stored as agent metadata.
-5. **Working dir restricted to ~/\* and /tmp** — security measure. Use symlinks if repos are elsewhere.
-6. **No project UPDATE endpoint** — must delete and recreate to change project path.
+3. **Working dir restricted to ~/\* and /tmp** — security measure. Use symlinks if repos are elsewhere.

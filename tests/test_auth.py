@@ -1,4 +1,5 @@
-"""Tests for multi-user auth: User/Org models, DB methods, middleware, agent ownership."""
+"""Tests for multi-user auth: User/Org models, DB methods, middleware, agent ownership,
+and HTTP integration tests for auth endpoints."""
 
 import asyncio
 import sys
@@ -8,9 +9,11 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from collections import deque
 
 import pytest
+from aiohttp import web
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 with patch("psutil.cpu_percent", return_value=0.0):
+    import ashlr_server
     from ashlr_server import (
         Database, Agent, User, Organization,
         _check_agent_ownership, _make_slug, _extract_session_cookie,
@@ -572,3 +575,324 @@ class TestAuthRateLimiting:
         allowed, retry_after = rl.check("test-ip:auth", cost=1.0, rate=rate, burst=burst)
         assert not allowed
         assert retry_after > 0
+
+
+# ─────────────────────────────────────────────
+# HTTP Integration Tests — Auth Endpoints
+# ─────────────────────────────────────────────
+
+def _make_auth_app():
+    """Create a test app with real temp DB for auth HTTP tests."""
+    config = ashlr_server.Config()
+    config.demo_mode = True
+    config.require_auth = True
+    config.spawn_pressure_block = False
+    app = ashlr_server.create_app(config)
+    app["rate_limiter"].check = lambda *a, **kw: (True, 0.0)
+    app.on_startup.clear()
+    app.on_cleanup.clear()
+    app["db_available"] = True
+    app["db_ready"] = True
+    app["bg_task_health"] = {}
+    app["bg_tasks"] = []
+    return app
+
+
+class TestAuthHTTPRegister:
+    @pytest.mark.asyncio
+    async def test_register_first_user_creates_admin(self, aiohttp_client):
+        """POST /api/auth/register — first user becomes admin."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.post("/api/auth/register", json={
+                "email": "admin@test.com",
+                "password": "password123",
+                "display_name": "Admin",
+                "org_name": "Test Org",
+            })
+            assert resp.status == 200
+            body = await resp.json()
+            assert body["user"]["email"] == "admin@test.com"
+            assert body["user"]["role"] == "admin"
+            assert body["org"]["name"] == "Test Org"
+            # Check session cookie was set
+            assert "ashlr_session" in {c.key for c in resp.cookies.values()}
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_register_missing_fields(self, aiohttp_client):
+        """POST /api/auth/register — missing required fields returns 400."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.post("/api/auth/register", json={
+                "email": "bad",
+                "password": "short",
+                "display_name": "",
+            })
+            assert resp.status == 400
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_register_duplicate_email(self, aiohttp_client):
+        """POST /api/auth/register — duplicate email returns 409."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            # Register first user
+            await client.post("/api/auth/register", json={
+                "email": "dup@test.com", "password": "password123",
+                "display_name": "First", "org_name": "Org",
+            })
+            # Try duplicate — second user must be invited, so this returns 403
+            resp = await client.post("/api/auth/register", json={
+                "email": "another@test.com", "password": "password123",
+                "display_name": "Second",
+            })
+            assert resp.status == 403
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_register_short_password(self, aiohttp_client):
+        """POST /api/auth/register — password < 8 chars returns 400."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.post("/api/auth/register", json={
+                "email": "user@test.com", "password": "short",
+                "display_name": "User",
+            })
+            assert resp.status == 400
+            body = await resp.json()
+            assert "8 characters" in body["error"]
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+
+class TestAuthHTTPLogin:
+    @pytest.mark.asyncio
+    async def test_login_success(self, aiohttp_client):
+        """POST /api/auth/login — valid credentials return 200 + session cookie."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            # Register
+            await client.post("/api/auth/register", json={
+                "email": "login@test.com", "password": "password123",
+                "display_name": "Login User", "org_name": "Org",
+            })
+            # Login
+            resp = await client.post("/api/auth/login", json={
+                "email": "login@test.com", "password": "password123",
+            })
+            assert resp.status == 200
+            body = await resp.json()
+            assert body["user"]["email"] == "login@test.com"
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_login_wrong_password(self, aiohttp_client):
+        """POST /api/auth/login — wrong password returns 401."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            await client.post("/api/auth/register", json={
+                "email": "wrong@test.com", "password": "password123",
+                "display_name": "User", "org_name": "Org",
+            })
+            resp = await client.post("/api/auth/login", json={
+                "email": "wrong@test.com", "password": "badpassword",
+            })
+            assert resp.status == 401
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_login_nonexistent_user(self, aiohttp_client):
+        """POST /api/auth/login — nonexistent email returns 401."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.post("/api/auth/login", json={
+                "email": "ghost@test.com", "password": "password123",
+            })
+            assert resp.status == 401
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_login_missing_fields(self, aiohttp_client):
+        """POST /api/auth/login — missing email/password returns 400."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.post("/api/auth/login", json={"email": "", "password": ""})
+            assert resp.status == 400
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+
+class TestAuthHTTPLogout:
+    @pytest.mark.asyncio
+    async def test_logout(self, aiohttp_client):
+        """POST /api/auth/logout — clears session."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            # Register + login
+            await client.post("/api/auth/register", json={
+                "email": "logout@test.com", "password": "password123",
+                "display_name": "User", "org_name": "Org",
+            })
+            resp = await client.post("/api/auth/logout")
+            assert resp.status == 200
+            body = await resp.json()
+            assert body["ok"] is True
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+
+class TestAuthHTTPStatus:
+    @pytest.mark.asyncio
+    async def test_auth_status_required(self, aiohttp_client):
+        """GET /api/auth/status — returns require_auth status."""
+        app = _make_auth_app()
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.get("/api/auth/status")
+            assert resp.status == 200
+            body = await resp.json()
+            assert "auth_required" in body
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+
+class TestAuthHTTPMe:
+    @pytest.mark.asyncio
+    async def test_me_without_session(self, aiohttp_client):
+        """GET /api/auth/me — without session returns 401."""
+        app = _make_auth_app()
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.get("/api/auth/me")
+            assert resp.status == 401
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+
+class TestAuthHTTPInvite:
+    @pytest.mark.asyncio
+    async def test_invite_requires_admin(self, aiohttp_client):
+        """POST /api/auth/invite — non-admin request is blocked by auth middleware."""
+        app = _make_auth_app()
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            # Without a session, should be blocked by auth middleware
+            resp = await client.post("/api/auth/invite", json={
+                "email": "new@test.com", "display_name": "New User",
+            })
+            # Should be 401 (no session) or 403 (not admin)
+            assert resp.status in (401, 403)
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)

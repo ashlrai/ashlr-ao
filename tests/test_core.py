@@ -1,6 +1,7 @@
 """Tests for core pure functions and utilities in ashlr_server.py."""
 
 import sys
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,6 +14,11 @@ with patch("psutil.cpu_percent", return_value=0.0):
         redact_secrets,
         deep_merge,
         AgentManager,
+        FileOperation,
+        GitOperation,
+        AgentInsight,
+        Agent,
+        MCPServerInfo,
     )
 
 
@@ -246,3 +252,71 @@ class TestSafeEvalCondition:
 
     def test_empty_expression(self):
         assert AgentManager._safe_eval_condition("", {}) is False
+
+
+# ─────────────────────────────────────────────
+# Dataclass to_dict() methods
+# ─────────────────────────────────────────────
+
+class TestFileOperationToDict:
+    def test_to_dict(self):
+        op = FileOperation(agent_id="a1", file_path="/tmp/f.py", operation="write", timestamp=1.0, tool="Edit")
+        d = op.to_dict()
+        assert d == {"agent_id": "a1", "file_path": "/tmp/f.py", "operation": "write", "timestamp": 1.0, "tool": "Edit"}
+
+
+class TestGitOperationToDict:
+    def test_to_dict(self):
+        op = GitOperation(agent_id="a2", operation="commit", detail="fix bug", timestamp=2.0, files_affected=["a.py"])
+        d = op.to_dict()
+        assert d["agent_id"] == "a2"
+        assert d["operation"] == "commit"
+        assert d["files_affected"] == ["a.py"]
+
+
+class TestMCPServerInfoToDict:
+    def test_to_dict(self):
+        info = MCPServerInfo(name="test-mcp", server_type="stdio", url_or_command="npx mcp", source="user", args=["--flag"])
+        d = info.to_dict()
+        assert d == {"name": "test-mcp", "type": "stdio", "url_or_command": "npx mcp", "source": "user", "args": ["--flag"]}
+
+
+class TestAgentInsightToDict:
+    def test_to_dict(self):
+        ins = AgentInsight(id="i1", insight_type="conflict", severity="warning", message="conflict detected",
+                           agent_ids=["a1", "a2"], evidence="both edit f.py", suggested_action="coordinate")
+        d = ins.to_dict()
+        assert d["id"] == "i1"
+        assert d["insight_type"] == "conflict"
+        assert d["severity"] == "warning"
+        assert d["agent_ids"] == ["a1", "a2"]
+        assert d["acknowledged"] is False
+
+
+class TestAgentStatusHelpers:
+    """Test agent status methods including timeline and time guard."""
+    def test_set_status_time_guard_rejects_stale(self, make_agent):
+        agent = make_agent(status="working")
+        agent._status_updated_at = time.monotonic() + 9999  # far future
+        result = agent.set_status("waiting")
+        assert result is False
+        assert agent.status == "working"  # unchanged
+
+    def test_status_timeline(self, make_agent):
+        agent = make_agent(status="working")
+        agent._status_history = [{"status": "working", "at": time.monotonic() - 10}]
+        agent.set_status("waiting")
+        timeline = agent._get_status_timeline()
+        assert len(timeline) >= 1
+        assert timeline[0]["status"] == "working"
+
+    def test_status_timeline_zero_duration_skipped(self, make_agent):
+        agent = make_agent(status="idle")
+        now = time.monotonic()
+        agent._status_history = [
+            {"status": "working", "at": now},
+            {"status": "idle", "at": now},  # zero duration
+        ]
+        timeline = agent._get_status_timeline()
+        # Zero-duration entries are filtered out
+        assert all(e["duration_sec"] > 0 for e in timeline)

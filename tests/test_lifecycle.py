@@ -3864,7 +3864,7 @@ class TestRequestLoggingMiddleware:
         """Middleware should warn on requests slower than 1s."""
         src = inspect.getsource(ashlr_server.request_logging_middleware)
         assert "SLOW" in src
-        assert "1.0" in src
+        assert "1000" in src
 
     def test_middleware_registered(self):
         """Middleware should be registered in create_app."""
@@ -3872,10 +3872,10 @@ class TestRequestLoggingMiddleware:
         assert "request_logging_middleware" in src
 
     def test_middleware_first_in_chain(self):
-        """request_logging_middleware should be first middleware (outermost)."""
+        """Security headers middleware should be first, then request logging."""
         src = inspect.getsource(ashlr_server.create_app)
-        # Find the middlewares list line
-        assert "middlewares = [request_logging_middleware" in src
+        assert "middlewares = [security_headers_middleware" in src
+        assert "request_logging_middleware" in src
 
     def test_middleware_handles_http_exceptions(self):
         """Middleware should handle HTTPException gracefully."""
@@ -6576,3 +6576,390 @@ class TestCreateProjectPathValidation:
         """create_project should validate path is under home or /tmp."""
         source = inspect.getsource(ashlr_server.create_project)
         assert "Path.home()" in source or "startswith" in source
+
+
+# ─────────────────────────────────────────────
+# T-NEW: Git branch tracking
+# ─────────────────────────────────────────────
+
+class TestGitBranchTracking:
+    """Tests for git_branch field on Agent and parse_incremental detection."""
+
+    def test_agent_has_git_branch_field(self, make_agent):
+        """Agent dataclass has git_branch=None by default."""
+        agent = make_agent()
+        assert agent.git_branch is None
+
+    def test_agent_to_dict_includes_git_branch(self, make_agent):
+        """to_dict() includes git_branch key."""
+        agent = make_agent()
+        d = agent.to_dict()
+        assert "git_branch" in d
+        assert d["git_branch"] is None
+
+    def test_git_checkout_sets_branch(self, make_agent):
+        """parse_incremental detects 'git checkout main' and sets agent.git_branch."""
+        import collections
+        agent = make_agent()
+        agent.output_lines = collections.deque(["git checkout main"])
+        agent._total_lines_added = 1
+        agent._last_parse_index = 0
+        parser = OutputIntelligenceParser()
+        parser.parse_incremental(agent)
+        assert agent.git_branch == "main"
+
+    def test_git_switch_sets_branch(self, make_agent):
+        """parse_incremental detects 'git switch feature-x' and sets agent.git_branch."""
+        import collections
+        agent = make_agent()
+        agent.output_lines = collections.deque(["git switch feature-x"])
+        agent._total_lines_added = 1
+        agent._last_parse_index = 0
+        parser = OutputIntelligenceParser()
+        parser.parse_incremental(agent)
+        assert agent.git_branch == "feature-x"
+
+    def test_checkout_file_ignored(self, make_agent):
+        """'git checkout -- file.txt' does NOT set git_branch (detail starts with '-')."""
+        import collections
+        agent = make_agent()
+        agent.output_lines = collections.deque(["git checkout -- file.txt"])
+        agent._total_lines_added = 1
+        agent._last_parse_index = 0
+        parser = OutputIntelligenceParser()
+        parser.parse_incremental(agent)
+        # The regex captures "--" as the first \S+ match, which starts with "-"
+        # so git_branch should not be set
+        assert agent.git_branch is None
+
+    def test_git_switched_output(self, make_agent):
+        """The 'Switched to branch ...' output regex sets git_branch."""
+        import collections
+        agent = make_agent()
+        agent.output_lines = collections.deque(["Switched to branch 'foo'"])
+        agent._total_lines_added = 1
+        agent._last_parse_index = 0
+        parser = OutputIntelligenceParser()
+        parser.parse_incremental(agent)
+        assert agent.git_branch == "foo"
+
+    def test_agent_to_dict_with_branch(self, make_agent):
+        """Agent with git_branch='main' has it in to_dict()."""
+        agent = make_agent()
+        agent.git_branch = "main"
+        d = agent.to_dict()
+        assert d["git_branch"] == "main"
+
+
+# ─────────────────────────────────────────────
+# T-NEW: Session resume
+# ─────────────────────────────────────────────
+
+class TestSessionResume:
+    """Tests for session resume parameter on spawn."""
+
+    def test_spawn_accepts_resume_session(self, make_agent):
+        """spawn() accepts resume_session parameter (verify the signature exists)."""
+        sig = inspect.signature(ashlr_server.AgentManager.spawn)
+        assert "resume_session" in sig.parameters
+
+    def test_agent_has_session_id_field(self, make_agent):
+        """Agent dataclass has session_id=None by default."""
+        agent = make_agent()
+        assert agent.session_id is None
+
+
+# ─────────────────────────────────────────────
+# T-NEW: List agents filter
+# ─────────────────────────────────────────────
+
+# Helper to create a test app for HTTP tests (copied from test_integration.py)
+def _make_mock_db():
+    """Create a mock Database that returns empty results without needing SQLite."""
+    db = MagicMock()
+    db.get_projects = AsyncMock(return_value=[])
+    db.get_workflows = AsyncMock(return_value=[])
+    db.get_presets = AsyncMock(return_value=[])
+    db.save_agent = AsyncMock()
+    db.save_event = AsyncMock()
+    db.log_event = AsyncMock()
+    db.close = AsyncMock()
+    db.init = AsyncMock()
+    db.get_history = AsyncMock(return_value=[])
+    db.get_events = AsyncMock(return_value=[])
+    db.get_events_count = AsyncMock(return_value=0)
+    db.get_agent_history_count = AsyncMock(return_value=0)
+    db.get_historical_analytics = AsyncMock(return_value={})
+    db.get_scratchpad = AsyncMock(return_value=[])
+    db.db_path = Path("/tmp/test-ashlr.db")
+    db.find_similar_tasks = AsyncMock(return_value=[])
+    db.get_resumable_sessions = AsyncMock(return_value=[])
+    db.archive_output = AsyncMock()
+    db.release_file_locks = AsyncMock()
+    db.get_archived_output = AsyncMock(return_value=([], 0))
+    db.get_bookmarks = AsyncMock(return_value=[])
+    db.add_bookmark = AsyncMock(return_value=1)
+    db.save_project = AsyncMock()
+    db.delete_project = AsyncMock(return_value=False)
+    db.save_workflow = AsyncMock()
+    db.save_preset = AsyncMock()
+    db.delete_preset = AsyncMock(return_value=False)
+    db.delete_workflow = AsyncMock(return_value=False)
+    db.save_message = AsyncMock()
+    db.get_messages = AsyncMock(return_value=[])
+    db.get_messages_count = AsyncMock(return_value=0)
+    db.upsert_scratchpad = AsyncMock()
+    db.delete_scratchpad = AsyncMock(return_value=False)
+    db.save_bookmark = AsyncMock(return_value=1)
+    db.get_history_item = AsyncMock(return_value=None)
+    db.get_workflow = AsyncMock(return_value=None)
+    db._db = None
+    return db
+
+
+def _make_test_app():
+    """Create a test app with DB and background tasks disabled."""
+    config = ashlr_server.Config()
+    config.demo_mode = True
+    config.spawn_pressure_block = False
+
+    app = ashlr_server.create_app(config)
+    mock_db = _make_mock_db()
+    app["db"] = mock_db
+    app["ws_hub"].db = mock_db
+    app["rate_limiter"].check = lambda *a, **kw: (True, 0.0)
+    app.on_startup.clear()
+    app.on_cleanup.clear()
+    app["db_available"] = True
+    app["db_ready"] = True
+    app["bg_task_health"] = {}
+    app["bg_tasks"] = []
+    return app
+
+
+TEST_WORKING_DIR = str(Path.home())
+
+
+class TestListAgentsFilter:
+    """Tests for GET /api/agents with query filters (branch, project_id, status)."""
+
+    async def _spawn_agent(self, app, name="filter-test", **kwargs):
+        manager = app["agent_manager"]
+        with patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec:
+            mock_proc = MagicMock()
+            mock_proc.pid = 99001
+            mock_proc.returncode = None
+            mock_exec.return_value = mock_proc
+            agent = await manager.spawn(
+                role=kwargs.get("role", "general"),
+                name=name,
+                task=kwargs.get("task", "test"),
+                working_dir=TEST_WORKING_DIR,
+            )
+            if "git_branch" in kwargs:
+                agent.git_branch = kwargs["git_branch"]
+            if "project_id" in kwargs:
+                agent.project_id = kwargs["project_id"]
+            if "status" in kwargs:
+                agent.set_status(kwargs["status"])
+            return agent
+
+    @pytest.mark.asyncio
+    async def test_list_agents_no_filter(self, aiohttp_client):
+        """GET /api/agents returns all agents."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        await self._spawn_agent(app, name="agent-a")
+        await self._spawn_agent(app, name="agent-b")
+        resp = await client.get("/api/agents")
+        assert resp.status == 200
+        data = await resp.json()
+        assert len(data) == 2
+
+    @pytest.mark.asyncio
+    async def test_list_agents_filter_by_branch(self, aiohttp_client):
+        """GET /api/agents?branch=main filters correctly."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        await self._spawn_agent(app, name="main-agent", git_branch="main")
+        await self._spawn_agent(app, name="feat-agent", git_branch="feature-x")
+        await self._spawn_agent(app, name="no-branch-agent")
+        resp = await client.get("/api/agents?branch=main")
+        assert resp.status == 200
+        data = await resp.json()
+        assert len(data) == 1
+        assert data[0]["name"] == "main-agent"
+        assert data[0]["git_branch"] == "main"
+
+    @pytest.mark.asyncio
+    async def test_list_agents_filter_by_project(self, aiohttp_client):
+        """GET /api/agents?project_id=xxx filters correctly."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        await self._spawn_agent(app, name="proj-a", project_id="proj-001")
+        await self._spawn_agent(app, name="proj-b", project_id="proj-002")
+        resp = await client.get("/api/agents?project_id=proj-001")
+        assert resp.status == 200
+        data = await resp.json()
+        assert len(data) == 1
+        assert data[0]["name"] == "proj-a"
+
+    @pytest.mark.asyncio
+    async def test_list_agents_filter_by_status(self, aiohttp_client):
+        """GET /api/agents?status=working filters correctly."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        await self._spawn_agent(app, name="working-agent", status="working")
+        await self._spawn_agent(app, name="paused-agent", status="paused")
+        resp = await client.get("/api/agents?status=working")
+        assert resp.status == 200
+        data = await resp.json()
+        assert len(data) >= 1
+        assert all(a["status"] == "working" for a in data)
+
+
+# ─────────────────────────────────────────────
+# Spawn Error Path Tests
+# ─────────────────────────────────────────────
+
+class TestSpawnErrorPaths:
+    @pytest.mark.asyncio
+    async def test_spawn_missing_task(self, aiohttp_client):
+        """POST /api/agents with no task returns 400."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents", json={"role": "general"})
+        assert resp.status == 400
+
+    @pytest.mark.asyncio
+    async def test_spawn_invalid_working_dir(self, aiohttp_client):
+        """POST /api/agents with nonexistent working_dir returns 400/500."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents", json={
+            "task": "test",
+            "role": "general",
+            "working_dir": "/nonexistent/path/xyz",
+        })
+        # Should fail validation
+        assert resp.status in (400, 500)
+
+    @pytest.mark.asyncio
+    async def test_spawn_invalid_backend(self, aiohttp_client):
+        """POST /api/agents with unknown backend returns error."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents", json={
+            "task": "test",
+            "role": "general",
+            "working_dir": str(Path.home()),
+            "backend": "nonexistent-backend-xyz",
+        })
+        assert resp.status in (400, 500)
+
+    @pytest.mark.asyncio
+    async def test_spawn_max_agents_exceeded(self, aiohttp_client):
+        """POST /api/agents when at max_agents limit returns error."""
+        app = _make_test_app()
+        app["config"].max_agents = 0  # Set limit to 0
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents", json={
+            "task": "test",
+            "role": "general",
+            "working_dir": str(Path.home()),
+        })
+        # Should fail due to max agents
+        assert resp.status in (400, 429, 500, 503)
+
+    @pytest.mark.asyncio
+    async def test_spawn_empty_task(self, aiohttp_client):
+        """POST /api/agents with empty string task returns 400."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents", json={
+            "task": "",
+            "role": "general",
+            "working_dir": str(Path.home()),
+        })
+        assert resp.status == 400
+
+    @pytest.mark.asyncio
+    async def test_spawn_whitespace_task(self, aiohttp_client):
+        """POST /api/agents with whitespace-only task returns 400."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents", json={
+            "task": "   ",
+            "role": "general",
+            "working_dir": str(Path.home()),
+        })
+        assert resp.status == 400
+
+    @pytest.mark.asyncio
+    async def test_spawn_oversized_task(self, aiohttp_client):
+        """POST /api/agents with very large task still works in demo mode."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents", json={
+            "task": "x" * 10000,
+            "role": "general",
+            "working_dir": str(Path.home()),
+        })
+        # Should succeed in demo mode or return 400 if task too long
+        assert resp.status in (200, 201, 400)
+
+    @pytest.mark.asyncio
+    async def test_spawn_invalid_json(self, aiohttp_client):
+        """POST /api/agents with invalid JSON returns 400."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents", data="not json", headers={"Content-Type": "application/json"})
+        assert resp.status == 400
+
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent_agent(self, aiohttp_client):
+        """DELETE /api/agents/nonexistent returns 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.delete("/api/agents/nonexistent123")
+        assert resp.status == 404
+
+    @pytest.mark.asyncio
+    async def test_send_to_nonexistent_agent(self, aiohttp_client):
+        """POST /api/agents/nonexistent/send returns 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents/nonexistent123/send", json={"message": "hello"})
+        assert resp.status == 404
+
+    @pytest.mark.asyncio
+    async def test_pause_nonexistent_agent(self, aiohttp_client):
+        """POST /api/agents/nonexistent/pause returns 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents/nonexistent123/pause")
+        assert resp.status == 404
+
+    @pytest.mark.asyncio
+    async def test_restart_nonexistent_agent(self, aiohttp_client):
+        """POST /api/agents/nonexistent/restart returns 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents/nonexistent123/restart")
+        assert resp.status == 404
+
+    @pytest.mark.asyncio
+    async def test_patch_nonexistent_agent(self, aiohttp_client):
+        """PATCH /api/agents/nonexistent returns 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.patch("/api/agents/nonexistent123", json={"name": "new"})
+        assert resp.status == 404
+
+    @pytest.mark.asyncio
+    async def test_get_nonexistent_agent(self, aiohttp_client):
+        """GET /api/agents/nonexistent returns 404."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.get("/api/agents/nonexistent123")
+        assert resp.status == 404

@@ -538,3 +538,513 @@ class TestDatabaseDegradedModeReal:
             assert similar == []
 
         run_async(_test())
+
+
+# ─────────────────────────────────────────────
+# Messages CRUD
+# ─────────────────────────────────────────────
+
+class TestMessagesCRUD:
+    def test_save_and_get_messages(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            msg = {
+                "id": "msg-001",
+                "from_agent_id": "a001",
+                "to_agent_id": "a002",
+                "content": "Please review this code",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await db.save_message(msg)
+
+            messages = await db.get_messages_for_agent("a002", limit=10)
+            assert len(messages) >= 1
+            found = next((m for m in messages if m["id"] == "msg-001"), None)
+            assert found is not None
+            assert found["content"] == "Please review this code"
+            assert found["from_agent_id"] == "a001"
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_get_messages_between(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            now = datetime.now(timezone.utc).isoformat()
+            await db.save_message({
+                "id": "msg-010", "from_agent_id": "a001", "to_agent_id": "a002",
+                "content": "Hello from a001", "created_at": now,
+            })
+            await db.save_message({
+                "id": "msg-011", "from_agent_id": "a002", "to_agent_id": "a001",
+                "content": "Reply from a002", "created_at": now,
+            })
+            await db.save_message({
+                "id": "msg-012", "from_agent_id": "a003", "to_agent_id": "a004",
+                "content": "Unrelated message", "created_at": now,
+            })
+
+            between = await db.get_messages_between("a001", "a002")
+            assert len(between) == 2
+            ids = {m["id"] for m in between}
+            assert "msg-010" in ids
+            assert "msg-011" in ids
+            assert "msg-012" not in ids
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_get_messages_empty(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            messages = await db.get_messages_for_agent("nonexistent")
+            assert messages == []
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_get_messages_no_db(self):
+        async def _test():
+            db = Database(Path("/tmp/noexist.db"))
+            messages = await db.get_messages_for_agent("a001")
+            assert messages == []
+            between = await db.get_messages_between("a001", "a002")
+            assert between == []
+        run_async(_test())
+
+
+# ─────────────────────────────────────────────
+# Preset CRUD
+# ─────────────────────────────────────────────
+
+class TestPresetCRUD:
+    def test_save_and_get_presets(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            preset = {
+                "id": "preset-001",
+                "name": "Quick Backend",
+                "role": "backend",
+                "task": "Build API endpoints",
+                "backend": "claude-code",
+            }
+            await db.save_preset(preset)
+
+            presets = await db.get_presets()
+            assert len(presets) >= 1
+            found = next((p for p in presets if p["id"] == "preset-001"), None)
+            assert found is not None
+            assert found["name"] == "Quick Backend"
+            assert found["role"] == "backend"
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_update_preset(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            preset = {
+                "id": "preset-upd",
+                "name": "Original Name",
+                "role": "general",
+                "task": "Original task",
+            }
+            await db.save_preset(preset)
+
+            # Upsert with same ID but different name
+            preset["name"] = "Updated Name"
+            preset["task"] = "Updated task"
+            await db.save_preset(preset)
+
+            presets = await db.get_presets()
+            found = next((p for p in presets if p["id"] == "preset-upd"), None)
+            assert found is not None
+            assert found["name"] == "Updated Name"
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_delete_preset(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            preset = {
+                "id": "preset-del",
+                "name": "Delete Me",
+                "role": "general",
+            }
+            await db.save_preset(preset)
+            deleted = await db.delete_preset("preset-del")
+            assert deleted is True
+
+            # Should not exist anymore
+            presets = await db.get_presets()
+            ids = {p["id"] for p in presets}
+            assert "preset-del" not in ids
+
+            # Deleting non-existent returns False
+            deleted2 = await db.delete_preset("nonexistent")
+            assert deleted2 is False
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_preset_no_db(self):
+        async def _test():
+            db = Database(Path("/tmp/noexist.db"))
+            presets = await db.get_presets()
+            assert presets == []
+            deleted = await db.delete_preset("x")
+            assert deleted is False
+        run_async(_test())
+
+
+# ─────────────────────────────────────────────
+# Scratchpad CRUD
+# ─────────────────────────────────────────────
+
+class TestScratchpadCRUD:
+    def test_upsert_and_get(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            await db.upsert_scratchpad("proj-001", "api_url", "http://localhost:3000", set_by="agent-a1")
+            entries = await db.get_scratchpad("proj-001")
+            assert len(entries) >= 1
+            found = next((e for e in entries if e["key"] == "api_url"), None)
+            assert found is not None
+            assert found["value"] == "http://localhost:3000"
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_upsert_overwrites(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            await db.upsert_scratchpad("proj-002", "key1", "value1")
+            await db.upsert_scratchpad("proj-002", "key1", "value2")
+            entries = await db.get_scratchpad("proj-002")
+            key1_entries = [e for e in entries if e["key"] == "key1"]
+            assert len(key1_entries) == 1
+            assert key1_entries[0]["value"] == "value2"
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_delete_scratchpad(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            await db.upsert_scratchpad("proj-003", "temp_key", "temp_value")
+            deleted = await db.delete_scratchpad("proj-003", "temp_key")
+            assert deleted is True
+
+            entries = await db.get_scratchpad("proj-003")
+            assert all(e["key"] != "temp_key" for e in entries)
+
+            deleted2 = await db.delete_scratchpad("proj-003", "nonexistent_key")
+            assert deleted2 is False
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_scratchpad_no_db(self):
+        async def _test():
+            db = Database(Path("/tmp/noexist.db"))
+            entries = await db.get_scratchpad("proj-x")
+            assert entries == []
+            deleted = await db.delete_scratchpad("proj-x", "key")
+            assert deleted is False
+        run_async(_test())
+
+
+# ─────────────────────────────────────────────
+# Workflow CRUD
+# ─────────────────────────────────────────────
+
+class TestWorkflowCRUD:
+    def test_save_and_get_workflows(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            workflow = {
+                "id": "wf-001",
+                "name": "Full Stack Review",
+                "description": "Run backend + frontend + tests",
+                "agents_json": json.dumps([
+                    {"role": "backend", "task": "Review API"},
+                    {"role": "frontend", "task": "Review UI"},
+                ]),
+            }
+            await db.save_workflow(workflow)
+
+            workflows = await db.get_workflows()
+            found = next((w for w in workflows if w["id"] == "wf-001"), None)
+            assert found is not None
+            assert found["name"] == "Full Stack Review"
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_get_workflow_by_id(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            workflow = {
+                "id": "wf-single",
+                "name": "Single Workflow",
+                "agents_json": "[]",
+            }
+            await db.save_workflow(workflow)
+
+            found = await db.get_workflow("wf-single")
+            assert found is not None
+            assert found["name"] == "Single Workflow"
+
+            missing = await db.get_workflow("nonexistent")
+            assert missing is None
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_delete_workflow(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            workflow = {
+                "id": "wf-del",
+                "name": "Delete Me",
+                "agents_json": "[]",
+            }
+            await db.save_workflow(workflow)
+            deleted = await db.delete_workflow("wf-del")
+            assert deleted is True
+
+            found = await db.get_workflow("wf-del")
+            assert found is None
+
+            deleted2 = await db.delete_workflow("nonexistent")
+            assert deleted2 is False
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_workflow_no_db(self):
+        async def _test():
+            db = Database(Path("/tmp/noexist.db"))
+            workflows = await db.get_workflows()
+            assert workflows == []
+            found = await db.get_workflow("x")
+            assert found is None
+            deleted = await db.delete_workflow("x")
+            assert deleted is False
+        run_async(_test())
+
+
+# ─────────────────────────────────────────────
+# Bookmarks CRUD
+# ─────────────────────────────────────────────
+
+class TestBookmarkCRUD:
+    def test_add_and_get_bookmarks(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            bookmark_id = await db.add_bookmark("agent-001", 42, "Important line here", annotation="bug found")
+            assert bookmark_id > 0
+
+            bookmarks = await db.get_bookmarks("agent-001")
+            assert len(bookmarks) >= 1
+            found = next((b for b in bookmarks if b["line_index"] == 42), None)
+            assert found is not None
+            assert "Important line here" in found["line_text"]
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_delete_bookmark(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            bid = await db.add_bookmark("agent-002", 10, "Bookmark to delete")
+            assert bid > 0
+
+            deleted = await db.delete_bookmark(bid)
+            assert deleted is True
+
+            bookmarks = await db.get_bookmarks("agent-002")
+            assert all(b.get("id") != bid for b in bookmarks)
+
+            deleted2 = await db.delete_bookmark(999999)
+            assert deleted2 is False
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_bookmarks_no_db(self):
+        async def _test():
+            db = Database(Path("/tmp/noexist.db"))
+            bookmarks = await db.get_bookmarks("x")
+            assert bookmarks == []
+            bid = await db.add_bookmark("x", 0, "text")
+            assert bid == -1
+            deleted = await db.delete_bookmark(1)
+            assert deleted is False
+        run_async(_test())
+
+
+# ─────────────────────────────────────────────
+# Project get/update
+# ─────────────────────────────────────────────
+
+class TestProjectGetUpdate:
+    def test_get_project_by_id(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            project = {
+                "id": "proj-get",
+                "name": "Get Me",
+                "path": "/home/user/project",
+            }
+            await db.save_project(project)
+
+            found = await db.get_project("proj-get")
+            assert found is not None
+            assert found["name"] == "Get Me"
+
+            missing = await db.get_project("nonexistent")
+            assert missing is None
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_update_project(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            project = {
+                "id": "proj-upd",
+                "name": "Original",
+                "path": "/home/user/original",
+            }
+            await db.save_project(project)
+
+            updated = await db.update_project("proj-upd", {"name": "Updated Name"})
+            assert updated is not None
+            assert updated["name"] == "Updated Name"
+            assert updated["path"] == "/home/user/original"  # unchanged
+
+            # Update nonexistent returns None
+            result = await db.update_project("nonexistent", {"name": "test"})
+            assert result is None
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_update_project_path_and_description(self):
+        async def _test():
+            with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+                db_path = Path(f.name)
+            db = Database(db_path)
+            await db.init()
+
+            project = {
+                "id": "proj-upd2",
+                "name": "Full Update",
+                "path": "/home/user/old",
+                "description": "Old description",
+            }
+            await db.save_project(project)
+
+            updated = await db.update_project("proj-upd2", {
+                "path": "/home/user/new",
+                "description": "New description",
+            })
+            assert updated is not None
+            assert updated["path"] == "/home/user/new"
+            assert updated["description"] == "New description"
+            assert updated["name"] == "Full Update"  # unchanged
+
+            await db.close()
+            db_path.unlink(missing_ok=True)
+        run_async(_test())
+
+    def test_get_update_no_db(self):
+        async def _test():
+            db = Database(Path("/tmp/noexist.db"))
+            found = await db.get_project("x")
+            assert found is None
+            updated = await db.update_project("x", {"name": "y"})
+            assert updated is None
+        run_async(_test())

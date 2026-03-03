@@ -3706,6 +3706,12 @@ body {
 }
 
 /* ── Responsive Layout ── */
+@media (max-width: 1024px) {
+    .grid-toolbar { flex-wrap: wrap; gap: 6px; }
+    .deep-actions { flex-wrap: wrap; gap: 6px; }
+    .metrics-bar .metric-label { font-size: 10px; }
+    .agent-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+}
 @media (max-width: 768px) {
     .top-bar { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
     .top-bar-left { flex: 1 1 100%; justify-content: space-between; }
@@ -4211,6 +4217,34 @@ body {
     color: var(--success);
     opacity: 0.6;
 }
+
+.card-branch-badge {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--orange);
+    background: rgba(249,115,22,0.1);
+    border: 1px solid rgba(249,115,22,0.15);
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.2px;
+    display: none;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Resume Sessions Section ── */
+.resume-sessions-section { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle); }
+.resume-sessions-section .section-label { font-size: 10px; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+.resume-sessions-list { display: flex; flex-direction: column; gap: 4px; max-height: 160px; overflow-y: auto; }
+.resume-session-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); cursor: pointer; transition: var(--transition); font-size: 12px; background: var(--bg-surface); }
+.resume-session-item:hover { border-color: var(--accent); background: var(--bg-elevated); }
+.resume-session-item .rs-icon { width: 24px; height: 24px; border-radius: var(--radius-xs); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; }
+.resume-session-item .rs-info { flex: 1; min-width: 0; }
+.resume-session-item .rs-name { font-weight: 600; color: var(--text-primary); font-size: 11px; }
+.resume-session-item .rs-task { color: var(--text-tertiary); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+.resume-session-item .rs-meta { font-size: 9px; color: var(--text-tertiary); flex-shrink: 0; text-align: right; }
 
 /* ── Card Connection Dot ── */
 .card-conn-dot {
@@ -5011,6 +5045,9 @@ body {
         <option value="">All Projects</option>
     </select>
     <button class="btn-add-project" onclick="openNewProjectDialog()" title="New Project" aria-label="New Project" style="background:none;border:1px solid var(--border-subtle);color:var(--text-secondary);border-radius:var(--radius-xs);padding:2px 6px;font-size:12px;cursor:pointer;margin-left:4px;transition:var(--transition);font-family:var(--font-mono)" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border-subtle)';this.style.color='var(--text-secondary)'">+</button>
+    <select class="project-selector" id="branchSelector" onchange="filterByBranch(this.value)" aria-label="Filter by branch" style="display:none;margin-left:4px">
+        <option value="">All Branches</option>
+    </select>
     <span class="project-metrics-badge" id="projectMetricsBadge" style="display:none;cursor:pointer" onclick="if(state.selectedProjectId)openProjectDetail(state.selectedProjectId)" title="Click to view project details"></span>
     <div class="top-spacer"></div>
     <div class="metrics-bar" id="metricsBar" style="cursor:pointer" onclick="toggleMetricsDropdown()">
@@ -5099,12 +5136,12 @@ body {
 </div>
 
 <!-- ── Connection Banner ── -->
-<div class="connection-banner" id="connectionBanner">Disconnected — reconnecting...</div>
+<div class="connection-banner" id="connectionBanner">Disconnected — reconnecting... <button onclick="connectWebSocket()" style="margin-left:12px;padding:2px 10px;border:1px solid rgba(255,255,255,0.4);border-radius:4px;background:transparent;color:inherit;cursor:pointer;font-size:12px">Retry Now</button></div>
 
 <!-- ── Main Content ── -->
 <div class="main-content" id="mainContent">
     <div class="grid-toolbar">
-        <input class="grid-search" id="gridSearch" placeholder="Filter agents..." oninput="filterAgentGridDebounced(this.value)" aria-label="Filter agents">
+        <input class="grid-search" id="gridSearch" placeholder="Filter agents..." oninput="filterAgentGridDebounced(this.value)" aria-label="Filter agents" role="searchbox">
         <span class="grid-search-count" id="gridSearchCount"></span>
         <div class="status-filter-chips" id="statusFilterChips">
             <button class="status-chip active" data-status="all" onclick="setStatusFilter('all')">All</button>
@@ -5231,6 +5268,12 @@ body {
     <div class="spawn-dialog">
         <div class="dialog-title">Spawn New Agent</div>
 
+        <div class="resume-sessions-section" id="resumeSessionsSection" style="display:none">
+            <div class="section-label">Resume Previous Session</div>
+            <div class="resume-sessions-list" id="resumeSessionsList"></div>
+        </div>
+        <input type="hidden" id="resumeSessionId" value="">
+
         <div class="quick-templates" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
             <button class="btn btn-secondary btn-sm" onclick="applyTemplate('review')" style="font-size:11px;padding:4px 10px">Code Review</button>
             <button class="btn btn-secondary btn-sm" onclick="applyTemplate('tests')" style="font-size:11px;padding:4px 10px">Write Tests</button>
@@ -5322,7 +5365,7 @@ body {
 </div>
 
 <!-- ── Deep View ── -->
-<div class="deep-view" id="deepView">
+<div class="deep-view" id="deepView" role="region" aria-label="Agent detail view">
     <div class="deep-header">
         <button class="back-btn" onclick="closeDeepView()">← Back</button>
         <button class="deep-nav-btn" id="deepPrevBtn" onclick="deepNavAgent(-1)" title="Previous agent (Shift+←)">‹</button>
@@ -5626,7 +5669,7 @@ body {
         </div>
         <div class="interaction-divider">or type a custom response · <span style="opacity:0.5;font-size:10px">Press <kbd style="background:var(--bg-page);padding:1px 4px;border-radius:3px;font-family:var(--font-mono)">A</kbd> to approve · <kbd style="background:var(--bg-page);padding:1px 4px;border-radius:3px;font-family:var(--font-mono)">R</kbd> to reject</span></div>
         <div class="interaction-input-area">
-            <textarea class="interaction-input" id="interactionInput" placeholder="Custom response..."
+            <textarea class="interaction-input" id="interactionInput" placeholder="Custom response..." aria-label="Response to agent"
                       onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCustomInteraction()}"></textarea>
             <button class="btn btn-primary" onclick="sendCustomInteraction()" style="flex-shrink:0">Send</button>
         </div>
@@ -5738,7 +5781,7 @@ body {
         </div>
         <div class="settings-section">
             <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg></span> AI Summaries (Grok)</div>
-            <div class="settings-row"><span class="settings-label">Enable LLM summaries</span><div class="settings-toggle" id="setLlmEnabled" onclick="this.classList.toggle('active')"></div><span class="settings-badge" id="setLlmStatus"></span></div>
+            <div class="settings-row"><span class="settings-label">Enable LLM summaries</span><div class="settings-toggle" id="setLlmEnabled" onclick="this.classList.toggle('active')" role="switch" aria-label="Enable LLM summaries" tabindex="0"></div><span class="settings-badge" id="setLlmStatus"></span></div>
             <div class="settings-row"><span class="settings-label">Model</span><input class="settings-input" id="setLlmModel" type="text" style="width:240px"></div>
             <div class="settings-row"><span class="settings-label">Summary interval (sec)</span><input class="settings-input" id="setLlmInterval" type="number" min="3" max="120" step="1"></div>
                 <div class="settings-row">
@@ -5753,12 +5796,12 @@ body {
             <div class="settings-row"><span class="settings-label">Stall timeout (minutes)</span><input class="settings-input" id="setStallTimeout" type="number" min="1" max="60" step="1"></div>
             <div class="settings-row"><span class="settings-label">Hung timeout (minutes)</span><input class="settings-input" id="setHungTimeout" type="number" min="1" max="120" step="1"></div>
             <div class="settings-row"><span class="settings-label">Cost budget per agent ($)</span><input class="settings-input" id="setCostBudget" type="number" min="0" max="100" step="0.10" title="0 = no limit"></div>
-            <div class="settings-row"><span class="settings-label">Auto-pause at budget limit</span><div class="settings-toggle" id="setCostAutoPause" onclick="this.classList.toggle('active')"></div></div>
+            <div class="settings-row"><span class="settings-label">Auto-pause at budget limit</span><div class="settings-toggle" id="setCostAutoPause" onclick="this.classList.toggle('active')" role="switch" aria-label="Auto-pause at budget limit" tabindex="0"></div></div>
         </div>
         <div class="settings-section">
             <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Display</div>
-            <div class="settings-row"><span class="settings-label">Voice feedback sounds</span><div class="settings-toggle" id="setVoiceSounds" onclick="this.classList.toggle('active')"></div></div>
-            <div class="settings-row"><span class="settings-label">Browser notifications</span><div class="settings-toggle" id="setBrowserNotifs" onclick="this.classList.toggle('active')"></div></div>
+            <div class="settings-row"><span class="settings-label">Voice feedback sounds</span><div class="settings-toggle" id="setVoiceSounds" onclick="this.classList.toggle('active')" role="switch" aria-label="Voice feedback sounds" tabindex="0"></div></div>
+            <div class="settings-row"><span class="settings-label">Browser notifications</span><div class="settings-toggle" id="setBrowserNotifs" onclick="this.classList.toggle('active')" role="switch" aria-label="Browser notifications" tabindex="0"></div></div>
         </div>
         <div class="settings-section">
             <div class="settings-section-title"><span class="settings-section-icon">${icon('activity', 16)}</span> Server Health</div>
@@ -6355,6 +6398,7 @@ const state = {
     workflows: [],
     backends: {},
     selectedProjectId: null, // null = all projects
+    selectedBranch: null, // null = all branches
     focusedAgentId: null,
     interactionAgentId: null,
     view: 'grid', // grid | deep | spawn | palette | cheatsheet | history
@@ -6505,7 +6549,7 @@ document.addEventListener('click', (e) => {
 });
 
 async function doLogout() {
-    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) { showToast('Logout failed: ' + e.message, 'error'); }
     state.currentUser = null;
     state.currentOrg = null;
     setCurrentUser(null, null);
@@ -7402,6 +7446,15 @@ class AshlrSocket {
                     showToast(`Workflow stage hung: ${data.stage_name || data.stage_id || 'unknown'}`, 'error');
                     break;
                 }
+                case 'project_updated': {
+                    if (data.project) {
+                        const idx = state.projects.findIndex(p => p.id === data.project.id);
+                        if (idx >= 0) state.projects[idx] = data.project;
+                        else state.projects.push(data.project);
+                        renderProjectSelector();
+                    }
+                    break;
+                }
             }
         } catch (e) {
             console.error('WebSocket message handler error:', e, data);
@@ -7444,6 +7497,8 @@ function closeInsightsPanel() {
 }
 
 async function fetchInsights() {
+    const body = document.getElementById('insightsBody');
+    body.innerHTML = '<div class="activity-empty" style="opacity:0.6">Loading insights...</div>';
     try {
         const resp = await fetch('/api/intelligence/insights');
         if (resp.ok) {
@@ -7668,6 +7723,7 @@ function handleAgentUpdate(agent) {
     }
     updateTabTitle();
     updateAttentionBadge();
+    updateBranchFilter();
 }
 
 function handleAgentOutput(data) {
@@ -8100,6 +8156,12 @@ function renderAgentGrid() {
             if (card && card.parentNode) card.remove();
             continue;
         }
+        // Branch filter
+        if (state.selectedBranch && agent.git_branch !== state.selectedBranch) {
+            const card = cardElements.get(id);
+            if (card && card.parentNode) card.remove();
+            continue;
+        }
         let card = cardElements.get(id);
         if (!card) {
             card = createAgentCard(agent);
@@ -8161,13 +8223,14 @@ function createAgentCard(agent) {
             <span class="card-files-badge"></span>
             <span class="card-bookmarks-badge" style="display:none" title="Bookmarked output lines"></span>
             <span class="card-error-count-badge" style="display:none" title="Error lines detected"></span>
-            <button class="card-menu-btn" onclick="event.stopPropagation();toggleCardMenu('${agent.id}')">⋯</button>
+            <button class="card-menu-btn" onclick="event.stopPropagation();toggleCardMenu('${agent.id}')" aria-haspopup="true" aria-label="Agent actions menu">⋯</button>
         </div>
         <div class="card-info-row">
             <span class="card-project-badge" style="display:none"></span>
             <span class="card-backend-label"></span>
             <span class="card-model-badge" style="display:none"></span>
             <span class="card-tools-badge" style="display:none" title="Tool permissions"></span>
+            <span class="card-branch-badge" title="Git branch"></span>
             <span class="card-workflow-dot" style="display:none" title="Workflow group"></span>
             <span class="card-pipeline-badge"></span>
         </div>
@@ -8205,16 +8268,16 @@ function createAgentCard(agent) {
             <button class="card-hover-btn" onclick="cloneAgent('${agent.id}')" title="Clone">${icon('copy', 12)}</button>
             <button class="card-hover-btn danger" onclick="killAgent('${agent.id}')" title="Kill">${icon('x', 12)}</button>
         </div>
-        <div class="card-menu" id="menu-${agent.id}">
-            <div class="card-menu-item" onclick="event.stopPropagation();openDeepView('${agent.id}')">${icon('terminal', 14)} View Terminal</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();openEditAgent('${agent.id}')">${icon('edit', 14)} Edit</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();pauseResumeAgent('${agent.id}')">${icon('pause', 14)} Pause/Resume</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();cloneAgent('${agent.id}')">${icon('copy', 14)} Clone</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();togglePin('${agent.id}')">${icon('pin', 14)} Pin/Unpin</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();openCompare('${agent.id}')">${icon('columns', 14)} Compare</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();restartAgent('${agent.id}')">${icon('refresh-cw', 14)} Restart</div>
-            <div class="card-menu-item" onclick="event.stopPropagation();retryWithTask('${agent.id}')">${icon('rotate-ccw', 14)} Retry with Changes</div>
-            <div class="card-menu-item danger" onclick="event.stopPropagation();killAgent('${agent.id}')">${icon('x', 14)} Kill</div>
+        <div class="card-menu" id="menu-${agent.id}" role="menu">
+            <div class="card-menu-item" role="menuitem" onclick="event.stopPropagation();openDeepView('${agent.id}')">${icon('terminal', 14)} View Terminal</div>
+            <div class="card-menu-item" role="menuitem" onclick="event.stopPropagation();openEditAgent('${agent.id}')">${icon('edit', 14)} Edit</div>
+            <div class="card-menu-item" role="menuitem" onclick="event.stopPropagation();pauseResumeAgent('${agent.id}')">${icon('pause', 14)} Pause/Resume</div>
+            <div class="card-menu-item" role="menuitem" onclick="event.stopPropagation();cloneAgent('${agent.id}')">${icon('copy', 14)} Clone</div>
+            <div class="card-menu-item" role="menuitem" onclick="event.stopPropagation();togglePin('${agent.id}')">${icon('pin', 14)} Pin/Unpin</div>
+            <div class="card-menu-item" role="menuitem" onclick="event.stopPropagation();openCompare('${agent.id}')">${icon('columns', 14)} Compare</div>
+            <div class="card-menu-item" role="menuitem" onclick="event.stopPropagation();restartAgent('${agent.id}')">${icon('refresh-cw', 14)} Restart</div>
+            <div class="card-menu-item" role="menuitem" onclick="event.stopPropagation();retryWithTask('${agent.id}')">${icon('rotate-ccw', 14)} Retry with Changes</div>
+            <div class="card-menu-item danger" role="menuitem" onclick="event.stopPropagation();killAgent('${agent.id}')">${icon('x', 14)} Kill</div>
         </div>
     `;
     // Drag-and-drop reordering
@@ -8801,6 +8864,18 @@ function updateAgentCard(card, agent) {
         }
     }
 
+    // Git branch badge
+    const branchBadge = card.querySelector('.card-branch-badge');
+    if (branchBadge) {
+        if (agent.git_branch) {
+            branchBadge.innerHTML = `${icon('git-branch', 10)} ${escapeHtml(agent.git_branch)}`;
+            branchBadge.title = `Branch: ${agent.git_branch}`;
+            branchBadge.style.display = '';
+        } else {
+            branchBadge.style.display = 'none';
+        }
+    }
+
     // Cost badge — show health score if available, otherwise cost
     const costBadge = card.querySelector('.card-cost-badge');
     if (costBadge) {
@@ -8849,6 +8924,7 @@ function updateAgentCard(card, agent) {
         badge.textContent = agent.status;
     }
     badge.className = `status-badge ${agent.status}`;
+    badge.setAttribute('aria-label', `Status: ${badge.textContent}`);
 
     // Status duration — show how long agent has been in current status
     const durEl = card.querySelector('.card-status-duration');
@@ -9134,6 +9210,14 @@ function openSpawnDialog() {
         recentTasksList.style.display = 'none';
     }
 
+    // Load resumable sessions
+    loadResumeSessions();
+
+    // Reset resume mode
+    document.getElementById('resumeSessionId').value = '';
+    const spawnBtn = document.querySelector('.spawn-dialog .btn-primary');
+    if (spawnBtn) spawnBtn.innerHTML = 'Spawn Agent <span style="font-size:9px;opacity:0.6;margin-left:4px">\u2318\u21b5</span>';
+
     setTimeout(() => document.getElementById('spawnTask').focus(), 100);
     trapFocus(document.getElementById('spawnOverlay'));
 
@@ -9182,6 +9266,107 @@ function closeSpawnDialog() {
     releaseFocus();
     document.getElementById('spawnOverlay').classList.remove('active');
     state.view = 'grid';
+}
+
+async function loadResumeSessions() {
+    const section = document.getElementById('resumeSessionsSection');
+    const list = document.getElementById('resumeSessionsList');
+    try {
+        const res = await apiFetch('/api/sessions/resumable?limit=10');
+        if (!res.ok) { section.style.display = 'none'; return; }
+        const data = await res.json();
+        const sessions = (data.sessions || []).filter(s => {
+            const b = state.backends?.[s.backend];
+            return !b || b.supports_session_resume !== false;
+        });
+        if (!sessions.length) { section.style.display = 'none'; return; }
+        section.style.display = '';
+        list.innerHTML = sessions.slice(0, 5).map(s => {
+            const roleInfo = ROLE_INFO[s.role] || ROLE_INFO.general;
+            const color = roleInfo.color;
+            const taskPreview = (s.task || '').length > 60 ? s.task.slice(0, 60) + '...' : (s.task || 'No task');
+            const dur = s.duration_sec ? formatDuration(s.duration_sec) : '';
+            const ago = s.completed_at ? timeAgo(new Date(s.completed_at)) : '';
+            return `<div class="resume-session-item" onclick="selectResumeSession('${s.id}')" data-session='${JSON.stringify(s).replace(/'/g, "&#39;")}'>
+                <div class="rs-icon" style="background:color-mix(in srgb, ${color} 15%, transparent);color:${color}">${roleIcon(s.role, 14)}</div>
+                <div class="rs-info"><div class="rs-name">${escapeHtml(s.name || s.role)}</div><div class="rs-task">${escapeHtml(taskPreview)}</div></div>
+                <div class="rs-meta">${dur ? dur + '<br>' : ''}${ago}</div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        section.style.display = 'none';
+    }
+}
+
+function selectResumeSession(sessionId) {
+    const item = document.querySelector(`.resume-session-item[onclick*="'${sessionId}'"]`);
+    if (!item) return;
+    const session = JSON.parse(item.dataset.session);
+
+    // Pre-fill spawn form
+    if (session.role) {
+        state.selectedRole = session.role;
+        document.querySelectorAll('#roleGrid .role-option').forEach(o => {
+            o.classList.toggle('selected', o.dataset.role === session.role);
+        });
+    }
+    if (session.working_dir) document.getElementById('spawnDir').value = session.working_dir;
+    if (session.task) document.getElementById('spawnTask').value = session.task;
+    if (session.name) document.getElementById('spawnName').value = session.name;
+    if (session.backend) document.getElementById('spawnBackend').value = session.backend;
+    if (session.model) document.getElementById('spawnModel').value = session.model;
+    if (session.project_id) document.getElementById('spawnProject').value = session.project_id;
+    if (session.plan_mode) document.getElementById('planModeToggle').classList.add('active');
+    else document.getElementById('planModeToggle').classList.remove('active');
+    if (session.tools_allowed && Array.isArray(session.tools_allowed)) {
+        document.getElementById('spawnTools').value = session.tools_allowed.join(',');
+    }
+
+    // Set resume session ID
+    document.getElementById('resumeSessionId').value = sessionId;
+    const spawnBtn = document.querySelector('.spawn-dialog .btn-primary');
+    if (spawnBtn) spawnBtn.innerHTML = 'Resume Agent <span style="font-size:9px;opacity:0.6;margin-left:4px">\u2318\u21b5</span>';
+
+    // Highlight selected item
+    document.querySelectorAll('.resume-session-item').forEach(el => el.style.borderColor = '');
+    item.style.borderColor = 'var(--accent)';
+
+    showToast('Session loaded — click Resume Agent to spawn', 'info');
+}
+
+function timeAgo(date) {
+    const sec = Math.floor((Date.now() - date.getTime()) / 1000);
+    if (sec < 60) return 'just now';
+    if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+    if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+    return Math.floor(sec / 86400) + 'd ago';
+}
+
+function filterByBranch(branch) {
+    state.selectedBranch = branch || null;
+    renderAgentGrid();
+}
+
+function updateBranchFilter() {
+    const sel = document.getElementById('branchSelector');
+    const branches = new Set();
+    for (const agent of state.agents.values()) {
+        if (agent.git_branch) branches.add(agent.git_branch);
+    }
+    if (branches.size === 0) {
+        sel.style.display = 'none';
+        return;
+    }
+    sel.style.display = '';
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All Branches</option>';
+    for (const b of [...branches].sort()) {
+        const opt = document.createElement('option');
+        opt.value = b;
+        opt.textContent = b;
+        sel.appendChild(opt);
+    }
+    sel.value = current;
 }
 
 const FLEET_PRESETS = {
@@ -9373,22 +9558,33 @@ async function spawnAgent() {
         const model = document.getElementById('spawnModel')?.value || undefined;
         const toolsRaw = document.getElementById('spawnTools')?.value?.trim();
         const tools = toolsRaw ? toolsRaw.split(',').map(t => t.trim()).filter(Boolean) : undefined;
+        const resumeSessionId = document.getElementById('resumeSessionId')?.value;
 
-        const resp = await apiFetch('/api/agents', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                role: state.selectedRole,
-                name: name || undefined,
-                working_dir: dir || undefined,
-                task,
-                plan_mode: planMode,
-                project_id: projectId,
-                backend,
-                model,
-                tools,
-            }),
-        });
+        let resp;
+        if (resumeSessionId) {
+            // Resume mode — call session resume endpoint
+            resp = await apiFetch(`/api/sessions/${resumeSessionId}/resume`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task, plan_mode: planMode, model, tools }),
+            });
+        } else {
+            resp = await apiFetch('/api/agents', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    role: state.selectedRole,
+                    name: name || undefined,
+                    working_dir: dir || undefined,
+                    task,
+                    plan_mode: planMode,
+                    project_id: projectId,
+                    backend,
+                    model,
+                    tools,
+                }),
+            });
+        }
         const data = await resp.json();
         if (!resp.ok) {
             const errEl = document.createElement('div');
@@ -12243,11 +12439,15 @@ async function openHistory() {
 }
 
 async function resumeSession(sessionId) {
+    const continueMsg = prompt('Optional: add continuation instructions (leave blank to resume as-is)');
+    if (continueMsg === null) return; // User cancelled
     try {
+        const body = {};
+        if (continueMsg.trim()) body.continue_message = continueMsg.trim();
         const res = await apiFetch(`/api/sessions/${sessionId}/resume`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
+            body: JSON.stringify(body),
         });
         if (!res.ok) {
             const err = await res.json();
@@ -16281,7 +16481,7 @@ function renderAgentTable() {
             <td>${hs}%</td>
             <td>${agent.files_touched || 0}</td>
             <td>${cost > 0 ? '$' + cost.toFixed(4) : '-'}</td>
-            <td><button class="card-menu-btn" onclick="event.stopPropagation();toggleCardMenu('${agent.id}')" style="border:none;background:none;cursor:pointer;color:var(--text-secondary)">⋯</button></td>
+            <td><button class="card-menu-btn" onclick="event.stopPropagation();toggleCardMenu('${agent.id}')" aria-haspopup="true" aria-label="Agent actions menu" style="border:none;background:none;cursor:pointer;color:var(--text-secondary)">⋯</button></td>
         `;
         tbody.appendChild(tr);
     }
@@ -17519,22 +17719,26 @@ async function togglePauseAll() {
         // Resume all paused agents
         const paused = agents.filter(a => a.status === 'paused');
         if (paused.length === 0) { showToast('No paused agents to resume', 'info'); return; }
+        let resumeErrors = 0;
         for (const a of paused) {
-            try { await fetch(`/api/agents/${a.id}/resume`, { method: 'POST' }); } catch (e) {}
+            try { await fetch(`/api/agents/${a.id}/resume`, { method: 'POST' }); } catch (e) { resumeErrors++; }
         }
         _allPaused = false;
         btn.textContent = '⏸ Pause All';
-        showToast(`Resumed ${paused.length} agents`, 'success');
+        if (resumeErrors > 0) showToast(`Resumed ${paused.length - resumeErrors}/${paused.length} agents (${resumeErrors} failed)`, 'warning');
+        else showToast(`Resumed ${paused.length} agents`, 'success');
     } else {
         // Pause all active agents
         const active = agents.filter(a => ['working', 'planning', 'reading', 'idle'].includes(a.status));
         if (active.length === 0) { showToast('No active agents to pause', 'info'); return; }
+        let pauseErrors = 0;
         for (const a of active) {
-            try { await fetch(`/api/agents/${a.id}/pause`, { method: 'POST' }); } catch (e) {}
+            try { await fetch(`/api/agents/${a.id}/pause`, { method: 'POST' }); } catch (e) { pauseErrors++; }
         }
         _allPaused = true;
         btn.textContent = '▶ Resume All';
-        showToast(`Paused ${active.length} agents`, 'warning');
+        if (pauseErrors > 0) showToast(`Paused ${active.length - pauseErrors}/${active.length} agents (${pauseErrors} failed)`, 'warning');
+        else showToast(`Paused ${active.length} agents`, 'warning');
     }
 }
 

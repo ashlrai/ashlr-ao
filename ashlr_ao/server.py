@@ -458,8 +458,8 @@ def load_config(has_claude: bool = True) -> Config:
             except Exception:
                 Path(tmp_path).unlink(missing_ok=True)
                 raise
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning(f"Failed to save auto-generated auth token to config: {e}")
 
     # ASHLR_PORT env var overrides config file
     port_raw = os.environ.get("ASHLR_PORT")
@@ -1093,6 +1093,7 @@ class Agent:
     plan_mode: bool = False
     owner_id: str | None = None
     owner_name: str | None = None
+    git_branch: str | None = None
     workflow_run_id: str | None = None
     tokens_input: int = 0
     tokens_output: int = 0
@@ -1253,6 +1254,7 @@ class Agent:
             "estimated_cost_usd": round(self.estimated_cost_usd, 4),
             "cost_burn_rate": self._cost_burn_rate(),
             "plan_mode": self.plan_mode,
+            "git_branch": self.git_branch,
             "owner_id": self.owner_id,
             "owner_name": self.owner_name,
             "cost_is_estimated": True,
@@ -1716,8 +1718,8 @@ class AgentManager:
             result = await self._run_tmux(["list-panes", "-t", session, "-F", "#{pane_pid}"])
             if result.returncode == 0 and result.stdout.strip():
                 return int(result.stdout.strip().split("\n")[0])
-        except (ValueError, Exception):
-            pass
+        except (ValueError, Exception) as e:
+            log.debug(f"Failed to get tmux pane PID for {session}: {e}")
         return None
 
     # ── Backend resolution ──
@@ -1843,6 +1845,21 @@ class AgentManager:
         agent.last_output_time = time.monotonic()
         self.agents[agent_id] = agent
         self._total_spawned += 1
+
+        # Detect initial git branch from working directory
+        try:
+            loop = asyncio.get_running_loop()
+            branch = await asyncio.wait_for(
+                loop.run_in_executor(None, lambda: subprocess.run(
+                    ["git", "-C", working_dir, "branch", "--show-current"],
+                    capture_output=True, text=True, timeout=3,
+                ).stdout.strip()),
+                timeout=5.0,
+            )
+            if branch:
+                agent.git_branch = branch
+        except Exception:
+            pass  # Not a git repo or git not available
 
         # Pre-flight: kill any orphaned tmux session with this name (rare UUID collision)
         try:
@@ -3549,6 +3566,7 @@ class OutputIntelligenceParser:
     _GIT_BRANCH = re.compile(r'git (?:branch|switch)\s+(\S+)')
     _GIT_PUSH = re.compile(r'git push\s+(\S+)')
     _GIT_MERGE = re.compile(r'git merge\s+(\S+)')
+    _GIT_SWITCHED = re.compile(r"Switched to (?:a new )?branch '([^']+)'")
     _COMMIT_SHA = re.compile(r'\b([0-9a-f]{7,40})\b.*(?:commit|created|pushed)')
 
     # Test result patterns
@@ -3630,15 +3648,24 @@ class OutputIntelligenceParser:
             ]:
                 m = git_re.search(stripped)
                 if m:
+                    detail = m.group(1)
                     gop = GitOperation(
                         agent_id=agent.id,
                         operation=git_op,
-                        detail=m.group(1),
+                        detail=detail,
                         timestamp=now,
                     )
                     agent._git_operations.append(gop)
                     counts["git"] += 1
+                    # Track branch changes (checkout/switch to a branch, not file restores)
+                    if git_op in ("checkout", "branch") and not detail.startswith("-") and not detail.startswith("."):
+                        agent.git_branch = detail
                     break
+
+            # Also detect git's "Switched to branch" response output
+            sw = self._GIT_SWITCHED.search(stripped)
+            if sw:
+                agent.git_branch = sw.group(1)
 
             # Test results
             for test_re, framework in [
@@ -4029,8 +4056,8 @@ def estimate_progress(agent: Agent) -> float:
             # Agents typically run 60–300s; add small time bonus
             time_bonus = min(0.10, elapsed / 600)
             return min(1.0, base + time_bonus)
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug(f"Context time bonus calculation failed: {e}")
     return base
 
 
@@ -4348,6 +4375,9 @@ class Database:
                 "ALTER TABLE agents_history ADD COLUMN plan_mode INTEGER DEFAULT 0",
                 "ALTER TABLE agents_history ADD COLUMN owner_id TEXT DEFAULT ''",
                 "ALTER TABLE projects ADD COLUMN org_id TEXT DEFAULT ''",
+                "ALTER TABLE agents_history ADD COLUMN model TEXT DEFAULT ''",
+                "ALTER TABLE agents_history ADD COLUMN tools_allowed TEXT DEFAULT ''",
+                "ALTER TABLE agents_history ADD COLUMN git_branch TEXT DEFAULT ''",
             ]:
                 try:
                     await self._db.execute(col_sql)
@@ -4674,18 +4704,23 @@ class Database:
         resumable = 1 if agent.status in ("complete", "working", "planning", "idle") else 0
 
         try:
+            tools_json = json.dumps(agent.tools_allowed) if isinstance(agent.tools_allowed, list) else ""
+        except (TypeError, ValueError):
+            tools_json = ""
+        try:
             await self._db.execute(
                 """INSERT OR REPLACE INTO agents_history
                    (id, name, role, project_id, task, summary, status, working_dir,
                     backend, created_at, completed_at, duration_sec, context_pct, output_preview,
                     tokens_input, tokens_output, estimated_cost_usd,
-                    resumable, system_prompt, plan_mode)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    resumable, system_prompt, plan_mode, model, tools_allowed, git_branch)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (agent.id, agent.name, agent.role, agent.project_id, agent.task,
                  agent.summary, agent.status, agent.working_dir, agent.backend,
                  agent.created_at, completed_at, duration, agent.context_pct, output_preview,
                  agent.tokens_input, agent.tokens_output, agent.estimated_cost_usd,
-                 resumable, getattr(agent, 'system_prompt', ''), int(agent.plan_mode)),
+                 resumable, getattr(agent, 'system_prompt', ''), int(agent.plan_mode),
+                 agent.model or "", tools_json, getattr(agent, 'git_branch', '') or ""),
             )
             await self._safe_commit()
         except Exception as e:
@@ -4737,14 +4772,27 @@ class Database:
             async with self._db.execute(
                 """SELECT id, name, role, project_id, task, summary, status, working_dir,
                           backend, created_at, completed_at, duration_sec, context_pct,
-                          resumable, plan_mode
+                          resumable, plan_mode, model, tools_allowed, git_branch
                    FROM agents_history
                    WHERE resumable = 1
                    ORDER BY completed_at DESC LIMIT ?""",
                 (limit,),
             ) as cur:
                 rows = await cur.fetchall()
-                return [dict(r) for r in rows]
+                results = []
+                for r in rows:
+                    d = dict(r)
+                    # Parse tools_allowed from JSON string back to list
+                    ta = d.get("tools_allowed", "")
+                    if ta and isinstance(ta, str):
+                        try:
+                            d["tools_allowed"] = json.loads(ta)
+                        except (json.JSONDecodeError, TypeError):
+                            d["tools_allowed"] = None
+                    else:
+                        d["tools_allowed"] = None
+                    results.append(d)
+                return results
         except Exception:
             return []
 
@@ -4902,6 +4950,39 @@ class Database:
         async with self._db.execute("DELETE FROM projects WHERE id = ?", (project_id,)) as cur:
             await self._safe_commit()
             return cur.rowcount > 0
+
+    async def get_project(self, project_id: str) -> dict | None:
+        """Get a single project by ID."""
+        if not self._db:
+            return None
+        try:
+            async with self._db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)) as cur:
+                row = await cur.fetchone()
+                return dict(row) if row else None
+        except Exception:
+            return None
+
+    async def update_project(self, project_id: str, updates: dict) -> dict | None:
+        """Update a project's name, path, and/or description. Returns updated project or None."""
+        if not self._db:
+            return None
+        existing = await self.get_project(project_id)
+        if not existing:
+            return None
+        name = updates.get("name", existing["name"])
+        path = updates.get("path", existing["path"])
+        description = updates.get("description", existing.get("description", ""))
+        now = datetime.now(timezone.utc).isoformat()
+        try:
+            await self._db.execute(
+                "UPDATE projects SET name = ?, path = ?, description = ?, updated_at = ? WHERE id = ?",
+                (name, path, description, now, project_id),
+            )
+            await self._safe_commit()
+            return await self.get_project(project_id)
+        except Exception as e:
+            log.warning(f"Failed to update project {project_id}: {e}")
+            return None
 
     # ── Workflows ──
 
@@ -5282,9 +5363,14 @@ class RateLimiter:
 
     def __init__(self) -> None:
         self._buckets: dict[str, dict] = {}  # ip -> {tokens, last_refill}
+        self._check_count: int = 0
 
     def check(self, ip: str, cost: float = 1.0, rate: float = 1.0, burst: float = 10.0) -> tuple[bool, float]:
         """Returns (allowed, retry_after_seconds). Rate is tokens/sec, burst is max tokens."""
+        self._check_count += 1
+        if self._check_count % 100 == 0:
+            cutoff = time.monotonic() - 3600
+            self._buckets = {k: v for k, v in self._buckets.items() if v["last_refill"] > cutoff}
         now = time.monotonic()
         bucket = self._buckets.get(ip)
         if not bucket:
@@ -5390,27 +5476,30 @@ async def rate_limit_middleware(request: web.Request, handler):
 
 @web.middleware
 async def request_logging_middleware(request: web.Request, handler):
-    """Log API request method, path, status, and duration. Warns on slow requests (>1s)."""
+    """Log API request method, path, status, duration, user, and body size."""
     if not request.path.startswith("/api/"):
         return await handler(request)
     # Increment request counter on manager (avoids mutating started app state)
     request.app["agent_manager"]._total_api_requests += 1
     start = time.monotonic()
+    user = request.get("user")
+    user_id = user.id if user else "-"
+    body_size = request.content_length or 0
     try:
         response = await handler(request)
-        duration = time.monotonic() - start
-        if duration > 1.0:
-            log.warning(f"SLOW {request.method} {request.path} → {response.status} ({duration:.2f}s)")
+        duration_ms = (time.monotonic() - start) * 1000
+        if duration_ms > 1000:
+            log.warning(f"SLOW {request.method} {request.path} [{user_id}] → {response.status} ({duration_ms:.0f}ms, {body_size}B)")
         else:
-            log.debug(f"{request.method} {request.path} → {response.status} ({duration:.3f}s)")
+            log.debug(f"{request.method} {request.path} [{user_id}] → {response.status} ({duration_ms:.0f}ms)")
         return response
     except web.HTTPException as e:
-        duration = time.monotonic() - start
-        log.debug(f"{request.method} {request.path} → {e.status} ({duration:.3f}s)")
+        duration_ms = (time.monotonic() - start) * 1000
+        log.debug(f"{request.method} {request.path} [{user_id}] → {e.status} ({duration_ms:.0f}ms)")
         raise
     except Exception as e:
-        duration = time.monotonic() - start
-        log.warning(f"{request.method} {request.path} → 500 ({duration:.3f}s) {e}")
+        duration_ms = (time.monotonic() - start) * 1000
+        log.warning(f"{request.method} {request.path} [{user_id}] → 500 ({duration_ms:.0f}ms) {e}")
         raise
 
 
@@ -5433,6 +5522,23 @@ async def compression_middleware(request: web.Request, handler):
             response.body = compressed
             response.headers["Content-Encoding"] = "gzip"
             response.headers["Content-Length"] = str(len(compressed))
+    return response
+
+
+@web.middleware
+async def security_headers_middleware(request: web.Request, handler):
+    """Add security headers including Content-Security-Policy."""
+    response = await handler(request)
+    # CSP: allow inline styles/scripts (required for single-file dashboard)
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
+        "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; "
+        "img-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none'"
+    )
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     return response
 
 
@@ -5539,8 +5645,8 @@ class WebSocketHub:
                         log.warning(f"WebSocket message handling error: {e}")
                         try:
                             await ws.send_json({"type": "error", "message": f"Internal error: {e}"})
-                        except Exception:
-                            pass
+                        except Exception as e2:
+                            log.debug(f"Failed to send WS error response: {e2}")
                 elif msg.type == aiohttp.WSMsgType.ERROR:
                     log.error(f"WebSocket error: {ws.exception()}")
                     break
@@ -5561,11 +5667,28 @@ class WebSocketHub:
 
         return ws
 
+    def _ws_rate_check(self, ws: web.WebSocketResponse, operation: str) -> bool:
+        """Check rate limit for expensive WebSocket operations. Returns True if allowed."""
+        app = getattr(self, 'app', None)
+        rl: RateLimiter | None = app.get("rate_limiter") if app else None
+        if not rl:
+            return True
+        meta = self.client_meta.get(ws, {})
+        key = f"ws:{meta.get('user_id', 'anon')}:{operation}"
+        # Spawn: 2/sec burst 5, bulk: 0.5/sec burst 3
+        rates = {"spawn": (2.0, 5.0), "bulk-action": (0.5, 3.0)}
+        rate, burst = rates.get(operation, (2.0, 10.0))
+        allowed, _ = rl.check(key, cost=1.0, rate=rate, burst=burst)
+        return allowed
+
     async def handle_message(self, data: dict, ws: web.WebSocketResponse) -> None:
         msg_type = data.get("type")
 
         match msg_type:
             case "spawn":
+                if not self._ws_rate_check(ws, "spawn"):
+                    await ws.send_json({"type": "error", "message": "Rate limit exceeded for spawn"})
+                    return
                 task = data.get("task", "")
                 if not isinstance(task, str) or not task.strip():
                     await ws.send_json({"type": "error", "message": "task is required"})
@@ -5756,7 +5879,6 @@ class WebSocketHub:
 
 # ── Auth Middleware ──
 
-@web.middleware
 def _check_agent_ownership(request: web.Request, agent) -> web.Response | None:
     """Check if current user can control this agent. Returns error response or None if allowed."""
     user = request.get("user")
@@ -5779,6 +5901,7 @@ _AUTH_PUBLIC_ROUTES = frozenset({
 })
 
 
+@web.middleware
 async def auth_middleware(request: web.Request, handler) -> web.Response:
     """Session-based auth middleware with bearer token fallback."""
     config: Config = request.app["config"]
@@ -5900,6 +6023,7 @@ async def auth_register(request: web.Request) -> web.Response:
     # Check if email already taken
     existing = await db.get_user_by_email(email)
     if existing:
+        log.warning(f"Rejected registration: duplicate email {email} from {_get_client_ip(request)}")
         return web.json_response({"error": "Email already registered"}, status=409)
 
     user_count = await db.user_count()
@@ -5941,15 +6065,19 @@ async def auth_login(request: web.Request) -> web.Response:
     if not email or not password:
         return web.json_response({"error": "Email and password required"}, status=400)
 
+    ip = _get_client_ip(request)
     user = await db.get_user_by_email(email)
     if not user:
+        log.warning(f"Failed login: unknown email {email} from {ip}")
         return web.json_response({"error": "Invalid credentials"}, status=401)
 
     if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+        log.warning(f"Failed login: wrong password for {email} from {ip}")
         return web.json_response({"error": "Invalid credentials"}, status=401)
 
     session_id = await db.create_session(user.id)
     await db.update_user_login(user.id)
+    log.info(f"Login: {email} from {ip}")
 
     org = await db.get_org(user.org_id) if user.org_id else None
 
@@ -6085,8 +6213,21 @@ async def serve_logo(request: web.Request) -> web.Response:
 
 async def list_agents(request: web.Request) -> web.Response:
     manager: AgentManager = request.app["agent_manager"]
-    agents = [a.to_dict() for a in list(manager.agents.values())]
-    return web.json_response(agents)
+    agents_list = list(manager.agents.values())
+
+    # Optional query filters
+    branch_filter = request.query.get("branch")
+    project_filter = request.query.get("project_id")
+    status_filter = request.query.get("status")
+
+    if branch_filter:
+        agents_list = [a for a in agents_list if a.git_branch == branch_filter]
+    if project_filter:
+        agents_list = [a for a in agents_list if a.project_id == project_filter]
+    if status_filter:
+        agents_list = [a for a in agents_list if a.status == status_filter]
+
+    return web.json_response([a.to_dict() for a in agents_list])
 
 
 def _check_rate(request: web.Request, cost: float = 1.0, rate: float = 5.0, burst: float = 10.0) -> web.Response | None:
@@ -6365,8 +6506,8 @@ async def add_agent_bookmark(request: web.Request) -> web.Response:
     # Persist to SQLite
     try:
         await db.add_bookmark(agent_id, line_idx, text[:200], label[:100], color)
-    except Exception:
-        pass  # In-memory bookmark still works
+    except Exception as e:
+        log.debug(f"Failed to persist bookmark to DB: {e}")
     return web.json_response({"status": "added", "bookmark": bookmark})
 
 
@@ -6565,8 +6706,8 @@ async def fleet_analytics(request: web.Request) -> web.Response:
                 created = datetime.fromisoformat(a.created_at.replace('Z', '+00:00'))
                 age_min = (datetime.now(timezone.utc) - created).total_seconds() / 60
                 lifespans.append(age_min)
-            except Exception:
-                pass
+            except Exception as e:
+                log.debug(f"Failed to parse agent lifespan for {a.id}: {e}")
     avg_lifespan_min = sum(lifespans) / len(lifespans) if lifespans else 0
 
     # Historical count
@@ -6727,8 +6868,8 @@ async def health_detailed(request: web.Request) -> web.Response:
     if db and hasattr(db, 'db_path'):
         try:
             db_size_mb = Path(db.db_path).stat().st_size / (1024 * 1024)
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug(f"Failed to get DB file size: {e}")
 
     # Background task health
     bg_tasks = request.app.get("_bg_tasks", {})
@@ -6877,8 +7018,8 @@ async def get_server_stats(request: web.Request) -> web.Response:
     try:
         if db.db_path.exists():
             db_size_mb = round(db.db_path.stat().st_size / (1024 * 1024), 2)
-    except Exception:
-        pass
+    except Exception as e:
+        log.debug(f"Failed to get DB file size for costs: {e}")
 
     # Request count from logging middleware (tracked on manager)
     request_count = manager._total_api_requests
@@ -7171,7 +7312,7 @@ async def put_config(request: web.Request) -> web.Response:
     validators = {
         "max_agents": lambda v: isinstance(v, int) and 1 <= v <= 100,
         "default_role": lambda v: isinstance(v, str) and v in BUILTIN_ROLES,
-        "default_working_dir": lambda v: isinstance(v, str) and len(v) > 0,
+        "default_working_dir": lambda v: isinstance(v, str) and len(v) > 0 and os.path.isdir(os.path.realpath(os.path.expanduser(v))),
         "output_capture_interval": lambda v: isinstance(v, (int, float)) and 0.5 <= v <= 30.0,
         "memory_limit_mb": lambda v: isinstance(v, int) and 256 <= v <= 32768,
         "default_backend": lambda v: isinstance(v, str) and v in config.backends,
@@ -7188,6 +7329,8 @@ async def put_config(request: web.Request) -> web.Response:
         "cost_budget_usd": lambda v: isinstance(v, (int, float)) and v >= 0,
         "cost_budget_auto_pause": lambda v: isinstance(v, bool),
         "llm_meta_interval": lambda v: isinstance(v, (int, float)) and 5.0 <= v <= 300.0,
+        "log_level": lambda v: isinstance(v, str) and v.upper() in {"DEBUG", "INFO", "WARNING", "ERROR"},
+        "host": lambda v: isinstance(v, str) and len(v) > 0 and all(c.isalnum() or c in ".-:" for c in v),
     }
 
     # Clamp max_restarts to [1, 10] range
@@ -7198,6 +7341,15 @@ async def put_config(request: web.Request) -> web.Response:
     for key, value in data.items():
         if key in validators and not validators[key](value):
             errors.append(f"Invalid value for {key}: {value}")
+
+    # Validate alert_patterns compile as regex
+    if "alert_patterns" in data and isinstance(data["alert_patterns"], list):
+        for i, ap in enumerate(data["alert_patterns"]):
+            if isinstance(ap, dict) and "pattern" in ap:
+                try:
+                    re.compile(ap["pattern"])
+                except re.error as e:
+                    errors.append(f"Invalid regex in alert_patterns[{i}]: {e}")
 
     if errors:
         return web.json_response({"error": "; ".join(errors)}, status=400)
@@ -7251,8 +7403,8 @@ async def put_config(request: web.Request) -> web.Response:
         log.warning(f"Failed to save config to disk: {e}")
         try:
             tmp_path.unlink(missing_ok=True)
-        except Exception:
-            pass
+        except Exception as e2:
+            log.debug(f"Failed to clean up temp config file: {e2}")
         # Do NOT update in-memory config — disk write failed
         return web.json_response({"error": f"Failed to save: {e}", "config": config.to_dict()}, status=500)
 
@@ -7334,6 +7486,50 @@ async def delete_project(request: web.Request) -> web.Response:
     if success:
         return web.json_response({"status": "deleted"})
     return web.json_response({"error": "Project not found"}, status=404)
+
+
+async def update_project(request: web.Request) -> web.Response:
+    """PUT /api/projects/{id} — update project name, path, or description."""
+    db: Database = request.app["db"]
+    hub: WebSocketHub = request.app["ws_hub"]
+    project_id = request.match_info["id"]
+
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    if not isinstance(data, dict) or not data:
+        return web.json_response({"error": "Request body must be a non-empty JSON object"}, status=400)
+
+    # Validate path if provided
+    if "path" in data:
+        path = data["path"]
+        if not isinstance(path, str) or not path:
+            return web.json_response({"error": "path must be a non-empty string"}, status=400)
+        resolved_path = os.path.realpath(os.path.expanduser(path))
+        if not os.path.isdir(resolved_path):
+            return web.json_response({"error": f"Path is not a valid directory: {resolved_path}"}, status=400)
+        home = str(Path.home())
+        if not (resolved_path.startswith(home) or resolved_path.startswith("/tmp") or resolved_path.startswith("/private/tmp")):
+            return web.json_response({"error": "Project path must be under home directory or /tmp"}, status=400)
+        data["path"] = resolved_path
+
+    # Validate name if provided
+    if "name" in data:
+        name = data["name"]
+        if not isinstance(name, str) or not name.strip():
+            return web.json_response({"error": "name must be a non-empty string"}, status=400)
+        data["name"] = name.strip()
+
+    updated = await db.update_project(project_id, data)
+    if not updated:
+        return web.json_response({"error": "Project not found"}, status=404)
+
+    # Broadcast update to all connected clients
+    await hub.broadcast({"type": "project_updated", "project": updated})
+
+    return web.json_response(updated)
 
 
 # ── Workflow endpoints ──
@@ -7747,6 +7943,9 @@ async def handoff_agent(request: web.Request) -> web.Response:
     if not from_agent:
         return web.json_response({"error": "Source agent not found"}, status=404)
 
+    if err := _check_agent_ownership(request, from_agent):
+        return err
+
     try:
         data = await request.json()
     except json.JSONDecodeError:
@@ -7944,6 +8143,8 @@ async def create_agent_snapshot(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    if err := _check_agent_ownership(request, agent):
+        return err
     snap = agent.create_snapshot(trigger="manual")
     return web.json_response(snap.to_dict(), status=201)
 
@@ -8281,14 +8482,22 @@ async def resume_from_history(request: web.Request) -> web.Response:
         return web.json_response({"error": f"Agent limit reached ({config.max_agents})"}, status=409)
 
     # Spawn a new agent with the archived session's config
+    backend = session.get("backend", config.default_backend)
+    model = data.get("model") or session.get("model") or None
+    tools_raw = data.get("tools") or session.get("tools_allowed") or None
+    tools = tools_raw if isinstance(tools_raw, list) else None
+
     try:
         new_agent = await manager.spawn(
             name=session.get("name", "resumed"),
             role=session.get("role", "general"),
             task=task,
             working_dir=working_dir,
-            backend=session.get("backend", config.default_backend),
+            backend=backend,
             plan_mode=plan_mode,
+            model=model,
+            tools=tools,
+            resume_session=session_id,
         )
         if session.get("project_id"):
             new_agent.project_id = session["project_id"]
@@ -8607,8 +8816,8 @@ async def import_config(request: web.Request) -> web.Response:
         try:
             with open(config_path) as f:
                 current = yaml.safe_load(f) or {}
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug(f"Failed to load current config for diff preview: {e}")
 
     # Build diff for preview
     def flat_diff(old: dict, new: dict, prefix: str = "") -> list[dict]:
@@ -8911,6 +9120,9 @@ async def patch_agent(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+
+    if err := _check_agent_ownership(request, agent):
+        return err
 
     try:
         data = await request.json()
@@ -10106,9 +10318,24 @@ async def _supervised_task(name: str, coro_fn, app: web.Application) -> None:
                         "restart": restart_count,
                         "error": str(e)[:200],
                     })
-                except Exception:
-                    pass  # Don't let broadcast failure block restart
+                except Exception as e:
+                    log.debug(f"Broadcast failure during task restart: {e}")
             await asyncio.sleep(min(5 * restart_count, 30))  # back off
+
+
+async def archive_cleanup_loop(app: web.Application) -> None:
+    """Periodically clean up old archived agent history (every 1hr, 48hr retention)."""
+    while True:
+        await asyncio.sleep(3600)  # Run every hour
+        db: Database = app["db"]
+        if not app.get("db_available", True):
+            continue
+        try:
+            deleted = await db.cleanup_old_archives(retention_hours=48)
+            if deleted > 0:
+                log.info(f"Archive cleanup: removed {deleted} old records")
+        except Exception as e:
+            log.warning(f"Archive cleanup failed: {e}")
 
 
 async def start_background_tasks(app: web.Application) -> None:
@@ -10132,6 +10359,7 @@ async def start_background_tasks(app: web.Application) -> None:
         asyncio.create_task(_supervised_task("metrics", metrics_loop, app)),
         asyncio.create_task(_supervised_task("health_check", health_check_loop, app)),
         asyncio.create_task(_supervised_task("memory_watchdog", memory_watchdog_loop, app)),
+        asyncio.create_task(_supervised_task("archive_cleanup", archive_cleanup_loop, app)),
     ]
     # Meta-agent intelligence task (only if intelligence client is available)
     intel = app.get("intelligence")
@@ -10144,10 +10372,13 @@ async def start_background_tasks(app: web.Application) -> None:
 async def cleanup_background_tasks(app: web.Application) -> None:
     for task in app.get("bg_tasks", []):
         task.cancel()
+    for task in app.get("bg_tasks", []):
         try:
-            await task
-        except asyncio.CancelledError:
+            await asyncio.wait_for(asyncio.shield(task), timeout=5.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
             pass
+        except Exception as e:
+            log.warning(f"Background task cleanup error: {e}")
 
     # Archive remaining agents to history
     db: Database = app["db"]
@@ -10173,10 +10404,10 @@ async def cleanup_background_tasks(app: web.Application) -> None:
 
 
 def create_app(config: Config) -> web.Application:
-    middlewares = [request_logging_middleware, compression_middleware, rate_limit_middleware]
+    middlewares = [security_headers_middleware, request_logging_middleware, compression_middleware, rate_limit_middleware]
     if config.require_auth:
         middlewares.append(auth_middleware)
-    app = web.Application(middlewares=middlewares)
+    app = web.Application(middlewares=middlewares, client_max_size=10 * 1024 * 1024)
     app["config"] = config
 
     manager = AgentManager(config)
@@ -10298,6 +10529,7 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/projects", list_projects)
     app.router.add_post("/api/projects", create_project)
     app.router.add_delete("/api/projects/{id}", delete_project)
+    app.router.add_put("/api/projects/{id}", update_project)
 
     # REST API — Workflows
     app.router.add_get("/api/workflows", list_workflows)
