@@ -4,12 +4,20 @@ Ashlr AO — Licensing
 Ed25519-signed JWT license validation. Offline-first, no phone-home.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 import jwt
 
 from ashlr_ao.constants import log
+
+if TYPE_CHECKING:
+    from aiohttp import web
+
+    from ashlr_ao.config import Config
 
 
 PRO_FEATURES: frozenset[str] = frozenset({
@@ -104,3 +112,34 @@ def validate_license(key: str) -> License:
     except Exception as e:
         log.warning(f"License validation failed: {e}")
         return COMMUNITY_LICENSE
+
+
+# ─────────────────────────────────────────────
+# License Enforcement Helpers
+# ─────────────────────────────────────────────
+
+def _effective_max_agents(app: web.Application) -> int:
+    """Return the effective max agents, clamped to license limit."""
+    from ashlr_ao.config import Config as _Config  # runtime import
+
+    config: _Config = app["config"]
+    lic: License = app.get("license", COMMUNITY_LICENSE)
+    if lic.is_pro:
+        return min(config.max_agents, lic.max_agents)
+    return min(config.max_agents, COMMUNITY_LICENSE.max_agents)
+
+
+def _check_feature(request: web.Request, feature: str) -> web.Response | None:
+    """Return a 403 response if the feature is gated on the current plan, else None."""
+    from aiohttp import web as _web  # runtime import
+
+    lic: License = request.app.get("license", COMMUNITY_LICENSE)
+    if lic.is_pro:
+        return None  # Pro has all features
+    if feature not in PRO_FEATURES:
+        return None  # Not a gated feature
+    return _web.json_response({
+        "error": f"The '{feature}' feature requires a Pro license. Upgrade at https://ashlr.dev/pro",
+        "feature": feature,
+        "current_plan": lic.tier,
+    }, status=403)
