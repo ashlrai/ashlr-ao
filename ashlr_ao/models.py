@@ -106,6 +106,7 @@ class Agent:
     summary: str = ""
     context_pct: float = 0.0
     memory_mb: float = 0.0
+    cpu_pct: float = 0.0
     needs_input: bool = False
     input_prompt: str | None = None
     error_message: str | None = None
@@ -177,6 +178,7 @@ class Agent:
     _memory_pause_warned: bool = field(default=False, repr=False)
     _pressure_paused: bool = field(default=False, repr=False)
     _flood_detected: bool = field(default=False, repr=False)
+    _capture_fail_count: int = field(default=0, repr=False)
     _flood_ticks: int = field(default=0, repr=False)
     _status_updated_at: float = field(default=0.0, repr=False)
     # Intelligence fields
@@ -278,6 +280,7 @@ class Agent:
             "summary": self.summary,
             "context_pct": self.context_pct,
             "memory_mb": self.memory_mb,
+            "cpu_pct": self.cpu_pct,
             "needs_input": self.needs_input,
             "input_prompt": self.input_prompt,
             "error_message": self.error_message,

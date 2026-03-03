@@ -5771,7 +5771,7 @@ body {
             <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></span> License</div>
             <div class="settings-row" style="align-items:center">
                 <span class="settings-label">Current plan</span>
-                <span id="settingsLicenseBadge" style="font-weight:700;font-size:11px;padding:2px 10px;border-radius:10px;background:var(--bg-tertiary);color:var(--text-secondary)">Community</span>
+                <span id="settingsLicenseBadge" style="font-weight:700;font-size:11px;padding:2px 10px;border-radius:10px;background:var(--bg-elevated);color:var(--text-secondary)">Community</span>
             </div>
             <div id="settingsLicenseDetails" style="font-size:11px;color:var(--text-tertiary);margin-bottom:8px"></div>
             <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:6px">
@@ -6658,11 +6658,6 @@ async function openTeamPanel() {
         if (!resp.ok) return;
         const data = await resp.json();
         const users = data.users || [];
-        const html = users.map(u =>
-            `<div style="padding:8px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border-subtle)">` +
-            `<span class="user-avatar">${u.display_name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}</span>` +
-            `<div><div style="font-size:13px">${u.display_name}</div><div style="font-size:11px;color:var(--text-secondary)">${u.email} \u00b7 ${u.role}</div></div></div>`
-        ).join('');
         showToast('Team: ' + users.map(u => u.display_name).join(', '), 'info');
     } catch {}
 }
@@ -7541,7 +7536,7 @@ function updateLicenseBadge() {
         badge.style.border = 'none';
     } else {
         badge.textContent = 'Community';
-        badge.style.background = 'var(--bg-tertiary)';
+        badge.style.background = 'var(--bg-elevated)';
         badge.style.color = 'var(--text-tertiary)';
         badge.style.border = '1px solid var(--border-subtle)';
     }
@@ -7564,7 +7559,7 @@ function updateLicenseSettingsUI() {
             badge.style.color = '#fff';
         } else {
             badge.textContent = 'Community';
-            badge.style.background = 'var(--bg-tertiary)';
+            badge.style.background = 'var(--bg-elevated)';
             badge.style.color = 'var(--text-secondary)';
         }
     }
@@ -7618,7 +7613,8 @@ async function activateLicense() {
 }
 
 async function deactivateLicense() {
-    if (!confirm('Deactivate your Pro license? You will revert to Community (5 agents max).')) return;
+    const ok = await confirmAction('Deactivate License', 'Deactivate your Pro license? You will revert to Community (5 agents max).', 'Deactivate', { iconKey: 'key' });
+    if (!ok) return;
     try {
         const resp = await apiFetch('/api/license/deactivate', { method: 'DELETE' });
         const data = await resp.json();
@@ -8556,13 +8552,15 @@ function createAgentCard(agent) {
         if (card._previewTimer) { clearTimeout(card._previewTimer); card._previewTimer = null; }
         hideCardPreview();
     });
-    card.onclick = () => {
+    card.addEventListener('click', (e) => {
+        // Skip if click was on a data-action element (handled by delegation above)
+        if (e.target.closest('[data-action]')) return;
         if (document.getElementById('agentGrid').classList.contains('bulk-mode')) {
             toggleAgentSelection(agent.id);
             return;
         }
         openDeepView(agent.id);
-    };
+    });
     return card;
 }
 
@@ -14164,6 +14162,7 @@ function _updateCardTimers() {
         const card = cardElements.get(id);
         if (card) {
             const meta = card.querySelector('.card-meta');
+            if (!meta) continue;
             const parts = [];
             if (agent.model) {
                 const shortModel = agent.model.replace(/^claude-/, '').replace(/-\d{8}$/, '').replace(/^grok-/, 'grok ');
@@ -14536,69 +14535,7 @@ async function refreshExtensions() {
     }
 }
 
-async function saveSettings() {
-    const btn = document.querySelector('#settingsOverlay .btn-primary');
-    await withLoading(btn, async () => {
-    const payload = {
-        max_agents: parseInt(document.getElementById('setMaxAgents').value),
-        default_role: document.getElementById('setDefaultRole').value,
-        default_working_dir: document.getElementById('setDefaultDir').value,
-        default_backend: document.getElementById('setDefaultBackend').value,
-        output_capture_interval: parseFloat(document.getElementById('setOutputInterval').value),
-        memory_limit_mb: parseInt(document.getElementById('setMemoryLimit').value),
-        llm_enabled: document.getElementById('setLlmEnabled').classList.contains('active'),
-        llm_model: document.getElementById('setLlmModel').value,
-        llm_summary_interval: parseFloat(document.getElementById('setLlmInterval').value),
-        idle_agent_ttl: parseInt(document.getElementById('setIdleTtl').value),
-        voice_feedback: document.getElementById('setVoiceSounds').classList.contains('active'),
-    };
-
-    // Validate settings
-    const errors = [];
-    if (isNaN(payload.max_agents) || payload.max_agents < 1 || payload.max_agents > 100) errors.push(['setMaxAgents', 'Max agents must be 1-100']);
-    if (isNaN(payload.output_capture_interval) || payload.output_capture_interval < 0.5 || payload.output_capture_interval > 30) errors.push(['setOutputInterval', 'Capture interval must be 0.5-30']);
-    if (isNaN(payload.memory_limit_mb) || payload.memory_limit_mb < 256 || payload.memory_limit_mb > 65536) errors.push(['setMemoryLimit', 'Memory limit must be 256-65536 MB']);
-    if (isNaN(payload.llm_summary_interval) || payload.llm_summary_interval < 5 || payload.llm_summary_interval > 300) errors.push(['setLlmInterval', 'Summary interval must be 5-300s']);
-    if (isNaN(payload.idle_agent_ttl) || payload.idle_agent_ttl < 300 || payload.idle_agent_ttl > 86400) errors.push(['setIdleTtl', 'Idle TTL must be 300-86400s']);
-    // Clear previous errors
-    document.querySelectorAll('#settingsOverlay .field-error').forEach(e => e.remove());
-    document.querySelectorAll('#settingsOverlay .settings-input').forEach(e => e.style.borderColor = '');
-    if (errors.length) {
-        errors.forEach(([fieldId, msg]) => {
-            const field = document.getElementById(fieldId);
-            if (field) {
-                field.style.borderColor = 'var(--danger)';
-                const errEl = document.createElement('div');
-                errEl.className = 'field-error';
-                errEl.style.cssText = 'color:var(--danger);font-size:11px;margin-top:2px';
-                errEl.textContent = msg;
-                field.parentElement.appendChild(errEl);
-            }
-        });
-        showToast('Fix validation errors before saving', 'warning');
-        return;
-    }
-
-    try {
-        const res = await apiFetch('/api/config', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (res.ok) {
-            state.config = data;
-            showToast('Settings saved', 'success');
-            updateIntelligenceStatus();
-            closeSettings();
-        } else {
-            showToast(data.error || 'Failed to save', 'error');
-        }
-    } catch (e) {
-        showToast('Failed to save settings', 'error');
-    }
-    }, 'Saving...');
-}
+// saveSettings is defined later with full alert threshold support
 
 // ── Workflow Editor ──
 
@@ -19544,7 +19481,8 @@ async function createPresetFromSettings() {
 }
 
 async function deletePreset(id) {
-    if (!confirm('Delete this preset?')) return;
+    const ok = await confirmAction('Delete Preset', 'Are you sure you want to delete this preset?', 'Delete', { iconKey: 'trash-2' });
+    if (!ok) return;
     try {
         const res = await apiFetch(`/api/presets/${id}`, { method: 'DELETE' });
         if (res.ok) { showToast('Preset deleted', 'success'); loadSettingsPresets(); }

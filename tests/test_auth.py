@@ -22,9 +22,6 @@ with patch("psutil.cpu_percent", return_value=0.0):
 import bcrypt
 
 
-def run_async(coro):
-    """Helper to run async tests without pytest-asyncio."""
-    return asyncio.run(coro)
 
 
 async def _fresh_db():
@@ -112,42 +109,36 @@ class TestExtractSessionCookie:
 # ─────────────────────────────────────────────
 
 class TestDatabaseOrganizations:
-    def test_create_org(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                org = await db.create_org("Test Org", "test-org")
-                assert org.name == "Test Org"
-                assert org.slug == "test-org"
-                assert len(org.id) == 8
-                assert org.created_at != ""
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_create_org(self):
+        db, path = await _fresh_db()
+        try:
+            org = await db.create_org("Test Org", "test-org")
+            assert org.name == "Test Org"
+            assert org.slug == "test-org"
+            assert len(org.id) == 8
+            assert org.created_at != ""
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_get_org(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                org = await db.create_org("Get Test", "get-test")
-                fetched = await db.get_org(org.id)
-                assert fetched is not None
-                assert fetched.name == "Get Test"
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_get_org(self):
+        db, path = await _fresh_db()
+        try:
+            org = await db.create_org("Get Test", "get-test")
+            fetched = await db.get_org(org.id)
+            assert fetched is not None
+            assert fetched.name == "Get Test"
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_get_nonexistent_org(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                assert await db.get_org("nonexistent") is None
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_get_nonexistent_org(self):
+        db, path = await _fresh_db()
+        try:
+            assert await db.get_org("nonexistent") is None
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
 
 # ─────────────────────────────────────────────
@@ -155,135 +146,117 @@ class TestDatabaseOrganizations:
 # ─────────────────────────────────────────────
 
 class TestDatabaseUsers:
-    def test_create_user(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                pw_hash = bcrypt.hashpw(b"testpass", bcrypt.gensalt()).decode()
-                user = await db.create_user("test@example.com", "Test User", pw_hash, "admin", "org1")
-                assert user.email == "test@example.com"
-                assert user.display_name == "Test User"
-                assert user.role == "admin"
-                assert user.org_id == "org1"
-                assert len(user.id) == 8
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_create_user(self):
+        db, path = await _fresh_db()
+        try:
+            pw_hash = bcrypt.hashpw(b"testpass", bcrypt.gensalt()).decode()
+            user = await db.create_user("test@example.com", "Test User", pw_hash, "admin", "org1")
+            assert user.email == "test@example.com"
+            assert user.display_name == "Test User"
+            assert user.role == "admin"
+            assert user.org_id == "org1"
+            assert len(user.id) == 8
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_get_user_by_email(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                pw_hash = bcrypt.hashpw(b"testpass", bcrypt.gensalt()).decode()
-                await db.create_user("find@me.com", "Find Me", pw_hash)
-                found = await db.get_user_by_email("find@me.com")
-                assert found is not None
-                assert found.display_name == "Find Me"
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_get_user_by_email(self):
+        db, path = await _fresh_db()
+        try:
+            pw_hash = bcrypt.hashpw(b"testpass", bcrypt.gensalt()).decode()
+            await db.create_user("find@me.com", "Find Me", pw_hash)
+            found = await db.get_user_by_email("find@me.com")
+            assert found is not None
+            assert found.display_name == "Find Me"
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_get_user_by_email_case_insensitive(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
-                await db.create_user("UPPER@test.com", "Upper", pw_hash)
-                found = await db.get_user_by_email("upper@test.com")
-                assert found is not None
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_get_user_by_email_case_insensitive(self):
+        db, path = await _fresh_db()
+        try:
+            pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
+            await db.create_user("UPPER@test.com", "Upper", pw_hash)
+            found = await db.get_user_by_email("upper@test.com")
+            assert found is not None
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_get_user_by_id(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
-                user = await db.create_user("byid@test.com", "ById", pw_hash)
-                found = await db.get_user_by_id(user.id)
-                assert found is not None
-                assert found.email == "byid@test.com"
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_get_user_by_id(self):
+        db, path = await _fresh_db()
+        try:
+            pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
+            user = await db.create_user("byid@test.com", "ById", pw_hash)
+            found = await db.get_user_by_id(user.id)
+            assert found is not None
+            assert found.email == "byid@test.com"
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_duplicate_email_rejected(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
-                await db.create_user("dup@test.com", "First", pw_hash)
-                with pytest.raises(Exception):
-                    await db.create_user("dup@test.com", "Second", pw_hash)
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_duplicate_email_rejected(self):
+        db, path = await _fresh_db()
+        try:
+            pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
+            await db.create_user("dup@test.com", "First", pw_hash)
+            with pytest.raises(Exception):
+                await db.create_user("dup@test.com", "Second", pw_hash)
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_user_count(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                assert await db.user_count() == 0
-                pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
-                await db.create_user("one@test.com", "One", pw_hash)
-                assert await db.user_count() == 1
-                await db.create_user("two@test.com", "Two", pw_hash)
-                assert await db.user_count() == 2
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_user_count(self):
+        db, path = await _fresh_db()
+        try:
+            assert await db.user_count() == 0
+            pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
+            await db.create_user("one@test.com", "One", pw_hash)
+            assert await db.user_count() == 1
+            await db.create_user("two@test.com", "Two", pw_hash)
+            assert await db.user_count() == 2
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_get_org_users(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                org = await db.create_org("Team", "team")
-                pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
-                await db.create_user("a@test.com", "Alice", pw_hash, org_id=org.id)
-                await db.create_user("b@test.com", "Bob", pw_hash, org_id=org.id)
-                await db.create_user("c@other.com", "Charlie", pw_hash, org_id="other")
-                users = await db.get_org_users(org.id)
-                assert len(users) == 2
-                names = {u.display_name for u in users}
-                assert "Alice" in names
-                assert "Bob" in names
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_get_org_users(self):
+        db, path = await _fresh_db()
+        try:
+            org = await db.create_org("Team", "team")
+            pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
+            await db.create_user("a@test.com", "Alice", pw_hash, org_id=org.id)
+            await db.create_user("b@test.com", "Bob", pw_hash, org_id=org.id)
+            await db.create_user("c@other.com", "Charlie", pw_hash, org_id="other")
+            users = await db.get_org_users(org.id)
+            assert len(users) == 2
+            names = {u.display_name for u in users}
+            assert "Alice" in names
+            assert "Bob" in names
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_update_user_login(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
-                user = await db.create_user("login@test.com", "Login", pw_hash)
-                assert user.last_login == ""
-                await db.update_user_login(user.id)
-                updated = await db.get_user_by_id(user.id)
-                assert updated.last_login != ""
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_update_user_login(self):
+        db, path = await _fresh_db()
+        try:
+            pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
+            user = await db.create_user("login@test.com", "Login", pw_hash)
+            assert user.last_login == ""
+            await db.update_user_login(user.id)
+            updated = await db.get_user_by_id(user.id)
+            assert updated.last_login != ""
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_nonexistent_user_returns_none(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                assert await db.get_user_by_email("nonexistent@test.com") is None
-                assert await db.get_user_by_id("fake_id") is None
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_nonexistent_user_returns_none(self):
+        db, path = await _fresh_db()
+        try:
+            assert await db.get_user_by_email("nonexistent@test.com") is None
+            assert await db.get_user_by_id("fake_id") is None
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
 
 # ─────────────────────────────────────────────
@@ -306,78 +279,68 @@ class TestPasswordHashing:
 # ─────────────────────────────────────────────
 
 class TestDatabaseSessions:
-    def test_create_session(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
-                user = await db.create_user("sess@test.com", "Sess", pw_hash)
-                session_id = await db.create_session(user.id)
-                assert len(session_id) >= 32
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_create_session(self):
+        db, path = await _fresh_db()
+        try:
+            pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
+            user = await db.create_user("sess@test.com", "Sess", pw_hash)
+            session_id = await db.create_session(user.id)
+            assert len(session_id) >= 32
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_validate_session(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
-                user = await db.create_user("val@test.com", "Val", pw_hash)
-                session_id = await db.create_session(user.id)
-                sess = await db.get_session(session_id)
-                assert sess is not None
-                assert sess["user_id"] == user.id
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_validate_session(self):
+        db, path = await _fresh_db()
+        try:
+            pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
+            user = await db.create_user("val@test.com", "Val", pw_hash)
+            session_id = await db.create_session(user.id)
+            sess = await db.get_session(session_id)
+            assert sess is not None
+            assert sess["user_id"] == user.id
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_invalid_session_returns_none(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                assert await db.get_session("nonexistent_session_id") is None
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_invalid_session_returns_none(self):
+        db, path = await _fresh_db()
+        try:
+            assert await db.get_session("nonexistent_session_id") is None
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_delete_session(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
-                user = await db.create_user("del@test.com", "Del", pw_hash)
-                session_id = await db.create_session(user.id)
-                await db.delete_session(session_id)
-                assert await db.get_session(session_id) is None
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_delete_session(self):
+        db, path = await _fresh_db()
+        try:
+            pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
+            user = await db.create_user("del@test.com", "Del", pw_hash)
+            session_id = await db.create_session(user.id)
+            await db.delete_session(session_id)
+            assert await db.get_session(session_id) is None
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_delete_expired_sessions(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                from datetime import datetime, timezone, timedelta
-                pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
-                user = await db.create_user("exp@test.com", "Exp", pw_hash)
-                # Create an already-expired session manually
-                expired_time = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
-                await db._db.execute(
-                    "INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                    ("expired_sess", user.id, expired_time, expired_time),
-                )
-                await db._safe_commit()
-                deleted = await db.delete_expired_sessions()
-                assert deleted == 1
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_delete_expired_sessions(self):
+        db, path = await _fresh_db()
+        try:
+            from datetime import datetime, timezone, timedelta
+            pw_hash = bcrypt.hashpw(b"test", bcrypt.gensalt()).decode()
+            user = await db.create_user("exp@test.com", "Exp", pw_hash)
+            # Create an already-expired session manually
+            expired_time = (datetime.now(timezone.utc) - timedelta(hours=25)).isoformat()
+            await db._db.execute(
+                "INSERT INTO sessions (id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+                ("expired_sess", user.id, expired_time, expired_time),
+            )
+            await db._safe_commit()
+            deleted = await db.delete_expired_sessions()
+            assert deleted == 1
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
 
 # ─────────────────────────────────────────────
@@ -463,45 +426,39 @@ class TestAgentOwnerInDict:
 # ─────────────────────────────────────────────
 
 class TestAuthSchema:
-    def test_auth_tables_created(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                async with db._db.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'"
-                ) as cur:
-                    tables = {row[0] for row in await cur.fetchall()}
-                assert "organizations" in tables
-                assert "users" in tables
-                assert "sessions" in tables
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_auth_tables_created(self):
+        db, path = await _fresh_db()
+        try:
+            async with db._db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ) as cur:
+                tables = {row[0] for row in await cur.fetchall()}
+            assert "organizations" in tables
+            assert "users" in tables
+            assert "sessions" in tables
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_agents_history_has_owner_id_column(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                async with db._db.execute("PRAGMA table_info(agents_history)") as cur:
-                    cols = {row[1] for row in await cur.fetchall()}
-                assert "owner_id" in cols
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_agents_history_has_owner_id_column(self):
+        db, path = await _fresh_db()
+        try:
+            async with db._db.execute("PRAGMA table_info(agents_history)") as cur:
+                cols = {row[1] for row in await cur.fetchall()}
+            assert "owner_id" in cols
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
-    def test_projects_has_org_id_column(self):
-        async def _test():
-            db, path = await _fresh_db()
-            try:
-                async with db._db.execute("PRAGMA table_info(projects)") as cur:
-                    cols = {row[1] for row in await cur.fetchall()}
-                assert "org_id" in cols
-            finally:
-                await db.close()
-                path.unlink(missing_ok=True)
-        run_async(_test())
+    async def test_projects_has_org_id_column(self):
+        db, path = await _fresh_db()
+        try:
+            async with db._db.execute("PRAGMA table_info(projects)") as cur:
+                cols = {row[1] for row in await cur.fetchall()}
+            assert "org_id" in cols
+        finally:
+            await db.close()
+            path.unlink(missing_ok=True)
 
 
 # ─────────────────────────────────────────────
@@ -509,25 +466,21 @@ class TestAuthSchema:
 # ─────────────────────────────────────────────
 
 class TestAuthDegradedMode:
-    def test_user_methods_return_defaults_when_no_db(self):
-        async def _test():
-            db = Database(Path("/tmp/nonexistent_auth_test.db"))
-            # Don't call init — _db is None
-            assert await db.get_user_by_email("x") is None
-            assert await db.get_user_by_id("x") is None
-            assert await db.user_count() == 0
-            assert await db.get_org("x") is None
-            assert await db.get_org_users("x") == []
-            assert await db.get_session("x") is None
-        run_async(_test())
+    async def test_user_methods_return_defaults_when_no_db(self):
+        db = Database(Path("/tmp/nonexistent_auth_test.db"))
+        # Don't call init — _db is None
+        assert await db.get_user_by_email("x") is None
+        assert await db.get_user_by_id("x") is None
+        assert await db.user_count() == 0
+        assert await db.get_org("x") is None
+        assert await db.get_org_users("x") == []
+        assert await db.get_session("x") is None
 
-    def test_delete_methods_noop_when_no_db(self):
-        async def _test():
-            db = Database(Path("/tmp/nonexistent_auth_test2.db"))
-            await db.delete_session("x")  # Should not raise
-            assert await db.delete_expired_sessions() == 0
-            await db.update_user_login("x")  # Should not raise
-        run_async(_test())
+    async def test_delete_methods_noop_when_no_db(self):
+        db = Database(Path("/tmp/nonexistent_auth_test2.db"))
+        await db.delete_session("x")  # Should not raise
+        assert await db.delete_expired_sessions() == 0
+        await db.update_user_login("x")  # Should not raise
 
 
 # ─────────────────────────────────────────────

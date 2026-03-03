@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
 
 with patch("psutil.cpu_percent", return_value=0.0):
     import ashlr_server
@@ -27,79 +28,7 @@ with patch("psutil.cpu_percent", return_value=0.0):
         security_headers_middleware,
     )
 
-
-# ── Helpers ──
-
-def _make_mock_db():
-    db = MagicMock()
-    db.get_projects = AsyncMock(return_value=[])
-    db.get_workflows = AsyncMock(return_value=[])
-    db.get_presets = AsyncMock(return_value=[])
-    db.save_agent = AsyncMock()
-    db.save_event = AsyncMock()
-    db.log_event = AsyncMock()
-    db.close = AsyncMock()
-    db.init = AsyncMock()
-    db.get_history = AsyncMock(return_value=[])
-    db.get_events = AsyncMock(return_value=[])
-    db.get_events_count = AsyncMock(return_value=0)
-    db.get_agent_history_count = AsyncMock(return_value=0)
-    db.get_historical_analytics = AsyncMock(return_value={})
-    db.get_scratchpad = AsyncMock(return_value=[])
-    db.db_path = Path("/tmp/test-ashlr.db")
-    db.find_similar_tasks = AsyncMock(return_value=[])
-    db.get_resumable_sessions = AsyncMock(return_value=[])
-    db.archive_output = AsyncMock()
-    db.release_file_locks = AsyncMock()
-    db.get_archived_output = AsyncMock(return_value=([], 0))
-    db.get_bookmarks = AsyncMock(return_value=[])
-    db.add_bookmark = AsyncMock(return_value=1)
-    db.save_project = AsyncMock()
-    db.delete_project = AsyncMock(return_value=False)
-    db.save_workflow = AsyncMock()
-    db.save_preset = AsyncMock()
-    db.delete_preset = AsyncMock(return_value=False)
-    db.delete_workflow = AsyncMock(return_value=False)
-    db.save_message = AsyncMock()
-    db.get_messages = AsyncMock(return_value=[])
-    db.get_messages_count = AsyncMock(return_value=0)
-    db.upsert_scratchpad = AsyncMock()
-    db.delete_scratchpad = AsyncMock(return_value=False)
-    db.save_bookmark = AsyncMock(return_value=1)
-    db.get_history_item = AsyncMock(return_value=None)
-    db.get_workflow = AsyncMock(return_value=None)
-    db.get_agent_history_item = AsyncMock(return_value=None)
-    db.get_project = AsyncMock(return_value=None)
-    db.update_project = AsyncMock(return_value=None)
-    db.get_preset = AsyncMock(return_value=None)
-    db.get_agent_history = AsyncMock(return_value=[])
-    db.cleanup_old_archives = AsyncMock(return_value=0)
-    db._db = None
-    return db
-
-
-def _make_test_app():
-    config = Config()
-    config.demo_mode = True
-    config.spawn_pressure_block = False
-    app = ashlr_server.create_app(config)
-    mock_db = _make_mock_db()
-    app["db"] = mock_db
-    app["ws_hub"].db = mock_db
-    app["rate_limiter"].check = lambda *a, **kw: (True, 0.0)
-    app.on_startup.clear()
-    app.on_cleanup.clear()
-    app["db_available"] = True
-    app["db_ready"] = True
-    app["bg_task_health"] = {}
-    app["bg_tasks"] = []
-    # Set Pro license so existing tests bypass feature gates
-    from datetime import datetime, timedelta, timezone
-    from ashlr_server import License, PRO_FEATURES
-    _pro_lic = License(tier="pro", max_agents=100, expires_at=(datetime.now(timezone.utc) + timedelta(days=365)).isoformat(), features=PRO_FEATURES)
-    app["license"] = _pro_lic
-    app["agent_manager"].license = _pro_lic
-    return app
+from conftest import make_mock_db as _make_mock_db, make_test_app as _make_test_app
 
 
 # ─────────────────────────────────────────────
@@ -312,8 +241,7 @@ class TestConfigValidation:
         app = _make_test_app()
         client = await aiohttp_client(app)
         resp = await client.put("/api/config", json={"log_level": "DEBUG"})
-        # Should not return 400
-        assert resp.status != 400
+        assert resp.status == 200
 
     @pytest.mark.asyncio
     async def test_invalid_host_rejected(self, aiohttp_client):

@@ -850,7 +850,7 @@ async def memory_watchdog_loop(app: web.Application) -> None:
                     for aid in old_agents:
                         if aid not in active_ids:
                             await db._db.execute("DELETE FROM agent_output_archive WHERE agent_id = ?", (aid,))
-                    await db._db.commit()
+                    await db._safe_commit()
                     if old_agents:
                         cleaned = [a for a in old_agents if a not in active_ids]
                         if cleaned:

@@ -88,8 +88,6 @@ def _make_expired_payload(org_id="test-org"):
     }
 
 
-def run_async(coro):
-    return asyncio.run(coro)
 
 
 # ─────────────────────────────────────────────
@@ -322,36 +320,34 @@ class TestOrganizationLicenseFields:
 # ─────────────────────────────────────────────
 
 class TestDatabaseLicenseMethods:
-    def test_update_and_get_org_license(self):
-        async def _test():
-            f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-            db_path = Path(f.name)
-            f.close()
-            db = Database(db_path)
-            await db.init()
+    async def test_update_and_get_org_license(self):
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        db = Database(db_path)
+        await db.init()
 
-            org = await db.create_org("Acme", "acme")
-            assert org.license_key == ""
-            assert org.plan == "community"
+        org = await db.create_org("Acme", "acme")
+        assert org.license_key == ""
+        assert org.plan == "community"
 
-            await db.update_org_license(org.id, "test-key-123", "pro")
+        await db.update_org_license(org.id, "test-key-123", "pro")
 
-            key = await db.get_org_license_key(org.id)
-            assert key == "test-key-123"
+        key = await db.get_org_license_key(org.id)
+        assert key == "test-key-123"
 
-            updated_org = await db.get_org(org.id)
-            assert updated_org.license_key == "test-key-123"
-            assert updated_org.plan == "pro"
+        updated_org = await db.get_org(org.id)
+        assert updated_org.license_key == "test-key-123"
+        assert updated_org.plan == "pro"
 
-            # Clear license
-            await db.update_org_license(org.id, "", "community")
-            key2 = await db.get_org_license_key(org.id)
-            assert key2 == ""
+        # Clear license
+        await db.update_org_license(org.id, "", "community")
+        key2 = await db.get_org_license_key(org.id)
+        assert key2 == ""
 
-            await db.close()
-            db_path.unlink(missing_ok=True)
+        await db.close()
+        db_path.unlink(missing_ok=True)
 
-        run_async(_test())
 
 
 # ─────────────────────────────────────────────

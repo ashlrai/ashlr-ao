@@ -343,6 +343,7 @@ class WebSocketHub:
                 app = getattr(self, 'app', None)
                 scanner2: ExtensionScanner | None = app.get("extension_scanner") if app else None
                 ext_data = scanner2.to_dict() if scanner2 else {"skills": [], "mcp_servers": [], "plugins": [], "scanned_at": ""}
+                lic: License = app.get("license", COMMUNITY_LICENSE) if app else COMMUNITY_LICENSE
                 await ws.send_json({
                     "type": "sync",
                     "agents": [a.to_dict() for a in list(self.agent_manager.agents.values())],
@@ -352,8 +353,11 @@ class WebSocketHub:
                     "config": self.config.to_dict(),
                     "backends": backends_info,
                     "extensions": ext_data,
+                    "queue": [t.to_dict() for t in self.agent_manager.task_queue],
                     "db_ready": app.get("db_ready", False) if app else False,
                     "db_available": app.get("db_available", True) if app else True,
+                    "license": lic.to_dict(),
+                    "effective_max_agents": _effective_max_agents(app) if app else 5,
                 })
 
             case _:

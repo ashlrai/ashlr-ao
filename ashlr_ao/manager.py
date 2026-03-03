@@ -339,8 +339,8 @@ class AgentManager:
             working_dir = os.path.abspath(os.path.expanduser(working_dir))
             home_dir = str(Path.home())
             config_dirs = [str(ASHLR_DIR)]
-            allowed_prefixes = [home_dir] + config_dirs
-            if not any(working_dir.startswith(prefix) for prefix in allowed_prefixes):
+            allowed_prefixes = [home_dir, "/tmp"] + config_dirs
+            if not any(working_dir == prefix or working_dir.startswith(prefix + os.sep) for prefix in allowed_prefixes):
                 raise ValueError(
                     f"Working directory '{working_dir}' is outside allowed paths. "
                     f"Must be under home directory or Ashlr config dir."
@@ -1414,8 +1414,10 @@ class AgentManager:
         expr = expr.strip()
 
         # Try "not in" first (before "in" to avoid partial match)
-        for op, negate in [("not in", True), ("in", False), ("!=", False), ("==", False)]:
-            if op in expr:
+        # Use space-delimited matching to avoid substring false positives
+        # (e.g., "in" matching inside "finished" or "invalid")
+        for op in ["not in", "in", "!=", "=="]:
+            if f" {op} " in f" {expr} ":
                 parts = expr.split(op, 1)
                 if len(parts) != 2:
                     return False

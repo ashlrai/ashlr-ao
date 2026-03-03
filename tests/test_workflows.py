@@ -346,7 +346,7 @@ class TestCascadeProtection:
         """AgentManager should have get_agent_cpu method."""
         assert hasattr(ashlr_server.AgentManager, 'get_agent_cpu')
 
-    def test_get_agent_cpu_no_pid(self):
+    async def test_get_agent_cpu_no_pid(self):
         """get_agent_cpu should return 0.0 for agent without PID."""
         import asyncio
         config = ashlr_server.Config()
@@ -356,15 +356,15 @@ class TestCascadeProtection:
             working_dir="/tmp", backend="claude-code", task="test",
         )
         manager.agents["t001"] = agent
-        result = asyncio.run(manager.get_agent_cpu("t001"))
+        result = await manager.get_agent_cpu("t001")
         assert result == 0.0
 
-    def test_get_agent_cpu_missing_agent(self):
+    async def test_get_agent_cpu_missing_agent(self):
         """get_agent_cpu should return 0.0 for nonexistent agent."""
         import asyncio
         config = ashlr_server.Config()
         manager = ashlr_server.AgentManager(config)
-        result = asyncio.run(manager.get_agent_cpu("nonexistent"))
+        result = await manager.get_agent_cpu("nonexistent")
         assert result == 0.0
 
     # ── CPU tracking in metrics loop ──

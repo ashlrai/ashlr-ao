@@ -253,11 +253,11 @@ class TestExtractSummaryEnhanced:
 
 
 class TestCaptureOutputReturnTypes:
-    def test_capture_output_returns_none_for_missing_agent(self, make_agent):
+    async def test_capture_output_returns_none_for_missing_agent(self, make_agent):
         """capture_output should return None for non-existent agent."""
         manager = MagicMock(spec=ashlr_server.AgentManager)
         manager.agents = {}
-        result = asyncio.run(ashlr_server.AgentManager.capture_output(manager, "nonexistent"))
+        result = await ashlr_server.AgentManager.capture_output(manager, "nonexistent")
         assert result is None
 
     def test_status_patterns_planning_includes_thinking(self):
@@ -1269,54 +1269,54 @@ class TestDetectStatusMethod:
         agent.last_output_time = time.monotonic() - 5
         return agent
 
-    def test_paused_agent_always_paused(self):
+    async def test_paused_agent_always_paused(self):
         agent = self._make_agent(status="paused")
         agent.output_lines.extend(["Do you want me to proceed?"])
         manager = self._make_manager_with_agent(agent)
-        result = asyncio.run(manager.detect_status("aaaa"))
+        result = await manager.detect_status("aaaa")
         assert result == "paused"
 
-    def test_empty_output_returns_current(self):
+    async def test_empty_output_returns_current(self):
         agent = self._make_agent(status="working")
         # output_lines is empty
         manager = self._make_manager_with_agent(agent)
-        result = asyncio.run(manager.detect_status("aaaa"))
+        result = await manager.detect_status("aaaa")
         assert result == "working"
 
-    def test_plan_mode_blocks_working(self):
+    async def test_plan_mode_blocks_working(self):
         agent = self._make_agent(status="planning", plan_mode=True)
         agent.output_lines.extend(["Writing src/app.ts", "Creating handler..."])
         manager = self._make_manager_with_agent(agent)
-        result = asyncio.run(manager.detect_status("aaaa"))
+        result = await manager.detect_status("aaaa")
         assert result == "planning"
 
-    def test_plan_mode_allows_waiting(self):
+    async def test_plan_mode_allows_waiting(self):
         agent = self._make_agent(status="planning", plan_mode=True)
         agent.output_lines.extend(["Here is my plan:", "Shall I proceed? (yes/no)"])
         manager = self._make_manager_with_agent(agent)
-        result = asyncio.run(manager.detect_status("aaaa"))
+        result = await manager.detect_status("aaaa")
         assert result == "waiting"
 
-    def test_plan_mode_allows_error(self):
+    async def test_plan_mode_allows_error(self):
         agent = self._make_agent(status="planning", plan_mode=True)
         agent.output_lines.extend(["Error: Failed to read file", "Traceback (most recent call last):"])
         manager = self._make_manager_with_agent(agent)
-        result = asyncio.run(manager.detect_status("aaaa"))
+        result = await manager.detect_status("aaaa")
         assert result == "error"
 
-    def test_plan_mode_inactive_when_not_planning(self):
+    async def test_plan_mode_inactive_when_not_planning(self):
         agent = self._make_agent(status="working", plan_mode=True)
         agent.output_lines.extend(["Writing src/app.ts"])
         manager = self._make_manager_with_agent(agent)
-        result = asyncio.run(manager.detect_status("aaaa"))
+        result = await manager.detect_status("aaaa")
         # Guard inactive (status not "planning"), so working passes through
         assert result != "planning"
 
-    def test_nonexistent_agent_returns_error(self):
+    async def test_nonexistent_agent_returns_error(self):
         manager = ashlr_server.AgentManager.__new__(ashlr_server.AgentManager)
         manager.agents = {}
         manager.backend_configs = {}
-        result = asyncio.run(manager.detect_status("nonexistent"))
+        result = await manager.detect_status("nonexistent")
         assert result == "error"
 
 

@@ -84,66 +84,66 @@ class TestHealthWarningFlags:
 
 
 class TestDatabaseDegradedMode:
-    def test_save_agent_returns_on_no_db(self, make_agent):
+    async def test_save_agent_returns_on_no_db(self, make_agent):
         """save_agent should return early when _db is None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
         agent = make_agent(status="working")
         # Should not raise
-        asyncio.run(db.save_agent(agent))
+        await db.save_agent(agent)
 
-    def test_get_agent_history_returns_empty_on_no_db(self):
+    async def test_get_agent_history_returns_empty_on_no_db(self):
         """get_agent_history should return [] when _db is None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        result = asyncio.run(db.get_agent_history())
+        result = await db.get_agent_history()
         assert result == []
 
-    def test_get_agent_history_count_returns_zero_on_no_db(self):
+    async def test_get_agent_history_count_returns_zero_on_no_db(self):
         """get_agent_history_count should return 0 when _db is None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        result = asyncio.run(db.get_agent_history_count())
+        result = await db.get_agent_history_count()
         assert result == 0
 
-    def test_get_agent_history_item_returns_none_on_no_db(self):
+    async def test_get_agent_history_item_returns_none_on_no_db(self):
         """get_agent_history_item should return None when _db is None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        result = asyncio.run(db.get_agent_history_item("abc1"))
+        result = await db.get_agent_history_item("abc1")
         assert result is None
 
-    def test_save_project_returns_on_no_db(self):
+    async def test_save_project_returns_on_no_db(self):
         """save_project should return early when _db is None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        asyncio.run(db.save_project({"id": "p1", "name": "test", "path": "/tmp"}))
+        await db.save_project({"id": "p1", "name": "test", "path": "/tmp"})
 
-    def test_get_projects_returns_empty_on_no_db(self):
+    async def test_get_projects_returns_empty_on_no_db(self):
         """get_projects should return [] when _db is None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        result = asyncio.run(db.get_projects())
+        result = await db.get_projects()
         assert result == []
 
-    def test_delete_project_returns_false_on_no_db(self):
+    async def test_delete_project_returns_false_on_no_db(self):
         """delete_project should return False when _db is None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        result = asyncio.run(db.delete_project("p1"))
+        result = await db.delete_project("p1")
         assert result is False
 
-    def test_save_workflow_returns_on_no_db(self):
+    async def test_save_workflow_returns_on_no_db(self):
         """save_workflow should return early when _db is None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        asyncio.run(db.save_workflow({"id": "w1", "name": "test"}))
+        await db.save_workflow({"id": "w1", "name": "test"})
 
-    def test_get_workflows_returns_empty_on_no_db(self):
+    async def test_get_workflows_returns_empty_on_no_db(self):
         """get_workflows should return [] when _db is None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        result = asyncio.run(db.get_workflows())
+        result = await db.get_workflows()
         assert result == []
 
 
@@ -599,18 +599,18 @@ class TestServerStats:
 class TestHistoricalAnalytics:
     """Tests for historical analytics database method."""
 
-    def test_historical_analytics_no_db(self):
+    async def test_historical_analytics_no_db(self):
         """With no DB, should return empty structure."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        result = asyncio.run(db.get_historical_analytics())
+        result = await db.get_historical_analytics()
         assert result["total_historical"] == 0
 
-    def test_historical_analytics_returns_dict(self):
+    async def test_historical_analytics_returns_dict(self):
         """Return value should be a dict with expected keys."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        result = asyncio.run(db.get_historical_analytics())
+        result = await db.get_historical_analytics()
         assert isinstance(result, dict)
         assert "total_historical" in result
 
@@ -625,7 +625,7 @@ class TestServerAuditFixes:
         assert hasattr(agent, '_restart_lock')
         assert isinstance(agent._restart_lock, asyncio.Lock)
 
-    def test_restart_lock_held_returns_false(self, make_agent):
+    async def test_restart_lock_held_returns_false(self, make_agent):
         """If restart lock is already held, restart should return False."""
         agent = make_agent(status="error")
         async def _test():
@@ -633,7 +633,7 @@ class TestServerAuditFixes:
                 manager = MagicMock(spec=ashlr_server.AgentManager)
                 manager.agents = {agent.id: agent}
                 return await ashlr_server.AgentManager.restart(manager, agent.id)
-        result = asyncio.run(_test())
+        result = await _test()
         assert result is False
 
     def test_deque_tool_invocations(self, make_agent):
@@ -947,11 +947,11 @@ class TestSessionPersistence:
         assert hasattr(ashlr_server.Database, "get_resumable_sessions")
         assert callable(getattr(ashlr_server.Database, "get_resumable_sessions"))
 
-    def test_get_resumable_sessions_null_guard(self):
+    async def test_get_resumable_sessions_null_guard(self):
         """get_resumable_sessions() should return [] when db is None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        result = asyncio.run(db.get_resumable_sessions())
+        result = await db.get_resumable_sessions()
         assert result == []
 
     def test_get_resumable_sessions_filters_by_resumable(self):
@@ -1375,29 +1375,29 @@ class TestArchiveRotation:
         assert hasattr(config, 'archive_retention_hours')
         assert config.archive_retention_hours == 48
 
-    def test_rotate_archive_null_guard(self):
+    async def test_rotate_archive_null_guard(self):
         """rotate_archive should return 0 when DB is None."""
         db = ashlr_server.Database()
         # _db is None before init
-        result = asyncio.run(db.rotate_archive("test-agent"))
+        result = await db.rotate_archive("test-agent")
         assert result == 0
 
-    def test_rotate_archive_zero_max_rows(self):
+    async def test_rotate_archive_zero_max_rows(self):
         """rotate_archive should return 0 when max_rows <= 0."""
         db = ashlr_server.Database()
-        result = asyncio.run(db.rotate_archive("test-agent", max_rows=0))
+        result = await db.rotate_archive("test-agent", max_rows=0)
         assert result == 0
 
-    def test_cleanup_old_archives_null_guard(self):
+    async def test_cleanup_old_archives_null_guard(self):
         """cleanup_old_archives should return 0 when DB is None."""
         db = ashlr_server.Database()
-        result = asyncio.run(db.cleanup_old_archives())
+        result = await db.cleanup_old_archives()
         assert result == 0
 
-    def test_cleanup_old_archives_zero_retention(self):
+    async def test_cleanup_old_archives_zero_retention(self):
         """cleanup_old_archives should return 0 when retention_hours <= 0."""
         db = ashlr_server.Database()
-        result = asyncio.run(db.cleanup_old_archives(retention_hours=0))
+        result = await db.cleanup_old_archives(retention_hours=0)
         assert result == 0
 
     def test_rotate_archive_uses_safe_commit(self):
@@ -1680,37 +1680,37 @@ class TestIntelligenceClient:
         client.available = False
         assert client._check_circuit() is False
 
-    def test_call_returns_none_when_circuit_open(self):
+    async def test_call_returns_none_when_circuit_open(self):
         cfg = _make_intel_config()
         client = IntelligenceClient(cfg)
         client.available = False
-        result = asyncio.run(client._call([{"role": "user", "content": "hi"}]))
+        result = await client._call([{"role": "user", "content": "hi"}])
         assert result is None
 
-    def test_analyze_fleet_skips_single_agent(self):
+    async def test_analyze_fleet_skips_single_agent(self):
         cfg = _make_intel_config()
         client = IntelligenceClient(cfg)
         mock_agent = MagicMock()
-        result = asyncio.run(client.analyze_fleet([mock_agent], []))
+        result = await client.analyze_fleet([mock_agent], [])
         assert result == []
 
-    def test_analyze_fleet_skips_empty_list(self):
+    async def test_analyze_fleet_skips_empty_list(self):
         cfg = _make_intel_config()
         client = IntelligenceClient(cfg)
-        result = asyncio.run(client.analyze_fleet([], []))
+        result = await client.analyze_fleet([], [])
         assert result == []
 
-    def test_summarize_returns_none_for_empty_output(self):
+    async def test_summarize_returns_none_for_empty_output(self):
         cfg = _make_intel_config()
         client = IntelligenceClient(cfg)
-        result = asyncio.run(client.summarize([], "task", "general", "working"))
+        result = await client.summarize([], "task", "general", "working")
         assert result is None
 
-    def test_parse_command_returns_unknown_when_circuit_open(self):
+    async def test_parse_command_returns_unknown_when_circuit_open(self):
         cfg = _make_intel_config()
         client = IntelligenceClient(cfg)
         client.available = False
-        result = asyncio.run(client.parse_command("test command", [], {}))
+        result = await client.parse_command("test command", [], {})
         assert isinstance(result, ParsedIntent)
         assert result.action == "unknown"
         assert result.confidence == 0.0
@@ -1927,20 +1927,20 @@ class TestResolveAgentRefs:
 class TestDatabaseCloseNullsDb:
     """Tests that Database.close() sets _db = None for safe guard checks."""
 
-    def test_close_nulls_db(self):
+    async def test_close_nulls_db(self):
         """After close(), _db should be None so all guards short-circuit."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         mock_conn = AsyncMock()
         db._db = mock_conn
-        asyncio.run(db.close())
+        await db.close()
         assert db._db is None
         mock_conn.close.assert_awaited_once()
 
-    def test_close_noop_when_none(self):
+    async def test_close_noop_when_none(self):
         """close() should be safe to call when _db is already None."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         db._db = None
-        asyncio.run(db.close())  # Should not raise
+        await db.close()  # Should not raise
         assert db._db is None
 
 
@@ -1948,7 +1948,7 @@ class TestDatabaseCloseNullsDb:
 class TestDatabaseInitSafety:
     """Tests that Database.init() handles retries safely."""
 
-    def test_init_closes_existing_on_retry(self):
+    async def test_init_closes_existing_on_retry(self):
         """If init() is called when _db already has a connection, it should close first."""
         db = ashlr_server.Database.__new__(ashlr_server.Database)
         old_conn = AsyncMock()
@@ -1958,7 +1958,7 @@ class TestDatabaseInitSafety:
         # init() will fail on connect since we patch it to raise, but should close old conn first
         with patch("aiosqlite.connect", side_effect=Exception("test error")):
             with pytest.raises(Exception, match="test error"):
-                asyncio.run(db.init())
+                await db.init()
 
         old_conn.close.assert_awaited_once()
         assert db._db is None  # Should be cleaned up after failure
@@ -1974,7 +1974,7 @@ class TestDatabaseWriteErrorHandling:
         db._db.execute = AsyncMock(side_effect=Exception("disk full"))
         return db
 
-    def test_save_agent_handles_db_error(self):
+    async def test_save_agent_handles_db_error(self):
         """save_agent should log warning, not raise."""
         db = self._make_db()
         agent = MagicMock()
@@ -1996,31 +1996,31 @@ class TestDatabaseWriteErrorHandling:
         agent.plan_mode = False
         agent._spawn_time = time.monotonic() - 60
         # Should not raise
-        asyncio.run(db.save_agent(agent))
+        await db.save_agent(agent)
 
-    def test_save_project_handles_db_error(self):
+    async def test_save_project_handles_db_error(self):
         db = self._make_db()
-        asyncio.run(db.save_project({"id": "p1", "name": "test", "path": "/tmp"}))
+        await db.save_project({"id": "p1", "name": "test", "path": "/tmp"})
 
-    def test_save_workflow_handles_db_error(self):
+    async def test_save_workflow_handles_db_error(self):
         db = self._make_db()
-        asyncio.run(db.save_workflow({"id": "w1", "name": "test", "agents_json": "[]"}))
+        await db.save_workflow({"id": "w1", "name": "test", "agents_json": "[]"})
 
-    def test_save_message_handles_db_error(self):
+    async def test_save_message_handles_db_error(self):
         db = self._make_db()
-        asyncio.run(db.save_message({"id": "m1", "from_agent_id": "a1", "content": "hi", "created_at": "now"}))
+        await db.save_message({"id": "m1", "from_agent_id": "a1", "content": "hi", "created_at": "now"})
 
-    def test_set_file_lock_handles_db_error(self):
+    async def test_set_file_lock_handles_db_error(self):
         db = self._make_db()
-        asyncio.run(db.set_file_lock("/tmp/file.py", "a1", "agent1"))
+        await db.set_file_lock("/tmp/file.py", "a1", "agent1")
 
-    def test_release_file_locks_handles_db_error(self):
+    async def test_release_file_locks_handles_db_error(self):
         db = self._make_db()
-        asyncio.run(db.release_file_locks("a1"))
+        await db.release_file_locks("a1")
 
-    def test_mark_messages_read_handles_db_error(self):
+    async def test_mark_messages_read_handles_db_error(self):
         db = self._make_db()
-        result = asyncio.run(db.mark_messages_read("a1"))
+        result = await db.mark_messages_read("a1")
         assert result == 0
 
 
@@ -2038,19 +2038,19 @@ class TestDatabaseReadErrorHandling:
         db._db = mock_conn
         return db
 
-    def test_get_agent_history_returns_empty_on_error(self):
+    async def test_get_agent_history_returns_empty_on_error(self):
         db = self._make_db()
-        result = asyncio.run(db.get_agent_history())
+        result = await db.get_agent_history()
         assert result == []
 
-    def test_get_agent_history_count_returns_zero_on_error(self):
+    async def test_get_agent_history_count_returns_zero_on_error(self):
         db = self._make_db()
-        result = asyncio.run(db.get_agent_history_count())
+        result = await db.get_agent_history_count()
         assert result == 0
 
-    def test_get_agent_history_item_returns_none_on_error(self):
+    async def test_get_agent_history_item_returns_none_on_error(self):
         db = self._make_db()
-        result = asyncio.run(db.get_agent_history_item("test_id"))
+        result = await db.get_agent_history_item("test_id")
         assert result is None
 
 
@@ -2103,10 +2103,10 @@ class TestMigrationIndividualAlters:
 class TestSafeCommitReturn:
     """Tests that _safe_commit returns bool."""
 
-    def test_returns_false_when_no_db(self):
+    async def test_returns_false_when_no_db(self):
         db = ashlr_server.Database()
         db._db = None
-        result = asyncio.run(db._safe_commit())
+        result = await db._safe_commit()
         assert result is False
 
     def test_returns_bool_type(self):
@@ -2126,10 +2126,10 @@ class TestSafeCommitReturn:
 class TestHistoricalAnalyticsErrorHandling:
     """Tests that get_historical_analytics handles errors gracefully."""
 
-    def test_returns_empty_dict_when_no_db(self):
+    async def test_returns_empty_dict_when_no_db(self):
         db = ashlr_server.Database()
         db._db = None
-        result = asyncio.run(db.get_historical_analytics())
+        result = await db.get_historical_analytics()
         assert isinstance(result, dict)
         assert result.get("total_historical") == 0
         assert "error_patterns" in result
