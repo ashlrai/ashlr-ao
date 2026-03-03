@@ -4,7 +4,7 @@
 
 Ashlr is a **local-first agent orchestration platform**. One developer, many AI coding agents (Claude Code, Codex, etc.), multiple repos, single command center.
 
-**Current state**: Fully functional. Server (~10K lines) + dashboard (~9500 lines) + 1195 tests. All 5 development phases + multi-user auth + deployment infra + production hardening complete. Installable via `pip install ashlr-ao`. Ready for multi-user deployment.
+**Current state**: Fully functional. Server (~10.8K lines) + dashboard (~9800 lines) + ~1240 tests. All 5 development phases + multi-user auth + deployment infra + production hardening + open-core licensing complete. Installable via `pip install ashlr-ao`. Ready for multi-user deployment.
 
 ## Architecture
 
@@ -20,6 +20,7 @@ Ashlr is a **local-first agent orchestration platform**. One developer, many AI 
 
 - `pyproject.toml` — Package metadata, dependencies, `ashlr` CLI entry point
 - `ashlr_server.py` — Backward-compat shim (re-exports from `ashlr_ao.server` so tests and old imports still work)
+- `generate_license.py` — Standalone Ed25519 keypair + JWT license key generator (not part of package)
 - `requirements.txt` — Reference copy of dependencies (canonical source is pyproject.toml)
 - `start.sh` — Launch script (creates venv, `pip install -e .`, checks tmux/backends, starts server)
 - `~/.ashlr/ashlr.yaml` — User config (auto-created on first run)
@@ -50,6 +51,7 @@ Dashboard opens at `http://127.0.0.1:5111`. Override port with `ASHLR_PORT=8080`
 | Frontend | Vanilla JS (ES2022+) | Zero dependencies. No build step. |
 | Persistence | SQLite via aiosqlite | Zero-config. Single file. Agent history, projects, workflows. |
 | Process mgmt | tmux | Session isolation, output capture, proven reliability. |
+| Licensing | PyJWT + Ed25519 | Offline-first signed JWT. No phone-home. |
 | Intelligence | xAI Grok (optional) | OpenAI-compatible API. Summaries, NLU parsing, fleet analysis. |
 | Voice | Web Speech API | Browser-native push-to-talk. Zero dependencies. |
 | Fonts | Instrument Sans + JetBrains Mono | Display + monospace. |
@@ -109,8 +111,13 @@ POST   /api/auth/register       Register (first user = admin + creates org)
 POST   /api/auth/login          Login (email/password) → sets session cookie
 POST   /api/auth/logout         Logout (clears session)
 GET    /api/auth/me             Current user info
-POST   /api/auth/invite         Admin-only: invite user with temp password
-GET    /api/auth/team           List org members
+POST   /api/auth/invite         Admin-only: invite user with temp password (Pro)
+GET    /api/auth/team           List org members (Pro)
+
+# Licensing
+GET    /api/license/status      Current license info + effective limits (public)
+POST   /api/license/activate    Activate license key (admin-only)
+DELETE /api/license/deactivate  Deactivate license, revert to Community (admin-only)
 
 # System
 GET    /api/system              System metrics (CPU, RAM, agents)
@@ -131,7 +138,8 @@ POST   /api/agents/{id}/summarize   Trigger LLM summary
 {"type": "agent_output", "agent_id": "a7f3", "lines": [...]}
 {"type": "metrics", "cpu_pct": 34.2, "memory": {...}, "agents_active": 5}
 {"type": "event", "event": "agent_needs_input", "agent_id": "a7f3", "message": "..."}
-{"type": "sync", "agents": [...], "projects": [...], "config": {...}}
+{"type": "sync", "agents": [...], "projects": [...], "config": {...}, "license": {...}, "effective_max_agents": 5}
+{"type": "license_update", "license": {...}, "effective_max_agents": 100}
 {"type": "intelligence_alert", "insight": {...}}
 {"type": "file_conflict", "conflict": {...}}
 ```
@@ -203,6 +211,7 @@ POST   /api/agents/{id}/summarize   Trigger LLM summary
 - Ambient background gradient (fleet health indicator)
 - Audio feedback (Web Audio API tones)
 - Settings panel: max agents, backends, thresholds, cost budgets, alert patterns
+- License settings: plan badge, key activation/deactivation, tier details, expiry info
 - Import/export config and fleet state
 
 ## Intelligence Layer (Optional — requires XAI_API_KEY)
@@ -273,6 +282,8 @@ llm:
 voice:
   enabled: true
   ptt_key: "Space"
+licensing:
+  key: ""                      # JWT license key (set via API or YAML)
 display:
   theme: "dark"
   cards_per_row: 4
@@ -307,7 +318,7 @@ display:
 - NEVER crash — try/except with meaningful error handling
 - All dict iterations use `list()` snapshots (prevent RuntimeError during async)
 - Security: working_dir restricted to home/tmp, message size limits, rate limiting, CSP headers, request size limits, ownership enforcement on all mutation endpoints
-- 1195 pytest tests across 11 test files
+- ~1240 pytest tests across 12 test files
 
 ## Multi-User Auth
 
@@ -318,6 +329,63 @@ Session-based authentication with bcrypt password hashing:
 - Agent ownership: spawned agents tagged with owner, only owner or admin can control
 - All org members can view all agents (command center purpose)
 - Bearer token fallback for API/CLI access (backward compat)
+
+## Licensing (Open Core)
+
+Offline-first Ed25519-signed JWT licensing. No phone-home, no license server. Public key embedded in `server.py`, private key held by issuer.
+
+### Tiers
+
+| | Community (free) | Pro (paid) |
+|---|---|---|
+| Concurrent agents | 5 | Up to 100 |
+| Users/seats | 1 | Up to 50 |
+| Intelligence (LLM) | Gated | Included |
+| Workflows | Gated | Included |
+| Fleet presets | Gated | Included |
+| Multi-user auth | Gated | Included |
+| Core orchestration | Full | Full |
+
+### How It Works
+
+- `License` dataclass: tier, max_agents, max_seats, features, expiry
+- `COMMUNITY_LICENSE` singleton: default when no key or key is invalid/expired
+- `validate_license(key)`: decode JWT, verify Ed25519 signature, return License or COMMUNITY_LICENSE (never crash)
+- `_effective_max_agents(app)`: `min(config.max_agents, license.max_agents)` — enforced at all 6 spawn points
+- `_check_feature(request, feature)`: returns 403 JSON with `error`, `feature`, `current_plan` or None
+
+### Feature Gating
+
+Gated features return 403 with `{"error": "...", "feature": "...", "current_plan": "community"}`:
+- `intelligence` → intelligence_command, get_intelligence_insights
+- `workflows` → create_workflow, update_workflow, run_workflow
+- `fleet_presets` → batch_spawn
+- `multi_user` → auth_invite, auth_team
+
+### Dashboard Integration
+
+- Plan badge in header: "Community" (gray) or "Pro" (purple gradient)
+- License settings section: key input, activate/deactivate buttons, plan details
+- 403 responses show upgrade toast with feature name
+- Fleet presets show "Pro required" toast on Community tier
+- Max agents input clamped to license ceiling with note
+
+### License Key Generation
+
+```bash
+# Generate Ed25519 keypair
+python generate_license.py generate-keypair --output-dir ./keys
+
+# Sign a Pro license (365 days, 100 agents)
+python generate_license.py generate --private-key ./keys/license_private.pem --org-id my-org --tier pro --max-agents 100 --days 365
+
+# Decode a license key (debug, no verification)
+python generate_license.py decode <jwt-token>
+```
+
+### Admin-Only Config
+
+When auth is enabled, `PUT /api/config` requires admin role. `max_agents` in config updates is clamped to the license ceiling.
 
 ## Deployment
 
