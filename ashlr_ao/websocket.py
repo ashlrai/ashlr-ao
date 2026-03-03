@@ -33,7 +33,7 @@ from ashlr_ao.models import SystemMetrics
 if TYPE_CHECKING:
     from ashlr_ao.config import Config
     from ashlr_ao.database import Database
-    from ashlr_ao.server import AgentManager
+    from ashlr_ao.manager import AgentManager
 
 log = logging.getLogger("ashlr")
 
