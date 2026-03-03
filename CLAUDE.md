@@ -4,14 +4,25 @@
 
 Ashlr is a **local-first agent orchestration platform**. One developer, many AI coding agents (Claude Code, Codex, etc.), multiple repos, single command center.
 
-**Current state**: Fully functional. Server (~10.8K lines) + dashboard (~9800 lines) + ~1240 tests. All 5 development phases + multi-user auth + deployment infra + production hardening + open-core licensing complete. Installable via `pip install ashlr-ao`. Ready for multi-user deployment.
+**Current state**: Fully functional. Server (~10.2K lines) + dashboard (~19.5K lines) + 1240 tests. All 5 development phases + multi-user auth + deployment infra + production hardening + open-core licensing + v1.5 modularization complete. Installable via `pip install ashlr-ao`. Ready for multi-user deployment.
 
 ## Architecture
 
-**Two files. That's the entire application.** Packaged as `ashlr_ao` (pip-installable).
+Modular Python package (`ashlr_ao`) with server core + extracted domain modules. Dashboard is a single HTML file with inline CSS/JS.
 
-- `ashlr_ao/server.py` — Python aiohttp server. Manages agents via tmux, serves dashboard, REST + WebSocket APIs, SQLite persistence, system metrics, LLM intelligence.
-- `ashlr_ao/dashboard.html` — Single HTML file served at `/`. All CSS + JS inline. No build step.
+### Core files
+- `ashlr_ao/server.py` (~10.2K lines) — aiohttp server. AgentManager, Database, WebSocketHub, middleware, route handlers, background tasks.
+- `ashlr_ao/dashboard.html` (~19.5K lines) — Single HTML file served at `/`. All CSS + JS inline. No build step.
+
+### Domain modules (extracted from server.py, re-exported for backward compat)
+- `ashlr_ao/constants.py` — Logging, ANSI patterns, secret detection, banner, dependency checks.
+- `ashlr_ao/config.py` — Config dataclass, DEFAULT_CONFIG, YAML load/save, validation.
+- `ashlr_ao/licensing.py` — License dataclass, Ed25519 JWT validation, feature gating.
+- `ashlr_ao/backends.py` — BackendConfig dataclass, KNOWN_BACKENDS (claude-code, codex, aider, goose).
+- `ashlr_ao/roles.py` — Role dataclass, BUILTIN_ROLES (9 roles).
+- `ashlr_ao/extensions.py` — ExtensionScanner, SkillInfo, MCPServerInfo, PluginInfo.
+
+### Package files
 - `ashlr_ao/logo.png` — Logo served at `/logo.png`.
 - `ashlr_ao/__init__.py` — Package init with `__version__` (single source of truth).
 - `ashlr_ao/__main__.py` — Enables `python -m ashlr_ao`.
@@ -318,7 +329,7 @@ display:
 - NEVER crash — try/except with meaningful error handling
 - All dict iterations use `list()` snapshots (prevent RuntimeError during async)
 - Security: working_dir restricted to home/tmp, message size limits, rate limiting, CSP headers, request size limits, ownership enforcement on all mutation endpoints
-- ~1240 pytest tests across 12 test files
+- 1252 pytest tests across 17 test files
 
 ## Multi-User Auth
 
