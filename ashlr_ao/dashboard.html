@@ -8433,6 +8433,52 @@ function createAgentCard(agent) {
             <div class="card-menu-item danger" role="menuitem" data-action="kill">${icon('x', 14)} Kill</div>
         </div>
     `;
+    // Cache element references to avoid 42 querySelector calls per update cycle
+    card._el = {
+        icon: card.querySelector('.card-icon'),
+        name: card.querySelector('.card-name'),
+        dir: card.querySelector('.card-dir'),
+        summary: card.querySelector('.card-summary'),
+        lastAction: card.querySelector('.card-last-action'),
+        lastFile: card.querySelector('.card-last-file'),
+        projectBadge: card.querySelector('.card-project-badge'),
+        owner: card.querySelector('.agent-owner'),
+        backendLabel: card.querySelector('.card-backend-label'),
+        workflowDot: card.querySelector('.card-workflow-dot'),
+        connDot: card.querySelector('.card-conn-dot'),
+        health: card.querySelector('.card-health'),
+        inputSection: card.querySelector('.card-input-section'),
+        inputPrompt: card.querySelector('.card-input-prompt'),
+        quickActions: card.querySelector('.card-quick-actions'),
+        respondBtn: card.querySelector('.card-respond-btn'),
+        progressBar: card.querySelector('.progress-bar'),
+        progressFill: card.querySelector('.progress-bar-fill'),
+        progressText: card.querySelector('.card-progress-text'),
+        miniStats: card.querySelector('.card-mini-stats'),
+        contextBar: card.querySelector('.context-bar'),
+        contextFill: card.querySelector('.context-bar-fill'),
+        contextPctLabel: card.querySelector('.context-pct-label'),
+        contextText: card.querySelector('.context-text'),
+        contextWarnIcon: card.querySelector('.context-warn-icon'),
+        messageBadge: card.querySelector('.card-message-badge'),
+        conflictBadge: card.querySelector('.card-conflict-badge'),
+        filesBadge: card.querySelector('.card-files-badge'),
+        bookmarksBadge: card.querySelector('.card-bookmarks-badge'),
+        errorCountBadge: card.querySelector('.card-error-count-badge'),
+        sparkline: card.querySelector('.card-sparkline'),
+        healthSparkline: card.querySelector('.card-health-sparkline'),
+        pipelineBadge: card.querySelector('.card-pipeline-badge'),
+        modelBadge: card.querySelector('.card-model-badge'),
+        toolsBadge: card.querySelector('.card-tools-badge'),
+        branchBadge: card.querySelector('.card-branch-badge'),
+        costBadge: card.querySelector('.card-cost-badge'),
+        lineCount: card.querySelector('.card-line-count'),
+        statusBadge: card.querySelector('.status-badge'),
+        statusDuration: card.querySelector('.card-status-duration'),
+        meta: card.querySelector('.card-meta'),
+        tagsRow: card.querySelector('.card-tags-row'),
+        planIndicator: card.querySelector('.plan-mode-indicator'),
+    };
     // Event delegation — handles all data-action clicks securely (no inline onclick)
     card.addEventListener('click', (e) => {
         const actionEl = e.target.closest('[data-action]');
@@ -8543,65 +8589,72 @@ function applyCardReorder(fromId, toId) {
 function detectLastAction(agent) {
     const lines = agent._outputBuffer || agent.output_lines || [];
     if (lines.length === 0) return null;
+    if (agent._lastActionLen === lines.length) return agent._lastActionCache;
     const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
-    // Scan last 20 lines for action patterns
+    let result = null;
     const recent = lines.slice(-20);
     for (let i = recent.length - 1; i >= 0; i--) {
         const l = recent[i].replace(ansiRe, '').trim();
         if (!l) continue;
         let m;
-        if ((m = l.match(/\bEdit\("([^"]+)"\)/))) return `Edited ${m[1].split('/').pop()}`;
-        if ((m = l.match(/\bWrite\("([^"]+)"\)/))) return `Wrote ${m[1].split('/').pop()}`;
-        if ((m = l.match(/\bRead\("([^"]+)"\)/))) return `Reading ${m[1].split('/').pop()}`;
-        if ((m = l.match(/\bBash\("([^"]{0,40})"\)/))) return `Running: ${m[1]}`;
-        if ((m = l.match(/\bGrep\("([^"]+)"\)/))) return `Searching: ${m[1].slice(0, 30)}`;
-        if ((m = l.match(/\bGlob\("([^"]+)"\)/))) return `Finding: ${m[1].slice(0, 30)}`;
-        if (/\bgit commit/i.test(l)) return 'Git commit';
-        if (/\bgit push/i.test(l)) return 'Git push';
-        if (/\d+ passed/i.test(l)) { const p = l.match(/(\d+) passed/i); return `Tests: ${p[1]} passed`; }
-        if (/\b(error|exception|FAIL)\b/i.test(l)) return 'Error detected';
+        if ((m = l.match(/\bEdit\("([^"]+)"\)/))) { result = `Edited ${m[1].split('/').pop()}`; break; }
+        if ((m = l.match(/\bWrite\("([^"]+)"\)/))) { result = `Wrote ${m[1].split('/').pop()}`; break; }
+        if ((m = l.match(/\bRead\("([^"]+)"\)/))) { result = `Reading ${m[1].split('/').pop()}`; break; }
+        if ((m = l.match(/\bBash\("([^"]{0,40})"\)/))) { result = `Running: ${m[1]}`; break; }
+        if ((m = l.match(/\bGrep\("([^"]+)"\)/))) { result = `Searching: ${m[1].slice(0, 30)}`; break; }
+        if ((m = l.match(/\bGlob\("([^"]+)"\)/))) { result = `Finding: ${m[1].slice(0, 30)}`; break; }
+        if (/\bgit commit/i.test(l)) { result = 'Git commit'; break; }
+        if (/\bgit push/i.test(l)) { result = 'Git push'; break; }
+        if (/\d+ passed/i.test(l)) { const p = l.match(/(\d+) passed/i); result = `Tests: ${p[1]} passed`; break; }
+        if (/\b(error|exception|FAIL)\b/i.test(l)) { result = 'Error detected'; break; }
     }
-    return null;
+    agent._lastActionLen = lines.length;
+    agent._lastActionCache = result;
+    return result;
 }
 
 function detectProgressText(agent) {
     const lines = agent._outputBuffer || agent.output_lines || [];
     if (lines.length === 0) return null;
+    if (agent._progressTextLen === lines.length) return agent._progressTextCache;
     const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+    let result = null;
     const recent = lines.slice(-30);
     for (let i = recent.length - 1; i >= 0; i--) {
         const l = recent[i].replace(ansiRe, '').trim();
         if (!l) continue;
         let m;
-        // "X of Y" pattern (files, steps, items)
         if ((m = l.match(/(\d+)\s+(?:of|\/)\s+(\d+)\s+(files?|steps?|items?|tests?|tasks?|modules?)/i))) {
-            return `${m[1]}/${m[2]} ${m[3]}`;
+            result = `${m[1]}/${m[2]} ${m[3]}`; break;
         }
-        // "step N/M" or "N/M complete"
         if ((m = l.match(/(?:step\s+)?(\d+)\s*\/\s*(\d+)(?:\s+(?:complete|done|finished|processed))?/i))) {
             const n = parseInt(m[1]), total = parseInt(m[2]);
-            if (total > 1 && total <= 1000 && n <= total) return `${n}/${total}`;
+            if (total > 1 && total <= 1000 && n <= total) { result = `${n}/${total}`; break; }
         }
-        // Percentage: "45%" or "45.2%"
         if ((m = l.match(/(\d{1,3}(?:\.\d)?)%\s*(?:complete|done|progress)?/i))) {
             const pct = parseFloat(m[1]);
-            if (pct >= 0 && pct <= 100) return `${Math.round(pct)}% complete`;
+            if (pct >= 0 && pct <= 100) { result = `${Math.round(pct)}% complete`; break; }
         }
-        // Test results: "X passed, Y failed"
         if ((m = l.match(/(\d+)\s+passed(?:,\s*(\d+)\s+failed)?/i))) {
             const passed = m[1], failed = m[2];
-            return failed ? `${passed} passed, ${failed} failed` : `${passed} passed`;
+            result = failed ? `${passed} passed, ${failed} failed` : `${passed} passed`; break;
         }
     }
-    return null;
+    agent._progressTextLen = lines.length;
+    agent._progressTextCache = result;
+    return result;
 }
 
 function detectToolCounts(agent) {
     const lines = agent._outputBuffer || agent.output_lines || [];
-    if (lines.length === 0) return null;
+    const len = lines.length;
+    if (len === 0) return null;
+    // Incremental scan: only process new lines since last call
+    const prevLen = agent._toolCountsLen || 0;
+    if (prevLen === len && agent._toolCountsCache) return agent._toolCountsCache;
     const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
-    const counts = { read: 0, edit: 0, write: 0, bash: 0, grep: 0, glob: 0 };
-    for (let i = 0; i < lines.length; i++) {
+    const counts = agent._toolCountsCache ? { ...agent._toolCountsCache } : { read: 0, edit: 0, write: 0, bash: 0, grep: 0, glob: 0 };
+    for (let i = prevLen; i < len; i++) {
         const l = lines[i].replace(ansiRe, '');
         if (/\bRead\s*\(/.test(l)) counts.read++;
         if (/\bEdit\s*\(/.test(l)) counts.edit++;
@@ -8610,24 +8663,29 @@ function detectToolCounts(agent) {
         if (/\bGrep\s*\(/.test(l)) counts.grep++;
         if (/\bGlob\s*\(/.test(l)) counts.glob++;
     }
+    agent._toolCountsCache = counts;
+    agent._toolCountsLen = len;
     return counts;
 }
 
 function detectLastFile(agent) {
     const lines = agent._outputBuffer || agent.output_lines || [];
     if (lines.length === 0) return null;
+    if (agent._lastFileLen === lines.length) return agent._lastFileCache;
     const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+    let result = null;
     const recent = lines.slice(-30);
     for (let i = recent.length - 1; i >= 0; i--) {
         const l = recent[i].replace(ansiRe, '').trim();
         if (!l) continue;
         let m;
-        if ((m = l.match(/\b(?:Edit|Write|Read)\("([^"]+)"\)/))) return m[1];
-        if ((m = l.match(/\b(?:Glob|Grep)\("[^"]*".*?"([^"]+)"\)/))) return m[1];
-        // Match file paths in common output patterns
-        if ((m = l.match(/(?:^|\s)((?:\/[\w.-]+)+\.\w{1,10})\b/))) return m[1];
+        if ((m = l.match(/\b(?:Edit|Write|Read)\("([^"]+)"\)/))) { result = m[1]; break; }
+        if ((m = l.match(/\b(?:Glob|Grep)\("[^"]*".*?"([^"]+)"\)/))) { result = m[1]; break; }
+        if ((m = l.match(/(?:^|\s)((?:\/[\w.-]+)+\.\w{1,10})\b/))) { result = m[1]; break; }
     }
-    return null;
+    agent._lastFileLen = lines.length;
+    agent._lastFileCache = result;
+    return result;
 }
 
 function updateAgentCard(card, agent) {
@@ -8647,20 +8705,19 @@ function updateAgentCard(card, agent) {
 
     card.dataset.roleColor = roleColor;
 
-    const cardIconEl = card.querySelector('.card-icon');
-    cardIconEl.innerHTML = roleIcon(agent.role, 16);
-    cardIconEl.style.background = `color-mix(in srgb, ${roleColor} 15%, transparent)`;
-    cardIconEl.style.color = roleColor;
-    const nameEl = card.querySelector('.card-name');
-    nameEl.textContent = agent.name;
-    nameEl.title = agent.name;
-    card.querySelector('.card-dir').textContent = shortenPath(agent.working_dir);
-    card.querySelector('.card-summary').textContent = (agent.status === 'error' && agent.error_message)
+    const el = card._el;
+    el.icon.innerHTML = roleIcon(agent.role, 16);
+    el.icon.style.background = `color-mix(in srgb, ${roleColor} 15%, transparent)`;
+    el.icon.style.color = roleColor;
+    el.name.textContent = agent.name;
+    el.name.title = agent.name;
+    el.dir.textContent = shortenPath(agent.working_dir);
+    el.summary.textContent = (agent.status === 'error' && agent.error_message)
         ? agent.error_message
         : (agent.summary || agent.task || 'Starting...');
 
     // Last action indicator
-    const lastActionEl = card.querySelector('.card-last-action');
+    const lastActionEl = el.lastAction;
     if (lastActionEl) {
         const lastAction = detectLastAction(agent);
         if (lastAction) {
@@ -8672,7 +8729,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Last file badge
-    const lastFileEl = card.querySelector('.card-last-file');
+    const lastFileEl = el.lastFile;
     if (lastFileEl) {
         const lastFile = detectLastFile(agent);
         if (lastFile) {
@@ -8691,7 +8748,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Project badge
-    const projBadge = card.querySelector('.card-project-badge');
+    const projBadge = el.projectBadge;
     if (agent.project_id) {
         const proj = state.projects.find(p => p.id === agent.project_id);
         projBadge.textContent = proj?.name || agent.project_id;
@@ -8701,7 +8758,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Owner badge
-    const ownerEl = card.querySelector('.agent-owner');
+    const ownerEl = el.owner;
     if (ownerEl && agent.owner_name) {
         ownerEl.textContent = agent.owner_name;
         ownerEl.style.display = '';
@@ -8710,11 +8767,11 @@ function updateAgentCard(card, agent) {
     }
 
     // Backend label
-    const backendLabel = card.querySelector('.card-backend-label');
+    const backendLabel = el.backendLabel;
     backendLabel.textContent = agent.backend || 'claude-code';
 
     // Workflow group indicator
-    const wfDot = card.querySelector('.card-workflow-dot');
+    const wfDot = el.workflowDot;
     if (agent.related_agents?.length) {
         wfDot.style.display = '';
         card.style.borderRightWidth = '2px';
@@ -8726,7 +8783,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Connection status dot
-    const connDot = card.querySelector('.card-conn-dot');
+    const connDot = el.connDot;
     if (connDot) {
         const isActive = ['working', 'planning', 'reading', 'waiting', 'spawning'].includes(agent.status);
         const updatedAgo = agent.updated_at ? (Date.now() - new Date(agent.updated_at).getTime()) / 1000 : 999;
@@ -8743,7 +8800,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Health score indicator
-    const healthEl = card.querySelector('.card-health');
+    const healthEl = el.health;
     const hs = agent.health_score ?? 1.0;
     healthEl.className = 'card-health ' + (hs >= 0.8 ? 'excellent' : hs >= 0.6 ? 'good' : hs >= 0.4 ? 'fair' : 'poor');
     const healthDetails = [
@@ -8756,12 +8813,12 @@ function updateAgentCard(card, agent) {
     healthEl.title = healthDetails;
 
     // Input prompt with inline quick-response buttons
-    const inputSection = card.querySelector('.card-input-section');
+    const inputSection = el.inputSection;
     if (agent.needs_input && agent.input_prompt) {
         inputSection.style.display = 'block';
-        card.querySelector('.card-input-prompt').textContent = agent.input_prompt;
-        const quickActions = card.querySelector('.card-quick-actions');
-        const respondBtn = card.querySelector('.card-respond-btn');
+        el.inputPrompt.textContent = agent.input_prompt;
+        const quickActions = el.quickActions;
+        const respondBtn = el.respondBtn;
         const prompt = (agent.input_prompt || '').toLowerCase();
         const isYesNo = /\b(yes|no|y\/n)\b/.test(prompt) || /\?\s*$/.test(prompt);
         const isApprove = /\b(approve|proceed|confirm|allow|accept)\b/.test(prompt) || (agent.plan_mode && agent.status === 'waiting');
@@ -8783,8 +8840,8 @@ function updateAgentCard(card, agent) {
 
     // Progress bar with phase colors
     const progPct = Math.round((agent.progress_pct || 0) * 100);
-    const progBar = card.querySelector('.progress-bar');
-    const progFill = card.querySelector('.progress-bar-fill');
+    const progBar = el.progressBar;
+    const progFill = el.progressFill;
     progFill.style.transform = `scaleX(${progPct / 100})`;
     progBar.setAttribute('aria-valuenow', progPct);
     progBar.setAttribute('aria-valuemin', '0');
@@ -8796,7 +8853,7 @@ function updateAgentCard(card, agent) {
     progFill.className = 'progress-bar-fill ' + (phaseMap[phase] || '');
 
     // Progress text from output parsing
-    const progTextEl = card.querySelector('.card-progress-text');
+    const progTextEl = el.progressText;
     if (progTextEl) {
         const progText = detectProgressText(agent);
         if (progText) {
@@ -8808,7 +8865,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Mini-stats row — tool invocation counts from output
-    const miniStatsEl = card.querySelector('.card-mini-stats');
+    const miniStatsEl = el.miniStats;
     if (miniStatsEl) {
         const counts = detectToolCounts(agent);
         if (counts && Object.values(counts).some(v => v > 0)) {
@@ -8831,22 +8888,22 @@ function updateAgentCard(card, agent) {
     const remainPct = Math.max(0, 100 - usedPct);
     // Color based on remaining: green=plenty, yellow=getting low, red=critical
     const ctxLevel = remainPct > 50 ? 'low' : remainPct > 20 ? 'medium' : 'high';
-    const ctxBar = card.querySelector('.context-bar');
-    const fill = card.querySelector('.context-bar-fill');
+    const ctxBar = el.contextBar;
+    const fill = el.contextFill;
     fill.style.transform = `scaleX(${Math.max(usedPct, 1) / 100})`;
     fill.className = 'context-bar-fill ' + ctxLevel;
     ctxBar.setAttribute('aria-valuenow', remainPct);
     ctxBar.setAttribute('aria-valuemin', '0');
     ctxBar.setAttribute('aria-valuemax', '100');
     // Percentage remaining label — always visible
-    const pctLabel = card.querySelector('.context-pct-label');
+    const pctLabel = el.contextPctLabel;
     if (pctLabel) {
         pctLabel.textContent = `${remainPct}%`;
         pctLabel.className = 'context-pct-label ' + ctxLevel;
     }
     // Token count text — always visible
-    const ctxText = card.querySelector('.context-text');
-    const ctxWarn = card.querySelector('.context-warn-icon');
+    const ctxText = el.contextText;
+    const ctxWarn = el.contextWarnIcon;
     if (ctxText) {
         const ctxWindow = agent.context_window || 200000;
         const ctxWindowK = Math.round(ctxWindow / 1000);
@@ -8871,7 +8928,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Message badge
-    const msgBadge = card.querySelector('.card-message-badge');
+    const msgBadge = el.messageBadge;
     if (msgBadge) {
         if (agent.unread_messages > 0) {
             msgBadge.textContent = agent.unread_messages;
@@ -8882,7 +8939,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Conflict badge
-    const conflictBadge = card.querySelector('.card-conflict-badge');
+    const conflictBadge = el.conflictBadge;
     if (conflictBadge) {
         const agentConflicts = state.conflicts.get(agent.id);
         if (agentConflicts && agentConflicts.size > 0) {
@@ -8895,7 +8952,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Files touched badge
-    const filesBadge = card.querySelector('.card-files-badge');
+    const filesBadge = el.filesBadge;
     if (agent.files_touched > 0) {
         filesBadge.textContent = `${agent.files_touched} file${agent.files_touched !== 1 ? 's' : ''}`;
         filesBadge.style.display = '';
@@ -8904,7 +8961,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Bookmarks badge
-    const bmBadge = card.querySelector('.card-bookmarks-badge');
+    const bmBadge = el.bookmarksBadge;
     if (bmBadge) {
         const bmCount = agent.bookmarks?.length || 0;
         if (bmCount > 0) {
@@ -8916,16 +8973,22 @@ function updateAgentCard(card, agent) {
         }
     }
 
-    // Error count badge
-    const errBadge = card.querySelector('.card-error-count-badge');
+    // Error count badge (cached by buffer length)
+    const errBadge = el.errorCountBadge;
     if (errBadge) {
         const lines = agent._outputBuffer || agent.output_lines || [];
-        const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
         let errCount = 0;
-        const tail = lines.slice(-200);
-        for (const l of tail) {
-            const s = l.replace(ansiRe, '');
-            if (/\b(error|exception|traceback|FAIL(ED)?|ERROR|panic|fatal)\b/i.test(s)) errCount++;
+        if (agent._errCountLen !== lines.length) {
+            const ansiRe = /\x1b\[[0-9;]*m|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]/g;
+            const tail = lines.slice(-200);
+            for (const l of tail) {
+                const s = l.replace(ansiRe, '');
+                if (/\b(error|exception|traceback|FAIL(ED)?|ERROR|panic|fatal)\b/i.test(s)) errCount++;
+            }
+            agent._errCountLen = lines.length;
+            agent._errCountCache = errCount;
+        } else {
+            errCount = agent._errCountCache || 0;
         }
         if (errCount > 0) {
             errBadge.textContent = `${errCount} err${errCount > 1 ? 's' : ''}`;
@@ -8944,7 +9007,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Sparkline (A3)
-    const sparkCanvas = card.querySelector('.card-sparkline');
+    const sparkCanvas = el.sparkline;
     if (sparkCanvas && agent._outputHistory?.length > 1) {
         const ctx = sparkCanvas.getContext('2d');
         const w = sparkCanvas.width, h = sparkCanvas.height;
@@ -8969,7 +9032,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Health trend sparkline
-    const healthSparkCanvas = card.querySelector('.card-health-sparkline');
+    const healthSparkCanvas = el.healthSparkline;
     if (healthSparkCanvas && agent._healthHistory?.length > 2) {
         const ctx2 = healthSparkCanvas.getContext('2d');
         const w2 = healthSparkCanvas.width, h2 = healthSparkCanvas.height;
@@ -9001,7 +9064,7 @@ function updateAgentCard(card, agent) {
     card.classList.toggle('pinned', state.pinnedAgents.has(agent.id));
 
     // Pipeline position badge
-    const pipelineBadge = card.querySelector('.card-pipeline-badge');
+    const pipelineBadge = el.pipelineBadge;
     if (pipelineBadge) {
         if (agent.workflow_run_id) {
             const run = state.workflowRuns.get(agent.workflow_run_id);
@@ -9019,7 +9082,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Model badge
-    const modelBadge = card.querySelector('.card-model-badge');
+    const modelBadge = el.modelBadge;
     if (modelBadge) {
         if (agent.model) {
             const shortModel = agent.model.replace(/^claude-/, '').replace(/-\d{8}$/, '');
@@ -9031,7 +9094,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Tools permission badge
-    const toolsBadge = card.querySelector('.card-tools-badge');
+    const toolsBadge = el.toolsBadge;
     if (toolsBadge) {
         if (agent.tools_allowed && agent.tools_allowed.length > 0) {
             toolsBadge.innerHTML = `${icon('shield-check', 12)} ${agent.tools_allowed.length}`;
@@ -9044,7 +9107,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Git branch badge
-    const branchBadge = card.querySelector('.card-branch-badge');
+    const branchBadge = el.branchBadge;
     if (branchBadge) {
         if (agent.git_branch) {
             branchBadge.innerHTML = `${icon('git-branch', 10)} ${escapeHtml(agent.git_branch)}`;
@@ -9056,7 +9119,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Cost badge — show health score if available, otherwise cost
-    const costBadge = card.querySelector('.card-cost-badge');
+    const costBadge = el.costBadge;
     if (costBadge) {
         if (typeof agent.health_score === 'number') {
             const hp = Math.round(agent.health_score * 100);
@@ -9082,7 +9145,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Line count badge
-    const lineCountBadge = card.querySelector('.card-line-count');
+    const lineCountBadge = el.lineCount;
     if (lineCountBadge) {
         const totalLines = agent.total_output_lines || (agent._outputBuffer || []).length;
         if (totalLines > 0) {
@@ -9094,7 +9157,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Status badge — plan-mode aware text
-    const badge = card.querySelector('.status-badge');
+    const badge = el.statusBadge;
     if (agent.plan_mode && agent.status === 'planning') {
         badge.textContent = 'planning...';
     } else if (agent.plan_mode && agent.status === 'waiting') {
@@ -9106,7 +9169,7 @@ function updateAgentCard(card, agent) {
     badge.setAttribute('aria-label', `Status: ${badge.textContent}`);
 
     // Status duration — show how long agent has been in current status
-    const durEl = card.querySelector('.card-status-duration');
+    const durEl = el.statusDuration;
     if (durEl && card.dataset.statusSince) {
         const durSec = (Date.now() - parseInt(card.dataset.statusSince)) / 1000;
         if (durSec >= 10) {
@@ -9126,7 +9189,7 @@ function updateAgentCard(card, agent) {
     }
 
     // Meta: memory + time + output rate + cost + health + files
-    const meta = card.querySelector('.card-meta');
+    const meta = el.meta;
     const metaParts = [];
     if (agent.restart_count > 0) metaParts.push(`↻${agent.restart_count}`);
     if (agent.model) {
@@ -9156,7 +9219,7 @@ function updateAgentCard(card, agent) {
     meta.innerHTML = metaParts.map(p => `<span>${p}</span>`).join('');
 
     // Tags row
-    const tagsRow = card.querySelector('.card-tags-row');
+    const tagsRow = el.tagsRow;
     if (tagsRow) {
         const tags = agent.tags || [];
         if (tags.length > 0) {

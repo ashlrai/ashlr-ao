@@ -24,6 +24,7 @@ from ashlr_ao.server import (  # noqa: F401
     _validate_workflow_specs,
     _SECRET_PATTERNS,
     _ANSI_ESCAPE_RE,
+    _supervised_task,
 )
 
 if __name__ == "__main__":
