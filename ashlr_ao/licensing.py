@@ -25,7 +25,7 @@ PRO_FEATURES: frozenset[str] = frozenset({
 })
 
 LICENSE_PUBLIC_KEY_PEM = """-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEABZK/hIk2v95CNsJJ1tXRzZHIA7XUinjXqr17PoF8p9A=
+MCowBQYDK2VwAyEAiQEVq+N9jCQiaetYWo+QJILu8Q0wcuqaZzygMAJ32uI=
 -----END PUBLIC KEY-----"""
 
 
