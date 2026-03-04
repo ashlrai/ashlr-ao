@@ -15,4 +15,4 @@ ignore = [
 
 [lint.per-file-ignores]
 "ashlr_server.py" = ["F401", "F403"]
-"tests/*" = ["E501"]
+"tests/*" = ["E501", "E402", "E401", "E702", "F841"]
