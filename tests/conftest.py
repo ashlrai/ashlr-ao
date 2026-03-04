@@ -81,6 +81,16 @@ def make_mock_db():
     db.get_fleet_template = AsyncMock(return_value=None)
     db.save_fleet_template = AsyncMock()
     db.delete_fleet_template = AsyncMock(return_value=False)
+    # Webhooks
+    db.get_webhooks = AsyncMock(return_value=[])
+    db.get_webhook = AsyncMock(return_value=None)
+    db.save_webhook = AsyncMock()
+    db.delete_webhook = AsyncMock(return_value=False)
+    db.queue_webhook_delivery = AsyncMock()
+    db.get_pending_deliveries = AsyncMock(return_value=[])
+    db.update_delivery_status = AsyncMock()
+    db.get_webhook_deliveries = AsyncMock(return_value=[])
+    db.cleanup_old_deliveries = AsyncMock(return_value=0)
     db._db = None
     return db
 

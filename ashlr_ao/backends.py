@@ -54,6 +54,40 @@ class BackendConfig:
         }
 
 
+# Per-model pricing (input $/1K tokens, output $/1K tokens)
+MODEL_PRICING: dict[str, tuple[float, float]] = {
+    # Claude models
+    "claude-opus-4-6": (0.015, 0.075),
+    "claude-sonnet-4-6": (0.003, 0.015),
+    "claude-haiku-4-5": (0.0008, 0.004),
+    "opus": (0.015, 0.075),
+    "sonnet": (0.003, 0.015),
+    "haiku": (0.0008, 0.004),
+    # OpenAI models
+    "gpt-4o": (0.0025, 0.01),
+    "gpt-4o-mini": (0.00015, 0.0006),
+    "o1": (0.015, 0.06),
+    "o3": (0.01, 0.04),
+    # Default fallback
+    "default": (0.003, 0.015),
+}
+
+
+def get_model_pricing(model: str, backend: str = "claude-code") -> tuple[float, float]:
+    """Get (input_cost_per_1k, output_cost_per_1k) for a model, with backend fallback."""
+    if model and model in MODEL_PRICING:
+        return MODEL_PRICING[model]
+    # Fuzzy match: check if model starts with a known prefix
+    for key, rates in MODEL_PRICING.items():
+        if model and model.startswith(key):
+            return rates
+    # Fall back to backend default
+    if backend in KNOWN_BACKENDS:
+        b = KNOWN_BACKENDS[backend]
+        return (b.cost_input_per_1k, b.cost_output_per_1k)
+    return MODEL_PRICING["default"]
+
+
 KNOWN_BACKENDS: dict[str, BackendConfig] = {
     "claude-code": BackendConfig(
         command="claude",

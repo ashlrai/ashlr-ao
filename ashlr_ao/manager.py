@@ -1196,12 +1196,13 @@ class AgentManager:
         agent.tokens_output += tokens_est
         # Input tokens: base context + conversation history (output re-read on each turn)
         agent.tokens_input = int(system_overhead_tokens + task_tokens + prompt_tokens) + int(agent.tokens_output * 0.8)
-        # Compute cost from backend config rates
-        if bc:
-            agent.estimated_cost_usd = (
-                (agent.tokens_input / 1000) * bc.cost_input_per_1k +
-                (agent.tokens_output / 1000) * bc.cost_output_per_1k
-            )
+        # Compute cost: use per-model pricing if model is set, fallback to backend rates
+        from ashlr_ao.backends import get_model_pricing
+        input_rate, output_rate = get_model_pricing(getattr(agent, 'model', ''), agent.backend)
+        agent.estimated_cost_usd = (
+            (agent.tokens_input / 1000) * input_rate +
+            (agent.tokens_output / 1000) * output_rate
+        )
 
         # Cost budget check
         budget = self.config.cost_budget_usd

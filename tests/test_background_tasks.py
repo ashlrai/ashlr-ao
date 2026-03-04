@@ -414,7 +414,7 @@ class TestStartBackgroundTasks:
         await asyncio.sleep(0.05)
 
         assert "bg_tasks" in app
-        assert len(app["bg_tasks"]) == 5
+        assert len(app["bg_tasks"]) == 6  # includes webhook_delivery
         assert "bg_task_health" in app
         assert app["bg_task_health"] == {}
 
@@ -437,7 +437,7 @@ class TestStartBackgroundTasks:
         task = asyncio.create_task(start_background_tasks(app))
         await asyncio.sleep(0.05)
 
-        assert len(app["bg_tasks"]) == 6
+        assert len(app["bg_tasks"]) == 7  # 6 base + meta_agent
 
         # Clean up
         for t in app["bg_tasks"]:

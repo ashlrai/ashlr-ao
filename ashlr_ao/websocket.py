@@ -390,12 +390,33 @@ class WebSocketHub:
         agent_name: str | None = None,
         metadata: dict | None = None,
     ) -> None:
-        """Broadcast an event to WebSocket clients AND persist to activity_events table."""
-        payload: dict[str, Any] = {"type": "event", "event": event, "message": message}
+        """Broadcast an event to WebSocket clients, persist to DB, and queue for webhooks."""
+        from ashlr_ao.constants import redact_secrets
+        safe_message = redact_secrets(message)
+        payload: dict[str, Any] = {"type": "event", "event": event, "message": safe_message}
         if agent_id:
             payload["agent_id"] = agent_id
+        if agent_name:
+            payload["agent_name"] = agent_name
         if metadata:
             payload["metadata"] = metadata
         await self.broadcast(payload)
         if self.db:
-            await self.db.log_event(event, message, agent_id, agent_name, metadata)
+            await self.db.log_event(event, safe_message, agent_id, agent_name, metadata)
+            # Queue for webhook delivery
+            try:
+                webhooks = await self.db.get_webhooks(active_only=True)
+                for wh in webhooks:
+                    events_filter = wh.get("events", [])
+                    if not events_filter or event in events_filter:
+                        webhook_payload = {
+                            "event": event,
+                            "message": safe_message,
+                            "agent_id": agent_id,
+                            "agent_name": agent_name,
+                            "timestamp": payload.get("timestamp", ""),
+                            "metadata": metadata,
+                        }
+                        await self.db.queue_webhook_delivery(wh["id"], event, webhook_payload)
+            except Exception:
+                pass  # Don't let webhook queueing break event broadcasting

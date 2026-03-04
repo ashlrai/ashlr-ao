@@ -116,6 +116,10 @@ class Config:
     auto_pause_on_critical_health: bool = False
     # Coordination (Wave 5) — reserved, enforcement logic not yet implemented
     file_lock_enforcement: bool = False
+    # Webhooks
+    webhook_retry_max: int = 5
+    webhook_timeout_sec: float = 10.0
+    webhook_delivery_interval_sec: float = 5.0
     # Licensing
     license_key: str = ""
     # Archive rotation

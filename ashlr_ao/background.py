@@ -845,9 +845,26 @@ async def health_check_loop(app: web.Application) -> None:
         # Fleet-wide cost limit check
         try:
             config: Config = app["config"]
-            if config.cost_budget_usd > 0 and config.cost_budget_auto_pause:
+            if config.cost_budget_usd > 0:
                 fleet_cost = sum(a.estimated_cost_usd for a in list(manager.agents.values()))
-                if fleet_cost >= config.cost_budget_usd:
+                budget = config.cost_budget_usd
+                pct = fleet_cost / budget if budget > 0 else 0
+
+                # Threshold alerts at 75% and 90%
+                prev_pct = app.get('_fleet_budget_pct', 0)
+                if pct >= 0.75 and prev_pct < 0.75:
+                    await hub.broadcast_event(
+                        "cost_alert", f"Fleet cost ${fleet_cost:.2f} at 75% of ${budget:.2f} budget",
+                        None, None, {"threshold": 0.75, "cost": fleet_cost, "budget": budget},
+                    )
+                if pct >= 0.90 and prev_pct < 0.90:
+                    await hub.broadcast_event(
+                        "cost_alert", f"Fleet cost ${fleet_cost:.2f} at 90% of ${budget:.2f} budget",
+                        None, None, {"threshold": 0.90, "cost": fleet_cost, "budget": budget},
+                    )
+                app['_fleet_budget_pct'] = pct
+
+                if fleet_cost >= budget and config.cost_budget_auto_pause:
                     if not app.get('_fleet_budget_warned', False):
                         app['_fleet_budget_warned'] = True
                         log.warning(f"Fleet cost ${fleet_cost:.2f} exceeds budget ${config.cost_budget_usd:.2f} — auto-pausing working agents")
@@ -1149,8 +1166,73 @@ async def archive_cleanup_loop(app: web.Application) -> None:
             deleted = await db.cleanup_old_archives(retention_hours=48)
             if deleted > 0:
                 log.info(f"Archive cleanup: removed {deleted} old records")
+            # Clean up old webhook deliveries (72hr retention)
+            wh_deleted = await db.cleanup_old_deliveries(hours=72)
+            if wh_deleted > 0:
+                log.info(f"Webhook delivery cleanup: removed {wh_deleted} old records")
+            # Clean up old activity events (30-day retention)
+            try:
+                cutoff = (datetime.now(timezone.utc) - __import__("datetime").timedelta(days=30)).isoformat()
+                if db._db:
+                    async with db._db.execute(
+                        "DELETE FROM activity_events WHERE created_at < ?", (cutoff,)
+                    ) as cur:
+                        if cur.rowcount > 0:
+                            await db._safe_commit()
+                            log.info(f"Event cleanup: removed {cur.rowcount} events older than 30 days")
+            except Exception:
+                pass
         except Exception as e:
             log.warning(f"Archive cleanup failed: {e}")
+
+
+async def webhook_delivery_loop(app: web.Application) -> None:
+    """Deliver pending webhook payloads with exponential backoff retry."""
+    import aiohttp as _aiohttp
+    import hmac as _hmac
+    import hashlib as _hashlib
+
+    while True:
+        config: Config = app["config"]
+        await asyncio.sleep(config.webhook_delivery_interval_sec)
+        db: Database = app["db"]
+        if not app.get("db_available", True):
+            continue
+        try:
+            pending = await db.get_pending_deliveries(limit=20)
+            if not pending:
+                continue
+            timeout = _aiohttp.ClientTimeout(total=config.webhook_timeout_sec, connect=5)
+            async with _aiohttp.ClientSession(timeout=timeout) as session:
+                for delivery in pending:
+                    try:
+                        body = delivery["payload_json"]
+                        headers = {
+                            "Content-Type": "application/json",
+                            "User-Agent": "Ashlr-AO-Webhook/1.0",
+                        }
+                        secret = delivery.get("secret", "")
+                        if secret:
+                            sig = _hmac.new(secret.encode(), body.encode(), _hashlib.sha256).hexdigest()
+                            headers["X-Ashlr-Signature"] = f"sha256={sig}"
+
+                        async with session.post(delivery["url"], data=body, headers=headers) as resp:
+                            if resp.status < 400:
+                                await db.update_delivery_status(delivery["id"], "delivered")
+                            else:
+                                error = f"HTTP {resp.status}"
+                                if delivery["attempts"] + 1 >= config.webhook_retry_max:
+                                    await db.update_delivery_status(delivery["id"], "failed", error)
+                                else:
+                                    await db.update_delivery_status(delivery["id"], "pending", error)
+                    except Exception as e:
+                        error = str(e)[:200]
+                        if delivery["attempts"] + 1 >= config.webhook_retry_max:
+                            await db.update_delivery_status(delivery["id"], "failed", error)
+                        else:
+                            await db.update_delivery_status(delivery["id"], "pending", error)
+        except Exception as e:
+            log.warning(f"Webhook delivery loop error: {e}")
 
 
 async def start_background_tasks(app: web.Application) -> None:
@@ -1200,6 +1282,7 @@ async def start_background_tasks(app: web.Application) -> None:
         asyncio.create_task(_supervised_task("health_check", health_check_loop, app)),
         asyncio.create_task(_supervised_task("memory_watchdog", memory_watchdog_loop, app)),
         asyncio.create_task(_supervised_task("archive_cleanup", archive_cleanup_loop, app)),
+        asyncio.create_task(_supervised_task("webhook_delivery", webhook_delivery_loop, app)),
     ]
     # Meta-agent intelligence task (only if intelligence client is available)
     intel = app.get("intelligence")

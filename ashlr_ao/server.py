@@ -450,6 +450,81 @@ async def delete_agent(request: web.Request) -> web.Response:
     return web.json_response({"error": f"Failed to kill agent '{name}' — tmux session may have already terminated"}, status=500)
 
 
+async def get_agent_output_history(request: web.Request) -> web.Response:
+    """GET /api/agents/{id}/output — full output history (in-memory + archived)."""
+    manager: AgentManager = request.app["agent_manager"]
+    db: Database = request.app["db"]
+    agent_id = request.match_info["id"]
+    agent = manager.agents.get(agent_id)
+
+    try:
+        offset = int(request.query.get("offset", 0))
+        limit = int(request.query.get("limit", 2000))
+    except ValueError:
+        offset, limit = 0, 2000
+    limit = max(1, min(limit, 10000))
+
+    lines: list[str] = []
+
+    # Get archived lines from DB
+    archived, total_archived = await db.get_archived_output(agent_id, offset=offset, limit=limit)
+    lines.extend(archived)
+
+    # Get in-memory lines from active agent
+    if agent:
+        mem_lines = list(agent.output_lines)
+        remaining = limit - len(lines)
+        if remaining > 0:
+            lines.extend(mem_lines[:remaining])
+
+    return web.json_response({
+        "agent_id": agent_id,
+        "lines": lines,
+        "total_archived": total_archived,
+        "total_memory": len(agent.output_lines) if agent else 0,
+        "offset": offset,
+        "limit": limit,
+    })
+
+
+async def search_agent_output(request: web.Request) -> web.Response:
+    """GET /api/agents/{id}/output/search — search agent output for a pattern."""
+    manager: AgentManager = request.app["agent_manager"]
+    db: Database = request.app["db"]
+    agent_id = request.match_info["id"]
+    query = request.query.get("q", "").strip()
+    if not query:
+        return web.json_response({"error": "Query parameter 'q' is required"}, status=400)
+
+    matches: list[dict] = []
+    try:
+        pattern = re.compile(query, re.IGNORECASE)
+    except re.error:
+        return web.json_response({"error": "Invalid regex pattern"}, status=400)
+
+    # Search in-memory lines
+    agent = manager.agents.get(agent_id)
+    if agent:
+        for i, line in enumerate(agent.output_lines):
+            stripped = _strip_ansi(line)
+            if pattern.search(stripped):
+                matches.append({"line_number": i, "text": stripped[:200], "source": "memory"})
+                if len(matches) >= 100:
+                    break
+
+    # Search archived lines
+    if len(matches) < 100:
+        archived, _ = await db.get_archived_output(agent_id, offset=0, limit=50000)
+        for i, line in enumerate(archived):
+            stripped = _strip_ansi(line)
+            if pattern.search(stripped):
+                matches.append({"line_number": i, "text": stripped[:200], "source": "archive"})
+                if len(matches) >= 100:
+                    break
+
+    return web.json_response({"query": query, "matches": matches, "count": len(matches)})
+
+
 async def send_to_agent(request: web.Request) -> web.Response:
     manager: AgentManager = request.app["agent_manager"]
     hub: WebSocketHub = request.app["ws_hub"]
@@ -2673,6 +2748,31 @@ async def get_costs(request: web.Request) -> web.Response:
     hist_tokens_in = sum(h.get("tokens_input", 0) or 0 for h in history)
     hist_tokens_out = sum(h.get("tokens_output", 0) or 0 for h in history)
 
+    # Per-project cost breakdown
+    project_costs: dict[str, float] = {}
+    for agent in list(manager.agents.values()):
+        pid = getattr(agent, 'project_id', '') or 'unassigned'
+        project_costs[pid] = project_costs.get(pid, 0) + agent.estimated_cost_usd
+
+    # Budget info
+    config: Config = request.app["config"]
+    budget = config.cost_budget_usd
+    total = active_cost + hist_cost
+    budget_info = None
+    if budget > 0:
+        pct = total / budget if budget > 0 else 0
+        # Estimate time to budget exhaustion from active burn rate
+        burn_rates = [a._cost_burn_rate() for a in list(manager.agents.values()) if a.status in ("working", "planning", "reading")]
+        total_burn_per_min = sum(br.get("rate_per_min", 0) for br in burn_rates if br)
+        mins_remaining = (budget - total) / total_burn_per_min if total_burn_per_min > 0 and total < budget else None
+        budget_info = {
+            "budget_usd": budget,
+            "used_pct": round(pct * 100, 1),
+            "remaining_usd": round(max(0, budget - total), 4),
+            "burn_rate_per_min": round(total_burn_per_min, 6),
+            "minutes_remaining": round(mins_remaining, 1) if mins_remaining is not None else None,
+        }
+
     return web.json_response({
         "active": {
             "cost_usd": round(active_cost, 4),
@@ -2685,7 +2785,9 @@ async def get_costs(request: web.Request) -> web.Response:
             "tokens_input": hist_tokens_in,
             "tokens_output": hist_tokens_out,
         },
-        "total_cost_usd": round(active_cost + hist_cost, 4),
+        "total_cost_usd": round(total, 4),
+        "by_project": {k: round(v, 4) for k, v in project_costs.items()},
+        "budget": budget_info,
     })
 
 
@@ -2992,6 +3094,189 @@ async def deploy_fleet_template(request: web.Request) -> web.Response:
         "errors": errors,
         "agents": spawned,
     }, status=201 if spawned else 400)
+
+
+# ── Webhook endpoints ──
+
+# SSRF protection: block private/reserved IP ranges
+import ipaddress as _ipaddress
+
+_BLOCKED_NETS = [
+    _ipaddress.ip_network("127.0.0.0/8"),
+    _ipaddress.ip_network("10.0.0.0/8"),
+    _ipaddress.ip_network("172.16.0.0/12"),
+    _ipaddress.ip_network("192.168.0.0/16"),
+    _ipaddress.ip_network("169.254.0.0/16"),
+    _ipaddress.ip_network("::1/128"),
+    _ipaddress.ip_network("fc00::/7"),
+    _ipaddress.ip_network("fe80::/10"),
+]
+
+
+def _validate_webhook_url(url: str) -> str | None:
+    """Validate webhook URL. Returns error string or None if valid."""
+    from urllib.parse import urlparse
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return "Invalid URL"
+    if parsed.scheme not in ("https", "http"):
+        return "URL must use https:// or http://"
+    if not parsed.hostname:
+        return "URL must have a hostname"
+    hostname = parsed.hostname.lower()
+    if hostname in ("localhost", "127.0.0.1", "::1", "0.0.0.0"):
+        return "Localhost URLs not allowed"
+    # Resolve hostname and check against blocked ranges
+    try:
+        import socket
+        addrs = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        for _, _, _, _, sockaddr in addrs:
+            ip = _ipaddress.ip_address(sockaddr[0])
+            for net in _BLOCKED_NETS:
+                if ip in net:
+                    return f"Private/reserved IP address not allowed: {ip}"
+    except (socket.gaierror, ValueError):
+        pass  # DNS resolution failed — allow (URL might be external)
+    return None
+
+
+async def list_webhooks(request: web.Request) -> web.Response:
+    """GET /api/webhooks — list all webhooks."""
+    db: Database = request.app["db"]
+    webhooks = await db.get_webhooks()
+    # Strip secrets from response
+    for w in webhooks:
+        if w.get("secret"):
+            w["secret"] = "***"
+    return web.json_response(webhooks)
+
+
+async def create_webhook(request: web.Request) -> web.Response:
+    """POST /api/webhooks — create a webhook."""
+    db: Database = request.app["db"]
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    url = data.get("url", "").strip()
+    if not url:
+        return web.json_response({"error": "URL is required"}, status=400)
+
+    url_err = _validate_webhook_url(url)
+    if url_err:
+        return web.json_response({"error": url_err}, status=400)
+
+    events = data.get("events", [])
+    if not isinstance(events, list):
+        return web.json_response({"error": "events must be a list"}, status=400)
+
+    # Generate HMAC secret
+    import secrets as _secrets
+    webhook_id = uuid.uuid4().hex[:8]
+    secret = _secrets.token_hex(32)
+
+    webhook = {
+        "id": webhook_id,
+        "url": url,
+        "name": data.get("name", "").strip()[:100] or url[:60],
+        "events": events[:20],  # Cap at 20 event types
+        "secret": secret,
+        "active": True,
+    }
+    await db.save_webhook(webhook)
+    return web.json_response(webhook, status=201)
+
+
+async def update_webhook(request: web.Request) -> web.Response:
+    """PUT /api/webhooks/{id} — update a webhook."""
+    db: Database = request.app["db"]
+    webhook_id = request.match_info["id"]
+    existing = await db.get_webhook(webhook_id)
+    if not existing:
+        return web.json_response({"error": "Webhook not found"}, status=404)
+
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    if "url" in data:
+        url = data["url"].strip()
+        url_err = _validate_webhook_url(url)
+        if url_err:
+            return web.json_response({"error": url_err}, status=400)
+        existing["url"] = url
+
+    if "name" in data:
+        existing["name"] = data["name"].strip()[:100]
+    if "events" in data and isinstance(data["events"], list):
+        existing["events"] = data["events"][:20]
+    if "active" in data:
+        existing["active"] = bool(data["active"])
+
+    await db.save_webhook(existing)
+    if existing.get("secret"):
+        existing["secret"] = "***"
+    return web.json_response(existing)
+
+
+async def delete_webhook(request: web.Request) -> web.Response:
+    """DELETE /api/webhooks/{id} — delete a webhook."""
+    db: Database = request.app["db"]
+    webhook_id = request.match_info["id"]
+    deleted = await db.delete_webhook(webhook_id)
+    if not deleted:
+        return web.json_response({"error": "Webhook not found"}, status=404)
+    return web.json_response({"deleted": True})
+
+
+async def test_webhook(request: web.Request) -> web.Response:
+    """POST /api/webhooks/{id}/test — send a test payload to a webhook."""
+    db: Database = request.app["db"]
+    webhook_id = request.match_info["id"]
+    webhook = await db.get_webhook(webhook_id)
+    if not webhook:
+        return web.json_response({"error": "Webhook not found"}, status=404)
+
+    test_payload = {
+        "event": "webhook_test",
+        "message": "This is a test webhook delivery from Ashlr AO",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Deliver synchronously for test
+    try:
+        import aiohttp as _aiohttp
+        import hmac as _hmac
+        import hashlib as _hashlib
+        body = json.dumps(test_payload)
+        headers = {"Content-Type": "application/json", "User-Agent": "Ashlr-AO-Webhook/1.0"}
+        if webhook.get("secret"):
+            sig = _hmac.new(webhook["secret"].encode(), body.encode(), _hashlib.sha256).hexdigest()
+            headers["X-Ashlr-Signature"] = f"sha256={sig}"
+        timeout = _aiohttp.ClientTimeout(total=10, connect=5)
+        async with _aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(webhook["url"], data=body, headers=headers) as resp:
+                return web.json_response({
+                    "success": resp.status < 400,
+                    "status_code": resp.status,
+                    "response": (await resp.text())[:500],
+                })
+    except Exception as e:
+        return web.json_response({"success": False, "error": redact_secrets(str(e))})
+
+
+async def get_webhook_deliveries(request: web.Request) -> web.Response:
+    """GET /api/webhooks/{id}/deliveries — delivery history for a webhook."""
+    db: Database = request.app["db"]
+    webhook_id = request.match_info["id"]
+    webhook = await db.get_webhook(webhook_id)
+    if not webhook:
+        return web.json_response({"error": "Webhook not found"}, status=404)
+    deliveries = await db.get_webhook_deliveries(webhook_id, limit=50)
+    return web.json_response(deliveries)
 
 
 # ── Agent Clone endpoint ──
@@ -3741,6 +4026,38 @@ async def list_events(request: web.Request) -> web.Response:
     })
 
 
+async def export_events(request: web.Request) -> web.Response:
+    """GET /api/events/export — export events as CSV or JSON."""
+    db: Database = request.app["db"]
+    fmt = request.query.get("format", "json")
+    agent_id = request.query.get("agent_id")
+    event_type = request.query.get("event_type")
+    since = request.query.get("since")
+
+    events = await db.get_events(10000, 0, agent_id, event_type, since)
+
+    if fmt == "csv":
+        import csv
+        import io
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["id", "event_type", "agent_id", "agent_name", "message", "created_at"])
+        for e in events:
+            writer.writerow([
+                e.get("id", ""), e.get("event_type", ""), e.get("agent_id", ""),
+                e.get("agent_name", ""), e.get("message", ""), e.get("created_at", ""),
+            ])
+        return web.Response(
+            text=output.getvalue(),
+            content_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=ashlr_events.csv"},
+        )
+    else:
+        return web.json_response(events, headers={
+            "Content-Disposition": "attachment; filename=ashlr_events.json",
+        })
+
+
 # ── Agent PATCH endpoint (Wave 3A) ──
 
 async def patch_agent(request: web.Request) -> web.Response:
@@ -4393,6 +4710,8 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/agents/{id}/bookmarks", list_agent_bookmarks)
     app.router.add_post("/api/agents/{id}/bookmarks", add_agent_bookmark)
     app.router.add_delete("/api/agents/{id}/bookmarks/{bid}", delete_agent_bookmark)
+    app.router.add_get("/api/agents/{id}/output-history", get_agent_output_history)
+    app.router.add_get("/api/agents/{id}/output-search", search_agent_output)
     app.router.add_get("/api/agents/{id}/activity", get_agent_activity)
     app.router.add_get("/api/agents/{id}/tool-invocations", get_agent_tool_invocations)
     app.router.add_get("/api/agents/{id}/file-operations", get_agent_file_operations)
@@ -4463,6 +4782,7 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/history", list_history)
     app.router.add_get("/api/history/{id}", get_history_item)
     app.router.add_get("/api/events", list_events)
+    app.router.add_get("/api/events/export", export_events)
 
     # REST API — Presets
     app.router.add_get("/api/presets", list_presets)
@@ -4477,6 +4797,14 @@ def create_app(config: Config) -> web.Application:
     app.router.add_put("/api/fleet-templates/{id}", update_fleet_template)
     app.router.add_delete("/api/fleet-templates/{id}", delete_fleet_template)
     app.router.add_post("/api/fleet-templates/{id}/deploy", deploy_fleet_template)
+
+    # REST API — Webhooks
+    app.router.add_get("/api/webhooks", list_webhooks)
+    app.router.add_post("/api/webhooks", create_webhook)
+    app.router.add_put("/api/webhooks/{id}", update_webhook)
+    app.router.add_delete("/api/webhooks/{id}", delete_webhook)
+    app.router.add_post("/api/webhooks/{id}/test", test_webhook)
+    app.router.add_get("/api/webhooks/{id}/deliveries", get_webhook_deliveries)
 
     # REST API — Agent Clone + Handoff
     app.router.add_post("/api/agents/{id}/clone", clone_agent)

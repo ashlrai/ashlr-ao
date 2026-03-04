@@ -212,6 +212,32 @@ class Database:
                 updated_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_fleet_templates_project ON fleet_templates(project_id);
+
+            CREATE TABLE IF NOT EXISTS webhooks (
+                id TEXT PRIMARY KEY,
+                url TEXT NOT NULL,
+                name TEXT DEFAULT '',
+                events_json TEXT DEFAULT '[]',
+                secret TEXT DEFAULT '',
+                active INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_webhooks_active ON webhooks(active);
+
+            CREATE TABLE IF NOT EXISTS webhook_deliveries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                webhook_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                attempts INTEGER DEFAULT 0,
+                last_error TEXT DEFAULT '',
+                created_at TEXT NOT NULL,
+                delivered_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_status ON webhook_deliveries(status);
+            CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook ON webhook_deliveries(webhook_id);
             """)
             await self._safe_commit()
 
@@ -1360,6 +1386,124 @@ class Database:
             await self._safe_commit()
             return cur.rowcount > 0
 
+
+    # ── Webhooks ──
+
+    async def get_webhooks(self, active_only: bool = False) -> list[dict]:
+        if not self._db:
+            return []
+        sql = "SELECT * FROM webhooks"
+        if active_only:
+            sql += " WHERE active = 1"
+        sql += " ORDER BY created_at DESC"
+        async with self._db.execute(sql) as cur:
+            rows = await cur.fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["events"] = json.loads(d.pop("events_json", "[]"))
+            except (json.JSONDecodeError, TypeError):
+                d["events"] = []
+            result.append(d)
+        return result
+
+    async def get_webhook(self, webhook_id: str) -> dict | None:
+        if not self._db:
+            return None
+        async with self._db.execute("SELECT * FROM webhooks WHERE id = ?", (webhook_id,)) as cur:
+            row = await cur.fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            try:
+                d["events"] = json.loads(d.pop("events_json", "[]"))
+            except (json.JSONDecodeError, TypeError):
+                d["events"] = []
+            return d
+
+    async def save_webhook(self, webhook: dict) -> None:
+        if not self._db:
+            return
+        now = datetime.now(timezone.utc).isoformat()
+        events_json = json.dumps(webhook.get("events", []))
+        await self._db.execute(
+            """INSERT OR REPLACE INTO webhooks
+               (id, url, name, events_json, secret, active, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (webhook["id"], webhook["url"], webhook.get("name", ""),
+             events_json, webhook.get("secret", ""),
+             1 if webhook.get("active", True) else 0,
+             webhook.get("created_at", now), now),
+        )
+        await self._safe_commit()
+
+    async def delete_webhook(self, webhook_id: str) -> bool:
+        if not self._db:
+            return False
+        async with self._db.execute("DELETE FROM webhooks WHERE id = ?", (webhook_id,)) as cur:
+            await self._safe_commit()
+            if cur.rowcount > 0:
+                await self._db.execute("DELETE FROM webhook_deliveries WHERE webhook_id = ?", (webhook_id,))
+                await self._safe_commit()
+                return True
+            return False
+
+    async def queue_webhook_delivery(self, webhook_id: str, event_type: str, payload: dict) -> None:
+        if not self._db:
+            return
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            """INSERT INTO webhook_deliveries (webhook_id, event_type, payload_json, status, created_at)
+               VALUES (?, ?, ?, 'pending', ?)""",
+            (webhook_id, event_type, json.dumps(payload), now),
+        )
+        await self._safe_commit()
+
+    async def get_pending_deliveries(self, limit: int = 50) -> list[dict]:
+        if not self._db:
+            return []
+        async with self._db.execute(
+            """SELECT d.*, w.url, w.secret, w.name as webhook_name
+               FROM webhook_deliveries d
+               JOIN webhooks w ON d.webhook_id = w.id
+               WHERE d.status = 'pending' AND d.attempts < 5 AND w.active = 1
+               ORDER BY d.created_at ASC LIMIT ?""",
+            (limit,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    async def update_delivery_status(self, delivery_id: int, status: str, error: str = "") -> None:
+        if not self._db:
+            return
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            """UPDATE webhook_deliveries
+               SET status = ?, attempts = attempts + 1, last_error = ?, delivered_at = ?
+               WHERE id = ?""",
+            (status, error, now if status == "delivered" else None, delivery_id),
+        )
+        await self._safe_commit()
+
+    async def get_webhook_deliveries(self, webhook_id: str, limit: int = 50) -> list[dict]:
+        if not self._db:
+            return []
+        async with self._db.execute(
+            "SELECT * FROM webhook_deliveries WHERE webhook_id = ? ORDER BY created_at DESC LIMIT ?",
+            (webhook_id, limit),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+    async def cleanup_old_deliveries(self, hours: int = 72) -> int:
+        if not self._db:
+            return 0
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        async with self._db.execute(
+            "DELETE FROM webhook_deliveries WHERE created_at < ? AND status IN ('delivered', 'failed')",
+            (cutoff,),
+        ) as cur:
+            await self._safe_commit()
+            return cur.rowcount
 
     # ── Bookmarks ──
 
