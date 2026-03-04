@@ -85,6 +85,25 @@ def make_mock_db():
     db.update_delivery_status = AsyncMock()
     db.get_webhook_deliveries = AsyncMock(return_value=[])
     db.cleanup_old_deliveries = AsyncMock(return_value=0)
+    # Auth & user management
+    db.create_org = AsyncMock(return_value=MagicMock(id="org-1", name="Test Org"))
+    db.get_org = AsyncMock(return_value=None)
+    db.create_user = AsyncMock(return_value=MagicMock(id="user-1"))
+    db.get_user_by_email = AsyncMock(return_value=None)
+    db.get_user_by_id = AsyncMock(return_value=None)
+    db.update_user_login = AsyncMock()
+    db.get_org_users = AsyncMock(return_value=[])
+    db.user_count = AsyncMock(return_value=0)
+    db.create_session = AsyncMock(return_value="sess-abc123")
+    db.get_session = AsyncMock(return_value=None)
+    db.delete_session = AsyncMock()
+    db.delete_expired_sessions = AsyncMock(return_value=0)
+    # Archive & coordination
+    db.rotate_archive = AsyncMock(return_value=0)
+    db.get_agents_by_project = AsyncMock(return_value=[])
+    db.set_file_lock = AsyncMock()
+    db.get_file_locks = AsyncMock(return_value=[])
+    db.delete_bookmark = AsyncMock(return_value=False)
     db._db = None
     return db
 

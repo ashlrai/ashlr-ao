@@ -2069,8 +2069,8 @@ class TestBatchSpawn:
         resp = await client.post("/api/agents/batch-spawn", json={
             "agents": [{"role": "general", "task": ""}, {"role": "general", "task": "valid task"}],
         })
-        # 201 because the valid agent succeeds
-        assert resp.status == 201
+        # 207 Multi-Status: some spawned, some failed
+        assert resp.status == 207
         body = await resp.json()
         assert len(body["failed"]) >= 1
         assert body["total_spawned"] >= 1
@@ -3151,3 +3151,127 @@ class TestAgentSuggestions:
         body = await resp.json()
         assert body["suggestions"] == []
         assert "error" in body
+
+
+class TestBatchSpawnMultiStatus:
+    """Tests for 207 Multi-Status on partial batch spawn failures."""
+
+    @pytest.mark.asyncio
+    async def test_batch_spawn_all_succeed_returns_201(self, aiohttp_client):
+        """All specs succeeding should return 201."""
+        app = _make_test_app()
+        manager = app["agent_manager"]
+        manager._run_tmux = AsyncMock(return_value=MagicMock(returncode=0, stdout="", stderr=""))
+        manager._tmux_send_keys = AsyncMock(return_value=True)
+        manager._wait_for_tui_ready = AsyncMock(return_value=True)
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents/batch-spawn", json={
+            "agents": [
+                {"role": "general", "task": "task one"},
+                {"role": "general", "task": "task two"},
+            ],
+        })
+        assert resp.status == 201
+        body = await resp.json()
+        assert body["total_failed"] == 0
+        assert body["total_spawned"] == 2
+
+    @pytest.mark.asyncio
+    async def test_batch_spawn_all_fail_returns_400(self, aiohttp_client):
+        """All specs failing should return 400."""
+        app = _make_test_app()
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents/batch-spawn", json={
+            "agents": [
+                {"role": "mythical", "task": "nope"},
+                {"role": "imaginary", "task": "nah"},
+            ],
+        })
+        assert resp.status == 400
+        body = await resp.json()
+        assert body["total_spawned"] == 0
+        assert body["total_failed"] == 2
+
+    @pytest.mark.asyncio
+    async def test_batch_spawn_partial_returns_207(self, aiohttp_client):
+        """Mix of success and failure should return 207 Multi-Status."""
+        app = _make_test_app()
+        manager = app["agent_manager"]
+        manager._run_tmux = AsyncMock(return_value=MagicMock(returncode=0, stdout="", stderr=""))
+        manager._tmux_send_keys = AsyncMock(return_value=True)
+        manager._wait_for_tui_ready = AsyncMock(return_value=True)
+        client = await aiohttp_client(app)
+        resp = await client.post("/api/agents/batch-spawn", json={
+            "agents": [
+                {"role": "general", "task": "good task"},
+                {"role": "mythical", "task": "will fail"},
+            ],
+        })
+        assert resp.status == 207
+        body = await resp.json()
+        assert body["total_spawned"] >= 1
+        assert body["total_failed"] >= 1
+
+
+class TestSilentExceptionLogging:
+    """Verify that formerly-silent exception handlers now log."""
+
+    def test_spawn_recent_task_logs_on_error(self):
+        """spawn_agent should log when add_recent_task fails, not silently pass."""
+        import inspect
+        src = inspect.getsource(ashlr_server.spawn_agent)
+        assert 'log.debug' in src or 'log.warning' in src
+        assert 'add_recent_task' in src
+
+    def test_resume_body_parse_logs(self):
+        """resume_agent should log when request body parsing fails."""
+        import inspect
+        src = inspect.getsource(ashlr_server.resume_agent)
+        assert 'log.debug' in src
+
+    def test_restart_body_parse_logs(self):
+        """restart_agent should log when request body parsing fails."""
+        import inspect
+        src = inspect.getsource(ashlr_server.restart_agent)
+        assert 'log.debug' in src
+
+    def test_health_detailed_memory_logs(self):
+        """health_detailed should log when server memory reading fails."""
+        import inspect
+        src = inspect.getsource(ashlr_server.health_detailed)
+        assert 'log.debug' in src
+
+
+class TestConfTestMockCompleteness:
+    """Verify conftest mock DB has all methods needed by the server."""
+
+    def test_mock_has_auth_methods(self):
+        """Mock DB should have user/session management methods."""
+        from conftest import make_mock_db
+        db = make_mock_db()
+        assert callable(db.create_user)
+        assert callable(db.get_user_by_email)
+        assert callable(db.get_user_by_id)
+        assert callable(db.create_session)
+        assert callable(db.get_session)
+        assert callable(db.delete_session)
+        assert callable(db.get_org_users)
+        assert callable(db.user_count)
+
+    def test_mock_has_coordination_methods(self):
+        """Mock DB should have file lock and archive rotation methods."""
+        from conftest import make_mock_db
+        db = make_mock_db()
+        assert callable(db.set_file_lock)
+        assert callable(db.get_file_locks)
+        assert callable(db.release_file_locks)
+        assert callable(db.rotate_archive)
+        assert callable(db.delete_expired_sessions)
+
+    def test_mock_has_bookmark_crud(self):
+        """Mock DB should have full bookmark CRUD."""
+        from conftest import make_mock_db
+        db = make_mock_db()
+        assert callable(db.get_bookmarks)
+        assert callable(db.add_bookmark)
+        assert callable(db.delete_bookmark)

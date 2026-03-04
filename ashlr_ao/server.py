@@ -389,8 +389,8 @@ async def spawn_agent(request: web.Request) -> web.Response:
             try:
                 db_rt: Database = request.app["db"]
                 await db_rt.add_recent_task(agent.project_id, task, role, backend)
-            except Exception:
-                pass  # Non-critical
+            except Exception as e:
+                log.debug(f"Failed to save recent task for project {agent.project_id}: {e}")
 
         # Set owner from authenticated user
         user = request.get("user")
@@ -687,7 +687,8 @@ async def resume_agent(request: web.Request) -> web.Response:
         message = data.get("message")
         if message is not None and not isinstance(message, str):
             return web.json_response({"error": "Message must be a string"}, status=400)
-    except Exception:
+    except Exception as e:
+        log.debug(f"Resume: no message in request body: {e}")
         message = None
 
     success = await manager.resume(agent_id, message)
@@ -726,8 +727,8 @@ async def restart_agent(request: web.Request) -> web.Response:
                 return web.json_response({"error": "task too long (max 5000 chars)"}, status=400)
         except json.JSONDecodeError:
             return web.json_response({"error": "Invalid JSON in request body"}, status=400)
-        except Exception:
-            pass  # Non-JSON content type — proceed without task override
+        except Exception as e:
+            log.debug(f"Restart: could not parse request body: {e}")
 
     try:
         success = await manager.restart(agent_id, new_task=new_task)
@@ -984,7 +985,8 @@ async def health_detailed(request: web.Request) -> web.Response:
         import psutil
         process = psutil.Process()
         server_memory_mb = process.memory_info().rss / (1024 * 1024)
-    except Exception:
+    except Exception as e:
+        log.debug(f"Could not read server memory: {e}")
         server_memory_mb = 0.0
 
     return web.json_response({
@@ -3071,12 +3073,18 @@ async def deploy_fleet_template(request: web.Request) -> web.Response:
         except Exception as e:
             errors.append({"spec": spec.get("role", "?"), "error": redact_secrets(str(e))})
 
+    if spawned and errors:
+        status = 207
+    elif spawned:
+        status = 201
+    else:
+        status = 400
     return web.json_response({
         "template": template["name"],
         "spawned": len(spawned),
         "errors": errors,
         "agents": spawned,
-    }, status=201 if spawned else 400)
+    }, status=status)
 
 
 # ── Webhook endpoints ──
@@ -4287,12 +4295,18 @@ async def batch_spawn(request: web.Request) -> web.Response:
         except Exception as e:
             failed.append({"index": i, "error": redact_secrets(str(e))})
 
+    if spawned and failed:
+        status = 207  # Multi-Status: partial success
+    elif spawned:
+        status = 201
+    else:
+        status = 400
     return web.json_response({
         "spawned": spawned,
         "failed": failed,
         "total_spawned": len(spawned),
         "total_failed": len(failed),
-    }, status=201 if spawned else 400)
+    }, status=status)
 
 
 async def agent_suggestions(request: web.Request) -> web.Response:
