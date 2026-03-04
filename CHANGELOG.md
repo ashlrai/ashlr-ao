@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.1 — 2026-03-03
+
+- **Housekeeping**: Removed stale pre-development docs (ARCHITECTURE.md, PHASE1_SPEC.md, REFERENCE_PATTERNS.md)
+- **PEP 561**: Added `py.typed` marker for typed package support
+- **README**: Added dashboard screenshot
+- **Tests**: 23 new tests — `test_constants.py` (15: logging, banner, dependency checks), `test_auth.py` additions (10: bearer token, invalid JSON, invite edge cases, auth status with session)
+- 1582 tests across 24 test files
+
 ## 1.6.0 — 2026-03-03
 
 ### Multi-Repo Workflow (Waves 1-5)

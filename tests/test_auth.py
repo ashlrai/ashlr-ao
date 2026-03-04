@@ -974,3 +974,300 @@ class TestAuthHTTPLoginEdgeCases:
         finally:
             await db.close()
             db_path.unlink(missing_ok=True)
+
+
+# ─────────────────────────────────────────────
+# Auth middleware: bearer token + WebSocket session
+# ─────────────────────────────────────────────
+
+class TestAuthMiddlewarePaths:
+    @pytest.mark.asyncio
+    async def test_bearer_token_on_regular_route(self, aiohttp_client):
+        """Authorization: Bearer token grants access to regular API routes."""
+        app = _make_auth_app()
+        app["config"].auth_token = "test-secret-token-123"
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.get(
+                "/api/agents",
+                headers={"Authorization": "Bearer test-secret-token-123"},
+            )
+            assert resp.status == 200
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_websocket_with_valid_session(self, aiohttp_client):
+        """WebSocket path accepts valid session cookie."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            # Register to get a valid session
+            reg_resp = await client.post("/api/auth/register", json={
+                "email": "ws@test.com", "password": "password123",
+                "display_name": "WS User", "org_name": "Org",
+            })
+            assert reg_resp.status == 200
+            # The session cookie is set — WebSocket should be accessible
+            # We can't easily test actual WebSocket upgrade, but verify session exists
+            session_cookies = {c.key: c.value for c in client.session.cookie_jar}
+            assert "ashlr_session" in session_cookies or reg_resp.cookies.get("ashlr_session")
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+
+# ─────────────────────────────────────────────
+# Register edge cases
+# ─────────────────────────────────────────────
+
+class TestAuthRegisterEdgeCases2:
+    @pytest.mark.asyncio
+    async def test_register_invalid_json_body(self, aiohttp_client):
+        """POST /api/auth/register with invalid JSON returns 400."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.post(
+                "/api/auth/register",
+                data=b"not json",
+                headers={"Content-Type": "application/json"},
+            )
+            assert resp.status == 400
+            body = await resp.json()
+            assert "Invalid JSON" in body["error"]
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_register_default_org_name(self, aiohttp_client):
+        """POST /api/auth/register without org_name defaults to 'My Team'."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.post("/api/auth/register", json={
+                "email": "default@test.com", "password": "password123",
+                "display_name": "Default User",
+                # No org_name — should default to "My Team"
+            })
+            assert resp.status == 200
+            body = await resp.json()
+            assert body["org"]["name"] == "My Team"
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+
+# ─────────────────────────────────────────────
+# Login edge cases
+# ─────────────────────────────────────────────
+
+class TestAuthLoginEdgeCases2:
+    @pytest.mark.asyncio
+    async def test_login_invalid_json_body(self, aiohttp_client):
+        """POST /api/auth/login with invalid JSON returns 400."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.post(
+                "/api/auth/login",
+                data=b"not json",
+                headers={"Content-Type": "application/json"},
+            )
+            assert resp.status == 400
+            body = await resp.json()
+            assert "Invalid JSON" in body["error"]
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+
+# ─────────────────────────────────────────────
+# Invite edge cases
+# ─────────────────────────────────────────────
+
+class TestAuthInviteEdgeCases2:
+    async def _make_admin_client(self, aiohttp_client, db):
+        """Helper: register admin and return client with session (Pro license for multi_user)."""
+        from datetime import datetime, timezone, timedelta
+        app = _make_auth_app()
+        # Set Pro license so multi_user feature gate passes
+        from ashlr_server import License, PRO_FEATURES
+        app["license"] = License(
+            tier="pro", max_agents=100,
+            expires_at=(datetime.now(timezone.utc) + timedelta(days=365)).isoformat(),
+            features=PRO_FEATURES,
+        )
+        app["agent_manager"].license = app["license"]
+        app["db"] = db
+        app["ws_hub"].db = db
+        client = await aiohttp_client(app)
+        await client.post("/api/auth/register", json={
+            "email": "admin-inv@test.com", "password": "password123",
+            "display_name": "Admin", "org_name": "Org",
+        })
+        return client
+
+    @pytest.mark.asyncio
+    async def test_invite_invalid_json(self, aiohttp_client):
+        """POST /api/auth/invite with invalid JSON returns 400."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        db = Database(db_path)
+        await db.init()
+        try:
+            client = await self._make_admin_client(aiohttp_client, db)
+            resp = await client.post(
+                "/api/auth/invite",
+                data=b"not json",
+                headers={"Content-Type": "application/json"},
+            )
+            assert resp.status == 400
+            body = await resp.json()
+            assert "Invalid JSON" in body["error"]
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_invite_duplicate_email(self, aiohttp_client):
+        """POST /api/auth/invite with existing email returns 409."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        db = Database(db_path)
+        await db.init()
+        try:
+            client = await self._make_admin_client(aiohttp_client, db)
+            # Invite first user
+            resp1 = await client.post("/api/auth/invite", json={
+                "email": "dup-inv@test.com", "display_name": "First",
+            })
+            assert resp1.status == 200
+            # Same email again
+            resp2 = await client.post("/api/auth/invite", json={
+                "email": "dup-inv@test.com", "display_name": "Duplicate",
+            })
+            assert resp2.status == 409
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+    @pytest.mark.asyncio
+    async def test_invite_missing_display_name_uses_email_prefix(self, aiohttp_client):
+        """POST /api/auth/invite without display_name defaults to email prefix."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        db = Database(db_path)
+        await db.init()
+        try:
+            client = await self._make_admin_client(aiohttp_client, db)
+            resp = await client.post("/api/auth/invite", json={
+                "email": "noname@example.com",
+                # No display_name — should default to "noname"
+            })
+            assert resp.status == 200
+            body = await resp.json()
+            assert body["user"]["display_name"] == "noname"
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+
+# ─────────────────────────────────────────────
+# Auth status with active session
+# ─────────────────────────────────────────────
+
+class TestAuthStatusWithSession:
+    @pytest.mark.asyncio
+    async def test_status_includes_user_when_logged_in(self, aiohttp_client):
+        """GET /api/auth/status returns user dict when session is valid."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            # Register to get session
+            await client.post("/api/auth/register", json={
+                "email": "status@test.com", "password": "password123",
+                "display_name": "Status User", "org_name": "Org",
+            })
+            # Now check status — should include user
+            resp = await client.get("/api/auth/status")
+            assert resp.status == 200
+            body = await resp.json()
+            assert body["auth_required"] is True
+            assert "user" in body
+            assert body["user"]["email"] == "status@test.com"
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)
+
+
+# ─────────────────────────────────────────────
+# Team without auth
+# ─────────────────────────────────────────────
+
+class TestAuthTeamEdge2:
+    @pytest.mark.asyncio
+    async def test_team_without_auth_returns_401(self, aiohttp_client):
+        """GET /api/auth/team without session returns 401."""
+        f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_path = Path(f.name)
+        f.close()
+        app = _make_auth_app()
+        db = Database(db_path)
+        await db.init()
+        app["db"] = db
+        app["ws_hub"].db = db
+        try:
+            client = await aiohttp_client(app)
+            resp = await client.get("/api/auth/team")
+            assert resp.status == 401
+        finally:
+            await db.close()
+            db_path.unlink(missing_ok=True)

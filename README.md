@@ -12,6 +12,8 @@
 - **Auto-pilot** — auto-restart stalled agents, auto-approve safe patterns, health-based auto-pause
 - **Real-time dashboard** — live status cards, terminal output with ANSI colors, keyboard-driven workflow
 
+![Ashlr AO Dashboard](docs/screenshot.png)
+
 ## Installation
 
 ```bash

@@ -51,7 +51,7 @@ version = { attr = "ashlr_ao.__version__" }
 include = ["ashlr_ao*"]
 
 [tool.setuptools.package-data]
-ashlr_ao = ["dashboard.html", "logo.png"]
+ashlr_ao = ["dashboard.html", "logo.png", "py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
