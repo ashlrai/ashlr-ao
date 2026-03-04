@@ -12,8 +12,6 @@ serves the web dashboard, and provides REST + WebSocket APIs.
 
 import argparse
 import asyncio
-import collections
-import hmac
 import json
 import logging
 import logging.handlers
@@ -33,11 +31,8 @@ from pathlib import Path
 from typing import Any
 
 import aiohttp
-import aiosqlite
 from aiohttp import web
 # aiohttp_cors removed — CORS handled natively in security_headers_middleware
-import bcrypt
-import jwt
 import psutil
 import yaml
 
@@ -487,44 +482,6 @@ async def get_agent_output_history(request: web.Request) -> web.Response:
     })
 
 
-async def search_agent_output(request: web.Request) -> web.Response:
-    """GET /api/agents/{id}/output/search — search agent output for a pattern."""
-    manager: AgentManager = request.app["agent_manager"]
-    db: Database = request.app["db"]
-    agent_id = request.match_info["id"]
-    query = request.query.get("q", "").strip()
-    if not query:
-        return web.json_response({"error": "Query parameter 'q' is required"}, status=400)
-
-    matches: list[dict] = []
-    try:
-        pattern = re.compile(query, re.IGNORECASE)
-    except re.error:
-        return web.json_response({"error": "Invalid regex pattern"}, status=400)
-
-    # Search in-memory lines
-    agent = manager.agents.get(agent_id)
-    if agent:
-        for i, line in enumerate(agent.output_lines):
-            stripped = _strip_ansi(line)
-            if pattern.search(stripped):
-                matches.append({"line_number": i, "text": stripped[:200], "source": "memory"})
-                if len(matches) >= 100:
-                    break
-
-    # Search archived lines
-    if len(matches) < 100:
-        archived, _ = await db.get_archived_output(agent_id, offset=0, limit=50000)
-        for i, line in enumerate(archived):
-            stripped = _strip_ansi(line)
-            if pattern.search(stripped):
-                matches.append({"line_number": i, "text": stripped[:200], "source": "archive"})
-                if len(matches) >= 100:
-                    break
-
-    return web.json_response({"query": query, "matches": matches, "count": len(matches)})
-
-
 async def send_to_agent(request: web.Request) -> web.Response:
     manager: AgentManager = request.app["agent_manager"]
     hub: WebSocketHub = request.app["ws_hub"]
@@ -568,6 +525,8 @@ async def update_agent_notes(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    if err := _check_agent_ownership(request, agent):
+        return err
     try:
         data = await request.json()
     except json.JSONDecodeError:
@@ -590,6 +549,8 @@ async def update_agent_tags(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    if err := _check_agent_ownership(request, agent):
+        return err
     try:
         data = await request.json()
     except json.JSONDecodeError:
@@ -614,6 +575,8 @@ async def add_agent_bookmark(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    if err := _check_agent_ownership(request, agent):
+        return err
     try:
         data = await request.json()
     except json.JSONDecodeError:
@@ -652,6 +615,8 @@ async def delete_agent_bookmark(request: web.Request) -> web.Response:
     agent = manager.agents.get(agent_id)
     if not agent:
         return web.json_response({"error": "Agent not found"}, status=404)
+    if err := _check_agent_ownership(request, agent):
+        return err
     before = len(agent.bookmarks)
     agent.bookmarks = [b for b in agent.bookmarks if b.get("id") != bookmark_id]
     if len(agent.bookmarks) == before:
@@ -793,6 +758,7 @@ async def system_metrics(request: web.Request) -> web.Response:
         "bg_task_health": request.app.get("bg_task_health", {}),
     }
     data["server_cwd"] = os.getcwd()
+    data["uptime_sec"] = round(time.monotonic() - request.app.get("_start_time", time.monotonic()))
     return web.json_response(data)
 
 
@@ -1495,7 +1461,9 @@ async def put_config(request: web.Request) -> web.Response:
         "host": lambda v: isinstance(v, str) and len(v) > 0 and all(c.isalnum() or c in ".-:" for c in v),
         "auto_restart_on_stall": lambda v: isinstance(v, bool),
         "auto_approve_enabled": lambda v: isinstance(v, bool),
+        "auto_approve_patterns": lambda v: isinstance(v, list) and all(isinstance(p, str) for p in v),
         "auto_pause_on_critical_health": lambda v: isinstance(v, bool),
+        "file_lock_enforcement": lambda v: isinstance(v, bool),
     }
 
     # Clamp max_restarts to [1, 10] range
@@ -1515,6 +1483,15 @@ async def put_config(request: web.Request) -> web.Response:
                     re.compile(ap["pattern"])
                 except re.error as e:
                     errors.append(f"Invalid regex in alert_patterns[{i}]: {e}")
+
+    # Validate auto_approve_patterns compile as regex
+    if "auto_approve_patterns" in data and isinstance(data["auto_approve_patterns"], list):
+        for i, pat in enumerate(data["auto_approve_patterns"]):
+            if isinstance(pat, str):
+                try:
+                    re.compile(pat)
+                except re.error as e:
+                    errors.append(f"Invalid regex in auto_approve_patterns[{i}]: {e}")
 
     if errors:
         return web.json_response({"error": "; ".join(errors)}, status=400)
@@ -1541,7 +1518,9 @@ async def put_config(request: web.Request) -> web.Response:
     autopilot_keys = {
         "auto_restart_on_stall": "auto_restart_on_stall",
         "auto_approve_enabled": "auto_approve_enabled",
+        "auto_approve_patterns": "auto_approve_patterns",
         "auto_pause_on_critical_health": "auto_pause_on_critical_health",
+        "file_lock_enforcement": "file_lock_enforcement",
     }
     for key, value in data.items():
         if key not in allowed_keys:
@@ -2604,6 +2583,8 @@ async def intelligence_command(request: web.Request) -> web.Response:
     """POST /api/intelligence/command — parse natural language command via Claude API."""
     if r := _check_feature(request, "intelligence"):
         return r
+    if r := _check_rate(request, cost=5, rate=0.5, burst=5):
+        return r
     client: IntelligenceClient | None = request.app.get("intelligence")
     manager: AgentManager = request.app["agent_manager"]
 
@@ -2704,6 +2685,8 @@ def _resolve_agent_refs(text: str, agents: list) -> list[str]:
 
 async def generate_summary(request: web.Request) -> web.Response:
     """POST /api/agents/{id}/summarize — manually trigger LLM summary."""
+    if r := _check_rate(request, cost=3, rate=0.5, burst=5):
+        return r
     manager: AgentManager = request.app["agent_manager"]
     client: IntelligenceClient | None = request.app.get("intelligence")
     agent_id = request.match_info["id"]
@@ -3186,6 +3169,7 @@ async def create_webhook(request: web.Request) -> web.Response:
         "active": True,
     }
     await db.save_webhook(webhook)
+    request.app["ws_hub"].invalidate_webhook_cache()
     return web.json_response(webhook, status=201)
 
 
@@ -3217,6 +3201,7 @@ async def update_webhook(request: web.Request) -> web.Response:
         existing["active"] = bool(data["active"])
 
     await db.save_webhook(existing)
+    request.app["ws_hub"].invalidate_webhook_cache()
     if existing.get("secret"):
         existing["secret"] = "***"
     return web.json_response(existing)
@@ -3229,6 +3214,7 @@ async def delete_webhook(request: web.Request) -> web.Response:
     deleted = await db.delete_webhook(webhook_id)
     if not deleted:
         return web.json_response({"error": "Webhook not found"}, status=404)
+    request.app["ws_hub"].invalidate_webhook_cache()
     return web.json_response({"deleted": True})
 
 
@@ -3594,51 +3580,6 @@ async def delete_scratchpad_entry(request: web.Request) -> web.Response:
 # ── Bookmark endpoints ──
 
 
-async def get_bookmarks(request: web.Request) -> web.Response:
-    """GET /api/agents/{id}/bookmarks — list bookmarks for an agent."""
-    if r := _check_rate(request, cost=1):
-        return r
-    db: Database = request.app["db"]
-    agent_id = request.match_info["id"]
-    bookmarks = await db.get_bookmarks(agent_id)
-    return web.json_response(bookmarks)
-
-
-async def add_bookmark(request: web.Request) -> web.Response:
-    """POST /api/agents/{id}/bookmarks — add a bookmark to agent output."""
-    if r := _check_rate(request, cost=1):
-        return r
-    db: Database = request.app["db"]
-    agent_id = request.match_info["id"]
-    try:
-        data = await request.json()
-    except json.JSONDecodeError:
-        return web.json_response({"error": "Invalid JSON"}, status=400)
-    line_index = data.get("line_index")
-    if line_index is None or not isinstance(line_index, int):
-        return web.json_response({"error": "line_index (int) required"}, status=400)
-    line_text = data.get("line_text", "")
-    annotation = data.get("annotation", "")
-    color = data.get("color", "accent")
-    bm_id = await db.add_bookmark(agent_id, line_index, str(line_text), str(annotation), str(color))
-    return web.json_response({"id": bm_id, "agent_id": agent_id, "line_index": line_index}, status=201)
-
-
-async def delete_bookmark(request: web.Request) -> web.Response:
-    """DELETE /api/bookmarks/{id} — delete a bookmark."""
-    if r := _check_rate(request, cost=1):
-        return r
-    db: Database = request.app["db"]
-    try:
-        bm_id = int(request.match_info["id"])
-    except (ValueError, KeyError):
-        return web.json_response({"error": "Invalid bookmark ID"}, status=400)
-    success = await db.delete_bookmark(bm_id)
-    if success:
-        return web.json_response({"status": "deleted"})
-    return web.json_response({"error": "Bookmark not found"}, status=404)
-
-
 # ── Config Import/Export endpoints ──
 
 async def export_config(request: web.Request) -> web.Response:
@@ -3897,80 +3838,6 @@ async def list_conflicts(request: web.Request) -> web.Response:
     })
 
 
-# ── Global Search endpoint ──
-
-async def global_search(request: web.Request) -> web.Response:
-    """GET /api/search?q=term&agent_id=optional — search across all agent outputs."""
-    manager: AgentManager = request.app["agent_manager"]
-    query = request.query.get("q", "").strip()
-    if not query:
-        return web.json_response({"error": "q parameter required"}, status=400)
-    if len(query) > 500:
-        return web.json_response({"error": "query too long (max 500)"}, status=400)
-
-    agent_filter = request.query.get("agent_id", "")
-    try:
-        max_results = min(int(request.query.get("limit", 100)), 500)
-    except ValueError:
-        max_results = 100
-    case_sensitive = request.query.get("case", "false").lower() == "true"
-    use_regex = request.query.get("regex", "false").lower() == "true"
-
-    pattern = None
-    if use_regex:
-        try:
-            flags = 0 if case_sensitive else re.IGNORECASE
-            pattern = re.compile(query, flags)
-        except re.error:
-            return web.json_response({"error": "invalid regex"}, status=400)
-
-    # Snapshot search data to avoid holding references during thread execution
-    search_data = []
-    for agent in list(manager.agents.values()):
-        if agent_filter and agent.id != agent_filter:
-            continue
-        search_data.append((agent.id, agent.name, agent.role, list(agent.output_lines or [])))
-
-    def _do_search() -> list[dict]:
-        results: list[dict] = []
-        query_lower = query.lower() if not case_sensitive else ""
-        for agent_id, agent_name, agent_role, lines in search_data:
-            for i, line in enumerate(lines):
-                if len(results) >= max_results:
-                    return results
-                matched = False
-                if pattern:
-                    matched = bool(pattern.search(line))
-                elif case_sensitive:
-                    matched = query in line
-                else:
-                    matched = query_lower in line.lower()
-                if matched:
-                    ctx_before = lines[i - 1] if i > 0 else ""
-                    ctx_after = lines[i + 1] if i + 1 < len(lines) else ""
-                    results.append({
-                        "agent_id": agent_id,
-                        "agent_name": agent_name,
-                        "agent_role": agent_role,
-                        "line_index": i,
-                        "line": line[:500],
-                        "context_before": ctx_before[:500],
-                        "context_after": ctx_after[:500],
-                    })
-            if len(results) >= max_results:
-                break
-        return results
-
-    results = await asyncio.to_thread(_do_search)
-
-    return web.json_response({
-        "query": query,
-        "results": results,
-        "total": len(results),
-        "truncated": len(results) >= max_results,
-    })
-
-
 # ── Activity Events endpoint ──
 
 async def list_events(request: web.Request) -> web.Response:
@@ -4028,6 +3895,8 @@ async def list_events(request: web.Request) -> web.Response:
 
 async def export_events(request: web.Request) -> web.Response:
     """GET /api/events/export — export events as CSV or JSON."""
+    if r := _check_rate(request, cost=3, rate=0.2, burst=3):
+        return r
     db: Database = request.app["db"]
     fmt = request.query.get("format", "json")
     agent_id = request.query.get("agent_id")
@@ -4634,6 +4503,7 @@ def create_app(config: Config) -> web.Application:
         middlewares.append(auth_middleware)
     app = web.Application(middlewares=middlewares, client_max_size=10 * 1024 * 1024)
     app["config"] = config
+    app["_start_time"] = time.monotonic()
 
     manager = AgentManager(config)
     app["agent_manager"] = manager

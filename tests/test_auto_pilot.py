@@ -826,6 +826,50 @@ class TestAutoPilotConfigAPI:
             assert "auto_approve_enabled" in data
             assert "auto_pause_on_critical_health" in data
 
+    async def test_update_auto_approve_patterns(self):
+        """PUT /api/config should accept auto_approve_patterns (previously silently dropped)."""
+        from aiohttp.test_utils import TestClient, TestServer
+        app = make_test_app()
+        async with TestClient(TestServer(app)) as client:
+            resp = await client.put("/api/config", json={
+                "auto_approve_patterns": ["yes", "proceed"]
+            })
+            assert resp.status == 200
+            data = await resp.json()
+            assert data.get("auto_approve_patterns") == ["yes", "proceed"]
+
+    async def test_update_auto_approve_patterns_invalid_regex(self):
+        """PUT /api/config should reject invalid regex in auto_approve_patterns."""
+        from aiohttp.test_utils import TestClient, TestServer
+        app = make_test_app()
+        async with TestClient(TestServer(app)) as client:
+            resp = await client.put("/api/config", json={
+                "auto_approve_patterns": ["[invalid"]
+            })
+            assert resp.status == 400
+
+    async def test_update_file_lock_enforcement(self):
+        """PUT /api/config should accept file_lock_enforcement."""
+        from aiohttp.test_utils import TestClient, TestServer
+        app = make_test_app()
+        async with TestClient(TestServer(app)) as client:
+            resp = await client.put("/api/config", json={
+                "file_lock_enforcement": True
+            })
+            assert resp.status == 200
+            data = await resp.json()
+            assert data.get("file_lock_enforcement") is True
+
+    async def test_auto_approve_patterns_type_validation(self):
+        """PUT /api/config should reject non-list auto_approve_patterns."""
+        from aiohttp.test_utils import TestClient, TestServer
+        app = make_test_app()
+        async with TestClient(TestServer(app)) as client:
+            resp = await client.put("/api/config", json={
+                "auto_approve_patterns": "not-a-list"
+            })
+            assert resp.status == 400
+
 
 # ═══════════════════════════════════════════════
 # Audit fix tests: expanded never-approve patterns

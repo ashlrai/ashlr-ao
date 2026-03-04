@@ -507,3 +507,39 @@ class TestPrivateTmpPath:
         from ashlr_ao.server import bulk_agent_action
         src = inspect.getsource(bulk_agent_action)
         assert "_check_agent_ownership" in src, "bulk action must check ownership"
+
+    async def test_update_tags_checks_ownership(self):
+        """update_agent_tags must call _check_agent_ownership."""
+        import inspect
+        from ashlr_ao.server import update_agent_tags
+        src = inspect.getsource(update_agent_tags)
+        assert "_check_agent_ownership" in src, "update_agent_tags must check ownership"
+
+    async def test_add_bookmark_checks_ownership(self):
+        """add_agent_bookmark must call _check_agent_ownership."""
+        import inspect
+        from ashlr_ao.server import add_agent_bookmark
+        src = inspect.getsource(add_agent_bookmark)
+        assert "_check_agent_ownership" in src, "add_agent_bookmark must check ownership"
+
+    async def test_delete_bookmark_checks_ownership(self):
+        """delete_agent_bookmark must call _check_agent_ownership."""
+        import inspect
+        from ashlr_ao.server import delete_agent_bookmark
+        src = inspect.getsource(delete_agent_bookmark)
+        assert "_check_agent_ownership" in src, "delete_agent_bookmark must check ownership"
+
+    async def test_update_notes_checks_ownership(self):
+        """update_agent_notes must call _check_agent_ownership."""
+        import inspect
+        from ashlr_ao.server import update_agent_notes
+        src = inspect.getsource(update_agent_notes)
+        assert "_check_agent_ownership" in src, "update_agent_notes must check ownership"
+
+    async def test_ws_send_checks_ownership(self):
+        """WebSocket send action must check _ws_check_ownership."""
+        import inspect
+        from ashlr_ao.websocket import WebSocketHub
+        src = inspect.getsource(WebSocketHub.handle_message)
+        # The send case should have ownership check
+        assert "_ws_check_ownership" in src, "WS send must check ownership"

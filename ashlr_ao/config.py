@@ -171,6 +171,7 @@ class Config:
             "auto_approve_enabled": self.auto_approve_enabled,
             "auto_approve_patterns": self.auto_approve_patterns,
             "auto_pause_on_critical_health": self.auto_pause_on_critical_health,
+            "file_lock_enforcement": self.file_lock_enforcement,
         }
 
 

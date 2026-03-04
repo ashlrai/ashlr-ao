@@ -84,6 +84,10 @@ class WebSocketHub:
         self.max_clients: int = 100
         self._last_sync_time: dict[web.WebSocketResponse, float] = {}
         self.client_meta: dict[web.WebSocketResponse, dict] = {}  # {ws: {user_id, org_id}}
+        # Webhook cache (TTL-based to avoid DB query on every event)
+        self._webhook_cache: list[dict] | None = None
+        self._webhook_cache_time: float = 0.0
+        self._webhook_cache_ttl: float = 10.0  # seconds
 
     async def handle_ws(self, request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse(heartbeat=30.0, max_msg_size=1 * 1024 * 1024)
@@ -229,6 +233,10 @@ class WebSocketHub:
                 agent_id = data.get("agent_id")
                 message = data.get("message", "")
                 if agent_id and isinstance(message, str) and message:
+                    agent = self.agent_manager.agents.get(agent_id)
+                    if agent and not self._ws_check_ownership(ws, agent):
+                        await ws.send_json({"type": "error", "message": "Only the agent owner or an admin can send messages"})
+                        return
                     if len(message) > 50_000:
                         await ws.send_json({"type": "error", "message": "Message too long (max 50,000 chars)"})
                         return
@@ -382,6 +390,18 @@ class WebSocketHub:
         for d in dead:
             self.client_meta.pop(d, None)
 
+    async def _get_cached_webhooks(self) -> list[dict]:
+        """Get active webhooks with TTL caching to avoid DB query on every event."""
+        now = time.monotonic()
+        if self._webhook_cache is None or (now - self._webhook_cache_time) > self._webhook_cache_ttl:
+            self._webhook_cache = await self.db.get_webhooks(active_only=True) if self.db else []
+            self._webhook_cache_time = now
+        return self._webhook_cache
+
+    def invalidate_webhook_cache(self) -> None:
+        """Call after webhook create/update/delete to force refresh."""
+        self._webhook_cache = None
+
     async def broadcast_event(
         self,
         event: str,
@@ -403,9 +423,9 @@ class WebSocketHub:
         await self.broadcast(payload)
         if self.db:
             await self.db.log_event(event, safe_message, agent_id, agent_name, metadata)
-            # Queue for webhook delivery
+            # Queue for webhook delivery (cached to avoid N+1 DB queries)
             try:
-                webhooks = await self.db.get_webhooks(active_only=True)
+                webhooks = await self._get_cached_webhooks()
                 for wh in webhooks:
                     events_filter = wh.get("events", [])
                     if not events_filter or event in events_filter:

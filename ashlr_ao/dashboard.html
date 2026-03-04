@@ -5233,6 +5233,7 @@ body {
         </div>
         <div class="metric" data-tip="Estimated cost across all active agents">
             <span class="metric-label">Cost</span>
+            <canvas class="cpu-sparkline" id="costSparkline" width="80" height="32" style="margin-right:4px"></canvas>
             <span class="metric-value" id="metricCost">$0.00</span>
         </div>
         <div class="metric" id="metricFleetHealth" data-tip="Fleet health score — click for details" style="display:none">
@@ -5623,6 +5624,7 @@ body {
             <button class="deep-action-btn" onclick="deepRegenSummary()" data-tip="Generate AI summary of agent output"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg> AI</button>
             <button class="deep-action-btn" onclick="openDeepMessaging()" data-tip="Send output to another agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></span> Msg</button>
             <button class="deep-action-btn" onclick="deepRestart()" data-tip="Restart agent with same configuration"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg></span> Restart</button>
+            <button class="deep-action-btn" onclick="cloneAgent(state.deepViewAgent)" data-tip="Clone with same config in spawn dialog"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span> Clone</button>
             <button class="deep-action-btn" onclick="deepRetry()" data-tip="Retry with modified task"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></span> Retry</button>
             <button class="deep-action-btn" onclick="openHandoff()" data-tip="Handoff to another agent"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg></span> Handoff</button>
             <button class="deep-action-btn" onclick="deepExportOutput()" data-tip="Download output log"><span class="btn-icon"><svg class="lucide" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></span> Export</button>
@@ -6681,6 +6683,7 @@ const state = {
     selectedRole: 'general',
     paletteIndex: 0,
     cpuHistory: [],
+    costHistory: [],
     notifications: [],
     unreadCount: 0,
     workflowRuns: new Map(),
@@ -8286,6 +8289,11 @@ function handleMetrics(data) {
     state.cpuHistory.push(cpu);
     if (state.cpuHistory.length > 60) state.cpuHistory.shift();
     drawSparkline();
+
+    // Cost sparkline
+    state.costHistory.push(totalCost);
+    if (state.costHistory.length > 60) state.costHistory.shift();
+    drawCostSparkline();
 
     // Fleet health score
     updateFleetHealthScore(agents);
@@ -15369,6 +15377,101 @@ function drawSparkline() {
     ctx.fill();
 }
 
+function drawCostSparkline() {
+    const canvas = document.getElementById('costSparkline');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const data = state.costHistory;
+    if (data.length < 2) return;
+
+    ctx.clearRect(0, 0, w, h);
+
+    const max = Math.max(...data, 0.01);
+    const maxPoints = 60;
+    const step = w / (maxPoints - 1);
+    const xOffset = (maxPoints - data.length) * step;
+
+    ctx.beginPath();
+    ctx.strokeStyle = '#8B5CF6';
+    ctx.lineWidth = 1.5;
+
+    for (let i = 0; i < data.length; i++) {
+        const x = xOffset + i * step;
+        const y = h - (data[i] / max) * (h - 4) - 2;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.lineTo(xOffset + (data.length - 1) * step, h);
+    ctx.lineTo(xOffset, h);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(139,92,246,0.2)');
+    grad.addColorStop(1, 'rgba(139,92,246,0)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+}
+
+function drawCostTrendChart(canvas, data) {
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+    ctx.scale(dpr, dpr);
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (data.length < 2) return;
+
+    const max = Math.max(...data, 0.01);
+    const pad = { t: 10, b: 16, l: 36, r: 8 };
+    const plotW = w - pad.l - pad.r;
+    const plotH = h - pad.t - pad.b;
+    const step = plotW / (data.length - 1);
+
+    // Grid lines + labels
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 3; i++) {
+        const y = pad.t + (plotH / 3) * i;
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+        const val = max - (max / 3) * i;
+        ctx.fillText('$' + val.toFixed(val < 1 ? 2 : 1), pad.l - 4, y + 3);
+    }
+
+    // Line
+    ctx.beginPath();
+    ctx.strokeStyle = '#8B5CF6';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < data.length; i++) {
+        const x = pad.l + i * step;
+        const y = pad.t + plotH - (data[i] / max) * plotH;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Fill
+    ctx.lineTo(pad.l + (data.length - 1) * step, pad.t + plotH);
+    ctx.lineTo(pad.l, pad.t + plotH);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + plotH);
+    grad.addColorStop(0, 'rgba(139,92,246,0.25)');
+    grad.addColorStop(1, 'rgba(139,92,246,0)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Latest value dot
+    const lastX = pad.l + (data.length - 1) * step;
+    const lastY = pad.t + plotH - (data[data.length - 1] / max) * plotH;
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#8B5CF6';
+    ctx.fill();
+}
+
 // ── Metrics Dropdown ──
 
 function toggleMetricsDropdown() {
@@ -15410,7 +15513,21 @@ function updateMetricsDropdown() {
             const healthy = tasks.filter(([,v]) => v === 'running' || v === true).length;
             svcItems.push(`<span style="color:${healthy === tasks.length ? 'var(--success)' : 'var(--orange)'}">Tasks ${healthy}/${tasks.length}</span>`);
         }
+        if (state._serverUptime) {
+            const mins = Math.floor(state._serverUptime / 60);
+            const hrs = Math.floor(mins / 60);
+            svcItems.push(`<span style="color:var(--text-tertiary)">Up ${hrs > 0 ? hrs + 'h ' : ''}${mins % 60}m</span>`);
+        }
         html += `<div style="font-size:10px;font-family:var(--font-mono);display:flex;gap:10px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border-subtle)">${svcItems.join('')}</div>`;
+        // Background task detail
+        if (sh.bg_task_health && Object.keys(sh.bg_task_health).length > 0) {
+            html += `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border-subtle)">`;
+            for (const [name, status] of Object.entries(sh.bg_task_health)) {
+                const ok = status === 'running' || status === true;
+                html += `<span style="font-size:9px;font-family:var(--font-mono);padding:2px 6px;border-radius:4px;background:${ok ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)'};color:${ok ? 'var(--success)' : 'var(--danger)'}">${escapeHtml(name)}</span>`;
+            }
+            html += `</div>`;
+        }
     }
 
     // Agent table
@@ -15435,7 +15552,46 @@ function updateMetricsDropdown() {
         });
     }
     html += '</table>';
+
+    // Cost trend chart
+    if (state.costHistory.length > 1) {
+        html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border-subtle)">
+            <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:4px">Cost Trend</div>
+            <canvas id="costTrendChart" width="340" height="80" style="width:100%;height:80px;border-radius:6px;background:rgba(0,0,0,0.15)"></canvas>
+        </div>`;
+    }
+
+    // Per-project cost breakdown
+    const projectCosts = new Map();
+    agents.forEach(a => {
+        const pName = a.project_name || 'Unassigned';
+        projectCosts.set(pName, (projectCosts.get(pName) || 0) + (a.estimated_cost_usd || 0));
+    });
+    if (projectCosts.size > 1 || (projectCosts.size === 1 && !projectCosts.has('Unassigned'))) {
+        const sorted = [...projectCosts.entries()].sort((a, b) => b[1] - a[1]);
+        const maxCost = sorted[0]?.[1] || 1;
+        html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border-subtle)">
+            <div style="font-size:10px;color:var(--text-tertiary);margin-bottom:6px">Cost by Project</div>`;
+        sorted.forEach(([name, cost]) => {
+            const pct = Math.max(2, (cost / maxCost) * 100);
+            html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                <span style="font-size:10px;color:var(--text-secondary);width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(name)}</span>
+                <div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden">
+                    <div style="width:${pct}%;height:100%;background:var(--accent);border-radius:3px"></div>
+                </div>
+                <span style="font-size:10px;font-family:var(--font-mono);color:var(--text-tertiary);width:48px;text-align:right">$${cost.toFixed(2)}</span>
+            </div>`;
+        });
+        html += `</div>`;
+    }
+
     dd.innerHTML = html;
+
+    // Draw cost trend chart if present
+    requestAnimationFrame(() => {
+        const chartCanvas = document.getElementById('costTrendChart');
+        if (chartCanvas) drawCostTrendChart(chartCanvas, state.costHistory);
+    });
 }
 
 // Fetch service health periodically
@@ -15445,6 +15601,7 @@ async function fetchServiceHealth() {
         if (resp.ok) {
             const data = await resp.json();
             state._serviceHealth = data.services || {};
+            state._serverUptime = data.uptime_sec || 0;
         }
     } catch (e) { /* server may be down */ }
 }
@@ -21155,6 +21312,7 @@ async function loadWebhooks() {
                     <div style="font-size:10px;color:var(--text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(wh.url)}</div>
                     ${wh.events && wh.events.length ? `<div style="font-size:10px;color:var(--text-secondary);margin-top:2px">Events: ${wh.events.map(e => `<span style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;margin-right:2px">${escapeHtml(e)}</span>`).join('')}</div>` : '<div style="font-size:10px;color:var(--text-secondary);margin-top:2px">All events</div>'}
                 </div>
+                <button class="btn btn-ghost btn-sm" onclick="viewWebhookDeliveries('${wh.id}')" style="font-size:10px;padding:2px 6px;color:var(--text-secondary)" data-tip="View delivery history">History</button>
                 <button class="btn btn-ghost btn-sm" onclick="testWebhook('${wh.id}')" style="font-size:10px;padding:2px 6px;color:var(--text-secondary)" data-tip="Send a test event to this webhook">Test</button>
                 <button class="btn btn-ghost btn-sm" onclick="toggleWebhook('${wh.id}', ${!wh.active})" style="font-size:10px;padding:2px 6px;color:var(--text-secondary)">${wh.active ? 'Disable' : 'Enable'}</button>
                 <button class="btn btn-ghost btn-sm" onclick="deleteWebhook('${wh.id}')" style="font-size:10px;padding:2px 6px;color:var(--danger)" data-tip="Remove this webhook">✕</button>
@@ -21217,6 +21375,40 @@ async function toggleWebhook(id, active) {
         if (res.ok) { showToast(active ? 'Webhook enabled' : 'Webhook disabled', 'success'); loadWebhooks(); }
         else showToast('Failed to update webhook', 'error');
     } catch (e) { showToast('Failed to update webhook', 'error'); }
+}
+
+async function viewWebhookDeliveries(id) {
+    try {
+        const res = await apiFetch(`/api/webhooks/${id}/deliveries`);
+        if (!res.ok) { showToast('Failed to load deliveries', 'error'); return; }
+        const deliveries = await res.json();
+        const content = deliveries.length ? deliveries.map(d => {
+            const statusColor = d.status === 'delivered' ? 'var(--success)' : d.status === 'failed' ? 'var(--danger)' : 'var(--text-tertiary)';
+            const ts = d.created_at ? new Date(d.created_at).toLocaleString() : '';
+            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;font-size:11px;border-bottom:1px solid var(--border-subtle)">
+                <span style="width:6px;height:6px;border-radius:50%;background:${statusColor};flex-shrink:0"></span>
+                <span style="flex:1;color:var(--text-primary)">${escapeHtml(d.event || '')}</span>
+                <span style="color:var(--text-tertiary)">${d.http_status || ''}</span>
+                <span style="color:var(--text-tertiary)">${ts}</span>
+            </div>`;
+        }).join('') : '<div style="padding:12px;font-size:11px;color:var(--text-tertiary);text-align:center">No deliveries yet</div>';
+        // Show in a lightweight overlay
+        let overlay = document.getElementById('webhookDeliveryOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'webhookDeliveryOverlay';
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(4px)';
+            overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+            document.body.appendChild(overlay);
+        }
+        overlay.innerHTML = `<div style="background:var(--bg-primary);border:1px solid var(--border-default);border-radius:12px;width:500px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:var(--shadow-lg)">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border-subtle)">
+                <span style="font-weight:600;font-size:13px;color:var(--text-primary)">Webhook Deliveries</span>
+                <button onclick="this.closest('#webhookDeliveryOverlay').remove()" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:16px">✕</button>
+            </div>
+            <div style="overflow-y:auto;flex:1">${content}</div>
+        </div>`;
+    } catch (e) { showToast('Failed to load deliveries', 'error'); }
 }
 
 // ── Agent Messages Panel ──

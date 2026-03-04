@@ -454,3 +454,143 @@ class TestWebhookBroadcast(AioHTTPTestCase):
         call_args = db.log_event.call_args
         logged_msg = call_args[0][1]  # second positional arg is message
         self.assertNotIn("sk-abc123", logged_msg)
+
+    @unittest_run_loop
+    async def test_broadcast_event_uses_cached_webhooks(self):
+        """Verify webhook cache avoids repeated DB queries."""
+        hub = self.app["ws_hub"]
+        db = self.app["db"]
+        db.get_webhooks = AsyncMock(return_value=[
+            {"id": "wh1", "url": "https://example.com/hook", "events": [], "active": True},
+        ])
+        # First call should query DB
+        await hub.broadcast_event("test1", "msg1", "a1", "x")
+        self.assertEqual(db.get_webhooks.call_count, 1)
+        # Second call within TTL should use cache
+        await hub.broadcast_event("test2", "msg2", "a1", "x")
+        self.assertEqual(db.get_webhooks.call_count, 1)  # still 1, cached
+
+    @unittest_run_loop
+    async def test_webhook_cache_invalidated_on_create(self):
+        """Verify cache is invalidated when a webhook is created."""
+        hub = self.app["ws_hub"]
+        db = self.app["db"]
+        db.get_webhooks = AsyncMock(return_value=[])
+        await hub.broadcast_event("test", "msg", "a1", "x")
+        self.assertEqual(db.get_webhooks.call_count, 1)
+        # Create webhook invalidates cache
+        resp = await self.client.post("/api/webhooks", json={
+            "url": "https://example.com/hook", "name": "test"
+        })
+        self.assertEqual(resp.status, 201)
+        # Next broadcast should re-query DB
+        await hub.broadcast_event("test2", "msg2", "a1", "x")
+        self.assertEqual(db.get_webhooks.call_count, 2)
+
+    @unittest_run_loop
+    async def test_webhook_cache_invalidated_on_delete(self):
+        """Verify cache is invalidated when a webhook is deleted."""
+        hub = self.app["ws_hub"]
+        db = self.app["db"]
+        db.get_webhooks = AsyncMock(return_value=[])
+        db.delete_webhook = AsyncMock(return_value=True)
+        await hub.broadcast_event("test", "msg", "a1", "x")
+        resp = await self.client.delete("/api/webhooks/wh1")
+        self.assertEqual(resp.status, 200)
+        await hub.broadcast_event("test2", "msg2", "a1", "x")
+        self.assertEqual(db.get_webhooks.call_count, 2)
+
+
+class TestWebhookDeliveryHistory(AioHTTPTestCase):
+    """Tests for webhook delivery history endpoint."""
+
+    async def get_application(self):
+        return make_test_app()
+
+    @unittest_run_loop
+    async def test_deliveries_not_found(self):
+        resp = await self.client.get("/api/webhooks/nonexistent/deliveries")
+        self.assertEqual(resp.status, 404)
+
+    @unittest_run_loop
+    async def test_deliveries_empty(self):
+        self.app["db"].get_webhook = AsyncMock(return_value={"id": "wh1"})
+        self.app["db"].get_webhook_deliveries = AsyncMock(return_value=[])
+        resp = await self.client.get("/api/webhooks/wh1/deliveries")
+        self.assertEqual(resp.status, 200)
+        data = await resp.json()
+        self.assertEqual(data, [])
+
+    @unittest_run_loop
+    async def test_deliveries_returns_items(self):
+        self.app["db"].get_webhook = AsyncMock(return_value={"id": "wh1"})
+        deliveries = [
+            {"id": "d1", "event": "agent_spawned", "status": "delivered", "http_status": 200},
+            {"id": "d2", "event": "agent_killed", "status": "failed", "http_status": 500},
+        ]
+        self.app["db"].get_webhook_deliveries = AsyncMock(return_value=deliveries)
+        resp = await self.client.get("/api/webhooks/wh1/deliveries")
+        self.assertEqual(resp.status, 200)
+        data = await resp.json()
+        self.assertEqual(len(data), 2)
+
+
+class TestRateLimitsExpensiveEndpoints(AioHTTPTestCase):
+    """Tests that expensive endpoints have rate limiting."""
+
+    async def get_application(self):
+        app = make_test_app()
+        # Enable rate limiter for these tests
+        from ashlr_ao.middleware import RateLimiter
+        app["rate_limiter"] = RateLimiter()
+        return app
+
+    @unittest_run_loop
+    async def test_export_events_rate_limited(self):
+        """Export endpoint should reject after burst is exhausted."""
+        # burst=3, rate=0.2/sec, cost=3 per call → only 1 call before exhaustion
+        resp = await self.client.get("/api/events/export")
+        self.assertEqual(resp.status, 200)
+        # Hit rate limit
+        for _ in range(3):
+            resp = await self.client.get("/api/events/export")
+        self.assertEqual(resp.status, 429)
+
+    @unittest_run_loop
+    async def test_summarize_rate_limited(self):
+        """Summarize endpoint should have rate limiting."""
+        import time
+        manager = self.app["agent_manager"]
+        agent = ashlr_server.Agent(
+            id="a1b2", name="test", role="general",
+            working_dir="/tmp/test", backend="claude-code",
+            status="working", task="test",
+            tmux_session="ashlr-a1b2",
+        )
+        agent._spawn_time = time.monotonic() - 60
+        manager.agents["a1b2"] = agent
+        # First call — agent exists but no LLM client, so may return 503/400
+        resp = await self.client.post("/api/agents/a1b2/summarize")
+        # Should NOT be 429 — it got past the rate limiter
+        self.assertNotEqual(resp.status, 429)
+        # Exhaust burst
+        for _ in range(5):
+            resp = await self.client.post("/api/agents/a1b2/summarize")
+        self.assertEqual(resp.status, 429)
+
+
+class TestSystemDiagnostics(AioHTTPTestCase):
+    """Tests for system diagnostics enhancements."""
+
+    async def get_application(self):
+        return make_test_app()
+
+    @unittest_run_loop
+    async def test_system_metrics_includes_uptime(self):
+        """System endpoint should include uptime_sec."""
+        resp = await self.client.get("/api/system")
+        self.assertEqual(resp.status, 200)
+        data = await resp.json()
+        self.assertIn("uptime_sec", data)
+        self.assertIsInstance(data["uptime_sec"], (int, float))
+        self.assertGreaterEqual(data["uptime_sec"], 0)
