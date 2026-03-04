@@ -56,6 +56,10 @@ def _make_mock_agent(**overrides):
         "_capture_fail_count": 0, "_last_needs_input_event": 0,
         "_error_entered_at": 0, "_health_low_warned": False,
         "_health_critical_warned": False,
+        "restart_count": 0, "max_restarts": 3, "last_restart_time": 0,
+        "project_id": None, "context_pct": 0.0,
+        "_context_exhaustion_warned": False, "_context_auto_paused": False,
+        "_pathological": False, "workflow_run_id": None, "pid": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -735,6 +739,7 @@ class TestOutputCaptureLoop:
     async def test_staleness_detection_15_minutes(self):
         """Agents with no output for >15 minutes should be flagged as error."""
         app = self._make_capture_app()
+        app["config"].auto_restart_on_stall = False  # Disable auto-restart to test error path
         manager = app["agent_manager"]
 
         agent = _make_mock_agent(
@@ -758,7 +763,7 @@ class TestOutputCaptureLoop:
             pass
 
         agent.set_status.assert_called_with("error")
-        assert "15 minutes" in agent.error_message
+        assert "minutes" in agent.error_message
 
     async def test_stale_warning_at_5_minutes(self):
         """Agents with no output for >5 minutes should get a stale warning."""

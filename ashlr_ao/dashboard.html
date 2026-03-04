@@ -5050,6 +5050,8 @@ body {
         <option value="">All Branches</option>
     </select>
     <span class="project-metrics-badge" id="projectMetricsBadge" style="display:none;cursor:pointer" onclick="if(state.selectedProjectId)openProjectDetail(state.selectedProjectId)" title="Click to view project details"></span>
+    <button id="focusModeBtn" onclick="toggleFocusMode()" title="Focus Mode (Cmd+Shift+O)" style="background:none;border:1px solid var(--border-subtle);color:var(--text-secondary);border-radius:var(--radius-xs);padding:2px 8px;font-size:10px;cursor:pointer;font-family:var(--font-sans);transition:var(--transition);margin-left:4px" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!state.focusMode)this.style.borderColor='var(--border-subtle)'">Focus</button>
+    <button onclick="saveCurrentView()" title="Save current filter view" style="background:none;border:1px solid var(--border-subtle);color:var(--text-secondary);border-radius:var(--radius-xs);padding:2px 6px;font-size:10px;cursor:pointer;font-family:var(--font-sans);transition:var(--transition);margin-left:2px" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-subtle)'">Save View</button>
     <div class="top-spacer"></div>
     <div class="metrics-bar" id="metricsBar" style="cursor:pointer" onclick="toggleMetricsDropdown()">
         <div class="metric">
@@ -5230,6 +5232,18 @@ body {
         </div>
         <div class="fleet-stats-grid" id="fleetStatsGrid"></div>
     </div>
+    <!-- Project Dashboard Header (shown when project filter is active) -->
+    <div class="project-header" id="projectHeader" style="display:none;max-width:1440px;margin:0 auto 12px;padding:10px 16px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-md);font-size:12px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span id="projHeaderName" style="font-weight:700;font-size:14px;color:var(--text-primary)"></span>
+            <span id="projHeaderBranch" style="background:var(--bg-surface-elevated);padding:2px 8px;border-radius:10px;font-family:var(--font-mono);font-size:10px;color:var(--accent)"></span>
+            <a id="projHeaderRemote" href="#" target="_blank" rel="noopener" style="color:var(--text-muted);text-decoration:none;font-family:var(--font-mono);font-size:10px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-muted)'"></a>
+            <span style="flex:1"></span>
+            <span id="projHeaderStats" style="color:var(--text-muted);font-size:11px"></span>
+            <button class="btn btn-ghost" style="font-size:11px;padding:2px 8px" onclick="openSpawnDialogForProject()">+ Spawn</button>
+        </div>
+        <div id="projHeaderPath" style="color:var(--text-muted);font-family:var(--font-mono);font-size:10px;margin-top:4px;opacity:0.7"></div>
+    </div>
     <div class="agent-grid" id="agentGrid">
         <div class="empty-state" id="emptyState">
             <div class="empty-illustration">
@@ -5291,11 +5305,17 @@ body {
             <button class="btn btn-ghost btn-sm" onclick="spawnFleetPreset('quality')" style="font-size:10px;padding:3px 8px;border:1px solid var(--border-subtle)">Quality Check (3)</button>
         </div>
 
+        <div id="fleetTemplateSection" style="display:none;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border-subtle)">
+            <span style="font-size:10px;font-weight:700;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;width:100%;margin-bottom:4px;display:block">Fleet Templates</span>
+            <div id="fleetTemplateList" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+
         <div class="preset-selector">
             <select id="spawnPresetSelect" onchange="loadPreset(this.value)">
                 <option value="">From preset...</option>
             </select>
             <button class="btn btn-secondary btn-sm" onclick="saveAsPreset()" title="Save current form as preset">Save Preset</button>
+            <button class="btn btn-secondary btn-sm" onclick="saveAsFleetTemplate()" title="Save running fleet as template">Save Fleet</button>
         </div>
 
         <div class="form-label">Role</div>
@@ -5819,9 +5839,24 @@ body {
             <div class="settings-row"><span class="settings-label">Auto-pause at budget limit</span><div class="settings-toggle" id="setCostAutoPause" onclick="this.classList.toggle('active')" role="switch" aria-label="Auto-pause at budget limit" tabindex="0"></div></div>
         </div>
         <div class="settings-section">
+            <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><path d="m2 14 6-6 6 6"/><path d="M22 18H2"/><path d="M22 22H2"/></svg></span> Auto-Pilot</div>
+            <div class="settings-row"><span class="settings-label">Auto-restart stalled agents</span><div class="settings-toggle" id="setAutoRestartStall" onclick="this.classList.toggle('active')" role="switch" aria-label="Auto-restart on stall" tabindex="0"></div></div>
+            <div class="settings-row"><span class="settings-label">Auto-approve agent prompts</span><div class="settings-toggle" id="setAutoApproveEnabled" onclick="this.classList.toggle('active')" role="switch" aria-label="Auto-approve patterns" tabindex="0"></div></div>
+            <div class="settings-row"><span class="settings-label">Auto-pause on critical health</span><div class="settings-toggle" id="setAutoPauseCritical" onclick="this.classList.toggle('active')" role="switch" aria-label="Auto-pause on critical health" tabindex="0"></div></div>
+            <div class="settings-row" style="flex-direction:column;align-items:stretch">
+                <span class="settings-label" style="margin-bottom:4px">Desktop notification events</span>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <label style="font-size:11px;display:flex;align-items:center;gap:4px;color:var(--text-secondary)"><input type="checkbox" id="notifEvtNeedsInput" checked> Needs input</label>
+                    <label style="font-size:11px;display:flex;align-items:center;gap:4px;color:var(--text-secondary)"><input type="checkbox" id="notifEvtError" checked> Error</label>
+                    <label style="font-size:11px;display:flex;align-items:center;gap:4px;color:var(--text-secondary)"><input type="checkbox" id="notifEvtCompleted"> Completed</label>
+                    <label style="font-size:11px;display:flex;align-items:center;gap:4px;color:var(--text-secondary)"><input type="checkbox" id="notifEvtRestartExhausted" checked> Restart exhausted</label>
+                </div>
+            </div>
+        </div>
+        <div class="settings-section">
             <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span> Display</div>
             <div class="settings-row"><span class="settings-label">Voice feedback sounds</span><div class="settings-toggle" id="setVoiceSounds" onclick="this.classList.toggle('active')" role="switch" aria-label="Voice feedback sounds" tabindex="0"></div></div>
-            <div class="settings-row"><span class="settings-label">Browser notifications</span><div class="settings-toggle" id="setBrowserNotifs" onclick="this.classList.toggle('active')" role="switch" aria-label="Browser notifications" tabindex="0"></div></div>
+            <div class="settings-row"><span class="settings-label">Browser notifications</span><div class="settings-toggle" id="setBrowserNotifs" onclick="toggleBrowserNotifPermission()" role="switch" aria-label="Browser notifications" tabindex="0"></div></div>
         </div>
         <div class="settings-section">
             <div class="settings-section-title"><span class="settings-section-icon"><svg class="lucide" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg></span> Server Health</div>
@@ -6455,6 +6490,9 @@ const state = {
     authMode: 'login', // 'login' | 'register'
     license: { tier: 'community', max_agents: 5, is_pro: false, features: [], expires_at: '' },
     effectiveMaxAgents: 5,
+    // Wave 2: Focus mode + saved views
+    focusMode: localStorage.getItem('ashlr_focus_mode') === 'true',
+    savedViews: safeParseJSON('ashlr_saved_views', []),
 };
 
 const ROLE_INFO = {
@@ -7751,6 +7789,7 @@ async function handleSync(data) {
         showToast('Database unavailable — running in degraded mode (no persistence)', 'warning');
     }
     renderProjectSelector();
+    restoreFilterState();
     renderAgentGrid();
     updateStatusFilterChips();
     updateAmbientGradient();
@@ -8061,17 +8100,17 @@ function handleEvent(data) {
         case 'agent_needs_input':
             showToast(msg, 'warning');
             playTone([440, 550], 0.12);
-            sendBrowserNotification('Agent needs input', msg, data.agent_id);
+            sendBrowserNotification('Agent needs input', msg, data.agent_id, 'agent_needs_input');
             break;
         case 'agent_error':
             showToast(msg, 'error');
             playTone([220], 0.3);
-            sendBrowserNotification('Agent error', msg, data.agent_id);
+            sendBrowserNotification('Agent error', msg, data.agent_id, 'agent_error');
             break;
         case 'agent_completed':
             showToast(msg, 'success');
             playTone([440, 550, 660], 0.1);
-            sendBrowserNotification('Agent completed', msg, data.agent_id);
+            sendBrowserNotification('Agent completed', msg, data.agent_id, 'agent_completed');
             break;
         case 'fleet_multi_error':
             showToast(msg, 'error');
@@ -8085,7 +8124,7 @@ function handleEvent(data) {
         case 'agent_restart_exhausted':
             showToast(msg, 'error');
             playTone([220, 165], 0.2);
-            sendBrowserNotification('Agent restart failed', msg, data.agent_id);
+            sendBrowserNotification('Agent restart failed', msg, data.agent_id, 'agent_restart_exhausted');
             break;
         case 'agent_stale_warning':
             showToast(msg || 'Agent output stale', 'warning');
@@ -8093,6 +8132,19 @@ function handleEvent(data) {
         case 'agent_stale':
             showToast(msg || 'Agent marked stale', 'error');
             sendBrowserNotification('Agent stale', msg, data.agent_id);
+            break;
+        case 'agent_stall_restarted':
+            showToast(msg || 'Agent auto-restarted after stall', 'info');
+            playTone([440, 660], 0.1);
+            break;
+        case 'agent_auto_approved':
+            showToast(msg || 'Agent auto-approved', 'success');
+            playTone([550, 660], 0.08);
+            break;
+        case 'agent_health_auto_paused':
+            showToast(msg || 'Agent auto-paused (health critical)', 'warning');
+            playTone([330, 220], 0.15);
+            sendBrowserNotification('Agent auto-paused', msg, data.agent_id, 'agent_error');
             break;
         case 'agent_reaped':
             showToast(msg || 'Idle agent removed', 'info');
@@ -8309,9 +8361,11 @@ function renderAgentGrid() {
         }
     }
 
-    // Update or create cards (filtered by project)
+    // Update or create cards (filtered by project, branch, focus mode)
     const newCard = document.getElementById('newAgentCard') || createNewAgentCard();
     let idx = 0;
+    let focusHidden = 0;
+    const FOCUS_VISIBLE_STATUSES = new Set(['working', 'planning', 'reading', 'waiting', 'error']);
     for (const [id, agent] of state.agents) {
         // Project filter
         if (state.selectedProjectId && agent.project_id !== state.selectedProjectId) {
@@ -8323,6 +8377,13 @@ function renderAgentGrid() {
         if (state.selectedBranch && agent.git_branch !== state.selectedBranch) {
             const card = cardElements.get(id);
             if (card && card.parentNode) card.remove();
+            continue;
+        }
+        // Focus mode: hide idle/paused/completed agents
+        if (state.focusMode && !FOCUS_VISIBLE_STATUSES.has(agent.status)) {
+            const card = cardElements.get(id);
+            if (card && card.parentNode) card.remove();
+            focusHidden++;
             continue;
         }
         let card = cardElements.get(id);
@@ -8339,6 +8400,21 @@ function renderAgentGrid() {
     }
 
     if (!newCard.parentNode) grid.appendChild(newCard);
+
+    // Focus mode banner
+    let focusBanner = document.getElementById('focusModeBanner');
+    if (state.focusMode) {
+        if (!focusBanner) {
+            focusBanner = document.createElement('div');
+            focusBanner.id = 'focusModeBanner';
+            focusBanner.style.cssText = 'max-width:1440px;margin:0 auto 8px;padding:6px 12px;background:var(--bg-surface);border:1px solid var(--accent);border-radius:var(--radius-sm);font-size:11px;color:var(--accent);display:flex;align-items:center;justify-content:space-between';
+            grid.parentNode.insertBefore(focusBanner, grid);
+        }
+        focusBanner.innerHTML = `<span>Focus Mode: ${focusHidden} agent${focusHidden !== 1 ? 's' : ''} hidden (idle/paused/completed)</span><button onclick="toggleFocusMode()" style="background:none;border:1px solid var(--accent);color:var(--accent);padding:2px 8px;border-radius:var(--radius-xs);cursor:pointer;font-size:10px;font-family:var(--font-sans)">Exit Focus</button>`;
+        focusBanner.style.display = '';
+    } else if (focusBanner) {
+        focusBanner.style.display = 'none';
+    }
 }
 
 function createNewAgentCard() {
@@ -9458,9 +9534,60 @@ function openSpawnDialog() {
     state.projects.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.id;
-        opt.textContent = p.name;
+        opt.textContent = p.name + (p.favorite ? ' \u2605' : '');
         projSel.appendChild(opt);
     });
+
+    // Project context pre-fill on selection
+    if (!projSel._contextHandler) {
+        projSel._contextHandler = true;
+        projSel.addEventListener('change', async () => {
+            const pid = projSel.value;
+            if (!pid) return;
+            try {
+                const resp = await apiFetch(`/api/projects/${pid}/context`);
+                if (!resp.ok) return;
+                const ctx = await resp.json();
+                const proj = ctx.project || {};
+                // Pre-fill working directory from project path
+                if (proj.path) document.getElementById('spawnDir').value = proj.path;
+                // Pre-fill backend from project defaults
+                if (proj.default_backend) {
+                    const bSel = document.getElementById('spawnBackend');
+                    if (bSel.querySelector(`option[value="${proj.default_backend}"]`)) bSel.value = proj.default_backend;
+                }
+                // Pre-fill model
+                if (proj.default_model) {
+                    const mSel = document.getElementById('spawnModel');
+                    if (mSel) mSel.value = proj.default_model;
+                }
+                // Pre-fill role
+                if (proj.default_role) {
+                    const roleGrid = document.getElementById('roleGrid');
+                    roleGrid.querySelectorAll('.role-option').forEach(o => {
+                        const match = o.dataset.role === proj.default_role;
+                        o.classList.toggle('selected', match);
+                        if (match) state.selectedRole = proj.default_role;
+                    });
+                }
+                // Show recent tasks from project as suggestions
+                const recentTasksList = document.getElementById('recentTasksList');
+                const projectTasks = ctx.recent_tasks || [];
+                if (projectTasks.length > 0) {
+                    recentTasksList.style.display = '';
+                    recentTasksList.innerHTML = projectTasks.slice(0, 8).map(t => {
+                        const shortTask = (t.task || '').length > 50 ? t.task.slice(0, 50) + '...' : (t.task || '');
+                        return `<span class="recent-task-chip" onclick="document.getElementById('spawnTask').value=this.dataset.task" data-task="${escapeHtml(t.task || '')}" title="${escapeHtml(t.task || '')}">${escapeHtml(shortTask)}</span>`;
+                    }).join('');
+                }
+                // Reload fleet templates for selected project
+                loadFleetTemplates();
+            } catch (e) { /* non-critical */ }
+        });
+    }
+
+    // Load fleet templates on dialog open
+    loadFleetTemplates();
 
     // Populate backend selector
     const backendSel = document.getElementById('spawnBackend');
@@ -9618,6 +9745,7 @@ function selectResumeSession(sessionId) {
 function filterByBranch(branch) {
     state.selectedBranch = branch || null;
     renderAgentGrid();
+    saveFilterState();
 }
 
 function updateBranchFilter() {
@@ -9797,6 +9925,82 @@ function spawnFleetPreset(shortKey) {
     const presetKey = keyMap[shortKey] || shortKey;
     closeSpawnDialog();
     spawnFleet(presetKey);
+}
+
+async function loadFleetTemplates() {
+    try {
+        const projectId = document.getElementById('spawnProject')?.value || '';
+        const url = projectId ? `/api/fleet-templates?project_id=${projectId}` : '/api/fleet-templates';
+        const resp = await apiFetch(url);
+        if (!resp.ok) return;
+        const templates = await resp.json();
+        const section = document.getElementById('fleetTemplateSection');
+        const list = document.getElementById('fleetTemplateList');
+        if (!section || !list) return;
+        if (templates.length === 0) { section.style.display = 'none'; return; }
+        section.style.display = 'block';
+        list.innerHTML = '';
+        for (const t of templates) {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-ghost btn-sm';
+            btn.style.cssText = 'font-size:10px;padding:3px 8px;border:1px solid var(--border-subtle)';
+            btn.textContent = `${t.name} (${(t.agents || []).length})`;
+            btn.onclick = () => deployFleetTemplate(t.id, t.name);
+            list.appendChild(btn);
+        }
+    } catch { /* ignore */ }
+}
+
+async function deployFleetTemplate(templateId, templateName) {
+    if (!confirm(`Deploy fleet template "${templateName}"?`)) return;
+    const projectId = document.getElementById('spawnProject')?.value || '';
+    try {
+        const resp = await apiFetch(`/api/fleet-templates/${templateId}/deploy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ project_id: projectId }),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            showToast(`Deployed ${data.spawned} agents from "${templateName}"`, 'success');
+            closeSpawnDialog();
+        } else {
+            showToast(data.error || 'Deploy failed', 'error');
+        }
+    } catch (e) { showToast('Deploy failed', 'error'); }
+}
+
+async function saveAsFleetTemplate() {
+    const agents = [...state.agents.values()].filter(a => a.status !== 'killed');
+    if (agents.length === 0) { showToast('No running agents to save', 'warning'); return; }
+    const name = prompt('Fleet template name:');
+    if (!name) return;
+    const agentSpecs = agents.map(a => ({
+        role: a.role || 'general',
+        task: a.task || '',
+        backend: a.backend || 'claude-code',
+        model: a.model || '',
+        name: a.name || '',
+    }));
+    try {
+        const resp = await apiFetch('/api/fleet-templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                description: `Saved from running fleet (${agents.length} agents)`,
+                project_id: document.getElementById('spawnProject')?.value || '',
+                agents: agentSpecs,
+            }),
+        });
+        if (resp.ok) {
+            showToast(`Fleet template "${name}" saved`, 'success');
+            loadFleetTemplates();
+        } else {
+            const data = await resp.json();
+            showToast(data.error || 'Failed to save template', 'error');
+        }
+    } catch { showToast('Failed to save template', 'error'); }
 }
 
 async function queueFromSpawnDialog() {
@@ -12382,6 +12586,12 @@ document.addEventListener('keydown', (e) => {
     // Cmd+Shift+F — global search across all agents
     if (e.metaKey && e.shiftKey && e.key === 'F') { e.preventDefault(); openGlobalSearch(); return; }
 
+    // Cmd+Shift+O — toggle focus mode
+    if (e.metaKey && e.shiftKey && e.key === 'O') { e.preventDefault(); toggleFocusMode(); return; }
+
+    // Cmd+/ — open global search bar (cross-agent output search)
+    if (e.metaKey && e.key === '/') { e.preventDefault(); openGlobalSearchBar(); return; }
+
     // Cmd+G — go to line in deep view
     if (e.metaKey && e.key === 'g' && state.view === 'deep') { e.preventDefault(); openGoToLine(); return; }
 
@@ -12467,6 +12677,13 @@ document.addEventListener('keydown', (e) => {
     if (e.metaKey && e.key === 'f' && state.view === 'grid') {
         e.preventDefault();
         document.getElementById('gridSearch').focus();
+        return;
+    }
+
+    // Cmd+1-9 — project quick-switch
+    if (e.metaKey && !e.shiftKey && e.key >= '1' && e.key <= '9' && state.view === 'grid') {
+        e.preventDefault();
+        quickSwitchProject(parseInt(e.key) - 1);
         return;
     }
 
@@ -12606,6 +12823,8 @@ function filterByProject(projectId) {
     state.selectedProjectId = projectId || null;
     renderAgentGrid();
     updateProjectMetricsBadge();
+    updateProjectHeader();
+    saveFilterState();
 }
 
 function updateProjectMetricsBadge() {
@@ -12620,6 +12839,225 @@ function updateProjectMetricsBadge() {
 
     badge.style.display = '';
     badge.innerHTML = `<span class="pm-count">${count}</span> agent${count !== 1 ? 's' : ''}${active > 0 ? ` (${active} active)` : ''}${cost > 0 ? ` · <span class="pm-cost">$${cost.toFixed(3)}</span>` : ''}`;
+}
+
+function updateProjectHeader() {
+    const header = document.getElementById('projectHeader');
+    const pid = state.selectedProjectId;
+    if (!pid) { header.style.display = 'none'; return; }
+    const proj = state.projects.find(p => p.id === pid);
+    if (!proj) { header.style.display = 'none'; return; }
+
+    header.style.display = '';
+    document.getElementById('projHeaderName').textContent = proj.name;
+    const branchEl = document.getElementById('projHeaderBranch');
+    branchEl.textContent = proj.default_branch || '';
+    branchEl.style.display = proj.default_branch ? '' : 'none';
+    const remoteEl = document.getElementById('projHeaderRemote');
+    if (proj.git_remote_url) {
+        let displayUrl = proj.git_remote_url.replace(/\.git$/, '').replace(/^https?:\/\//, '').replace(/^git@([^:]+):/, '$1/');
+        remoteEl.textContent = displayUrl;
+        const httpUrl = proj.git_remote_url.startsWith('http') ? proj.git_remote_url : proj.git_remote_url.replace(/^git@([^:]+):(.+)$/, 'https://$1/$2').replace(/\.git$/, '');
+        remoteEl.href = httpUrl;
+        remoteEl.style.display = '';
+    } else {
+        remoteEl.style.display = 'none';
+    }
+    document.getElementById('projHeaderPath').textContent = proj.path || '';
+
+    // Stats
+    const agents = [...state.agents.values()].filter(a => a.project_id === pid);
+    const active = agents.filter(a => ['working', 'planning', 'reading'].includes(a.status)).length;
+    const cost = agents.reduce((s, a) => s + (a.estimated_cost_usd || 0), 0);
+    const files = new Set();
+    agents.forEach(a => { if (a.files_touched) for (let i = 0; i < a.files_touched; i++) files.add(i); });
+    document.getElementById('projHeaderStats').textContent = `${agents.length} agents (${active} active) \u00b7 $${cost.toFixed(3)}`;
+}
+
+function openSpawnDialogForProject() {
+    openSpawnDialog();
+    if (state.selectedProjectId) {
+        setTimeout(() => {
+            const projSel = document.getElementById('spawnProject');
+            projSel.value = state.selectedProjectId;
+            projSel.dispatchEvent(new Event('change'));
+        }, 50);
+    }
+}
+
+// Project quick-switch: store project order in localStorage
+function getProjectOrder() {
+    try { return JSON.parse(localStorage.getItem('ashlr_project_order') || '[]'); } catch { return []; }
+}
+function setProjectOrder(order) {
+    localStorage.setItem('ashlr_project_order', JSON.stringify(order));
+}
+function quickSwitchProject(index) {
+    const order = getProjectOrder();
+    let pid;
+    if (order.length > index) {
+        pid = order[index];
+    } else {
+        // Fallback: favorites first, then alphabetical
+        const sorted = [...state.projects].sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0) || a.name.localeCompare(b.name));
+        if (sorted.length > index) pid = sorted[index].id;
+    }
+    if (pid) {
+        const sel = document.getElementById('projectSelector');
+        sel.value = pid;
+        filterByProject(pid);
+    }
+}
+
+// ── Wave 2: Focus Mode ──
+
+function toggleFocusMode() {
+    state.focusMode = !state.focusMode;
+    localStorage.setItem('ashlr_focus_mode', state.focusMode ? 'true' : 'false');
+    renderAgentGrid();
+}
+
+// ── Wave 2: Saved Filter Views ──
+
+function saveCurrentView() {
+    const name = prompt('View name:');
+    if (!name || !name.trim()) return;
+    const view = {
+        name: name.trim(),
+        projectFilter: state.selectedProjectId || '',
+        branchFilter: state.selectedBranch || '',
+        statusFilter: state.statusFilter || 'all',
+        focusMode: state.focusMode,
+        savedAt: new Date().toISOString(),
+    };
+    state.savedViews = state.savedViews.filter(v => v.name !== view.name);
+    state.savedViews.unshift(view);
+    if (state.savedViews.length > 20) state.savedViews = state.savedViews.slice(0, 20);
+    localStorage.setItem('ashlr_saved_views', JSON.stringify(state.savedViews));
+    showToast(`View "${view.name}" saved`);
+}
+
+function loadSavedView(index) {
+    const view = state.savedViews[index];
+    if (!view) return;
+    state.selectedProjectId = view.projectFilter || null;
+    state.selectedBranch = view.branchFilter || null;
+    state.statusFilter = view.statusFilter || 'all';
+    state.focusMode = view.focusMode || false;
+    localStorage.setItem('ashlr_focus_mode', state.focusMode ? 'true' : 'false');
+    // Update UI selectors
+    const projSel = document.getElementById('projectSelector');
+    if (projSel) projSel.value = state.selectedProjectId || '';
+    const branchSel = document.getElementById('branchSelector');
+    if (branchSel) branchSel.value = state.selectedBranch || '';
+    renderAgentGrid();
+    updateProjectMetricsBadge();
+    updateProjectHeader();
+}
+
+function deleteSavedView(index) {
+    state.savedViews.splice(index, 1);
+    localStorage.setItem('ashlr_saved_views', JSON.stringify(state.savedViews));
+}
+
+// ── Wave 2: Filter Persistence ──
+
+function saveFilterState() {
+    localStorage.setItem('ashlr_filter_state', JSON.stringify({
+        projectId: state.selectedProjectId || '',
+        branch: state.selectedBranch || '',
+        status: state.statusFilter || 'all',
+        focusMode: state.focusMode,
+    }));
+}
+
+function restoreFilterState() {
+    try {
+        const saved = JSON.parse(localStorage.getItem('ashlr_filter_state') || '{}');
+        if (saved.projectId) {
+            state.selectedProjectId = saved.projectId;
+            const projSel = document.getElementById('projectSelector');
+            if (projSel) projSel.value = saved.projectId;
+        }
+        if (saved.branch) {
+            state.selectedBranch = saved.branch;
+        }
+        if (saved.status && saved.status !== 'all') {
+            state.statusFilter = saved.status;
+        }
+        if (saved.focusMode) {
+            state.focusMode = true;
+        }
+    } catch (e) { /* non-critical */ }
+}
+
+// ── Wave 2: Global Search (Cmd+/) ──
+
+function openGlobalSearchBar() {
+    let bar = document.getElementById('globalSearchOverlay');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'globalSearchOverlay';
+        bar.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:80px';
+        bar.innerHTML = `
+            <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-md);width:600px;max-width:90vw;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5)">
+                <div style="padding:12px;border-bottom:1px solid var(--border-subtle)">
+                    <input id="globalSearchInput" type="text" placeholder="Search across all agents..." style="width:100%;background:transparent;border:none;color:var(--text-primary);font-size:14px;outline:none;font-family:var(--font-mono)">
+                </div>
+                <div id="globalSearchResults" style="max-height:400px;overflow-y:auto;padding:8px"></div>
+            </div>`;
+        bar.onclick = (e) => { if (e.target === bar) closeGlobalSearchBar(); };
+        document.body.appendChild(bar);
+        const input = document.getElementById('globalSearchInput');
+        let searchTimer;
+        input.addEventListener('input', () => {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => performGlobalSearch(input.value), 300);
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeGlobalSearchBar();
+        });
+    }
+    bar.style.display = 'flex';
+    const input = document.getElementById('globalSearchInput');
+    input.value = '';
+    document.getElementById('globalSearchResults').innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:12px">Type to search agent outputs...</div>';
+    setTimeout(() => input.focus(), 50);
+}
+
+function closeGlobalSearchBar() {
+    const bar = document.getElementById('globalSearchOverlay');
+    if (bar) bar.style.display = 'none';
+}
+
+async function performGlobalSearch(query) {
+    if (!query || query.length < 2) {
+        document.getElementById('globalSearchResults').innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:12px">Type at least 2 characters...</div>';
+        return;
+    }
+    try {
+        let url = `/api/search?q=${encodeURIComponent(query)}`;
+        if (state.selectedProjectId) url += `&project_id=${encodeURIComponent(state.selectedProjectId)}`;
+        const resp = await apiFetch(url);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const results = data.results || [];
+        const el = document.getElementById('globalSearchResults');
+        if (!results.length) {
+            el.innerHTML = `<div style="padding:12px;color:var(--text-muted);font-size:12px">No results for "${escapeHtml(query)}"</div>`;
+            return;
+        }
+        el.innerHTML = results.map(r => `
+            <div style="padding:8px 12px;border-bottom:1px solid var(--border-subtle);cursor:pointer" onclick="closeGlobalSearchBar();openDeepView('${r.agent_id}')" onmouseover="this.style.background='var(--bg-surface)'" onmouseout="this.style.background='transparent'">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                    <span style="font-weight:600;font-size:12px;color:var(--text-primary)">${escapeHtml(r.agent_name)}</span>
+                    <span style="font-size:10px;color:var(--text-muted);background:var(--bg-surface);padding:1px 6px;border-radius:8px">${r.role}</span>
+                    <span style="font-size:10px;color:var(--text-tertiary)">${r.match_count} match${r.match_count !== 1 ? 'es' : ''}</span>
+                </div>
+                ${r.matches.slice(0, 3).map(m => `<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:1px 0">${escapeHtml(m.text)}</div>`).join('')}
+            </div>
+        `).join('');
+    } catch (e) { /* non-critical */ }
 }
 
 // ── Project Detail Panel ──
@@ -13640,11 +14078,34 @@ document.addEventListener('click', (e) => {
 
 // ── Browser Notifications ──
 
-function sendBrowserNotification(title, body, agentId) {
+function sendBrowserNotification(title, body, agentId, eventType) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     if (document.hasFocus()) return;
+    // Check per-event preferences
+    if (eventType) {
+        const prefs = JSON.parse(localStorage.getItem('ashlr_notif_events') || '{}');
+        // Default: needs_input, error, restart_exhausted ON; completed OFF
+        if (eventType === 'agent_completed' && !prefs.agent_completed) return;
+        if (eventType === 'agent_needs_input' && prefs.agent_needs_input === false) return;
+        if (eventType === 'agent_error' && prefs.agent_error === false) return;
+        if (eventType === 'agent_restart_exhausted' && prefs.agent_restart_exhausted === false) return;
+    }
     const n = new Notification(title, { body, icon: '/logo.png', tag: agentId || 'ashlr' });
     n.onclick = () => { window.focus(); if (agentId) openDeepView(agentId); };
+}
+
+function toggleBrowserNotifPermission() {
+    const toggle = document.getElementById('setBrowserNotifs');
+    if (!('Notification' in window)) { showToast('Browser notifications not supported', 'warning'); return; }
+    if (Notification.permission === 'granted') {
+        toggle.classList.remove('active');
+        showToast('Notifications disabled (clear in browser settings to fully revoke)', 'info');
+    } else {
+        Notification.requestPermission().then(p => {
+            toggle.classList.toggle('active', p === 'granted');
+            showToast(p === 'granted' ? 'Notifications enabled' : 'Notification permission denied', p === 'granted' ? 'success' : 'warning');
+        });
+    }
 }
 
 // Request notification permission
@@ -18046,7 +18507,7 @@ function setCardSort(mode) {
     showToast(`Sorting by ${mode}`, 'info');
 }
 
-// Settings: populate alert thresholds + load presets
+// Settings: populate alert thresholds + auto-pilot + load presets
 const _origOpenSettings = openSettings;
 openSettings = function() {
     _origOpenSettings();
@@ -18057,10 +18518,20 @@ openSettings = function() {
     document.getElementById('setHungTimeout').value = cfg.hung_timeout_minutes ?? 10;
     document.getElementById('setCostBudget').value = cfg.cost_budget_usd ?? 0;
     document.getElementById('setCostAutoPause').classList.toggle('active', !!cfg.cost_budget_auto_pause);
+    // Auto-pilot toggles
+    document.getElementById('setAutoRestartStall').classList.toggle('active', cfg.auto_restart_on_stall !== false);
+    document.getElementById('setAutoApproveEnabled').classList.toggle('active', !!cfg.auto_approve_enabled);
+    document.getElementById('setAutoPauseCritical').classList.toggle('active', !!cfg.auto_pause_on_critical_health);
+    // Notification event prefs
+    const notifPrefs = JSON.parse(localStorage.getItem('ashlr_notif_events') || '{}');
+    document.getElementById('notifEvtNeedsInput').checked = notifPrefs.agent_needs_input !== false;
+    document.getElementById('notifEvtError').checked = notifPrefs.agent_error !== false;
+    document.getElementById('notifEvtCompleted').checked = !!notifPrefs.agent_completed;
+    document.getElementById('notifEvtRestartExhausted').checked = notifPrefs.agent_restart_exhausted !== false;
     if (typeof loadSettingsPresets === 'function') loadSettingsPresets();
 };
 
-// Settings: include alert thresholds in save
+// Settings: include alert thresholds + auto-pilot in save
 saveSettings = async function() {
     const btn = document.querySelector('#settingsOverlay .btn-primary');
     await withLoading(btn, async () => {
@@ -18082,7 +18553,17 @@ saveSettings = async function() {
             hung_timeout_minutes: parseInt(document.getElementById('setHungTimeout').value),
             cost_budget_usd: parseFloat(document.getElementById('setCostBudget').value) || 0,
             cost_budget_auto_pause: document.getElementById('setCostAutoPause').classList.contains('active'),
+            auto_restart_on_stall: document.getElementById('setAutoRestartStall').classList.contains('active'),
+            auto_approve_enabled: document.getElementById('setAutoApproveEnabled').classList.contains('active'),
+            auto_pause_on_critical_health: document.getElementById('setAutoPauseCritical').classList.contains('active'),
         };
+        // Save notification event prefs to localStorage
+        localStorage.setItem('ashlr_notif_events', JSON.stringify({
+            agent_needs_input: document.getElementById('notifEvtNeedsInput').checked,
+            agent_error: document.getElementById('notifEvtError').checked,
+            agent_completed: document.getElementById('notifEvtCompleted').checked,
+            agent_restart_exhausted: document.getElementById('notifEvtRestartExhausted').checked,
+        }));
 
         // Validate
         const errors = [];

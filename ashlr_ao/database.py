@@ -19,7 +19,7 @@ from typing import Any
 import aiosqlite
 
 from ashlr_ao.constants import ASHLR_DIR
-from ashlr_ao.models import Agent, Organization, User
+from ashlr_ao.models import Agent, Organization, Project, User
 
 log = logging.getLogger("ashlr")
 
@@ -201,6 +201,17 @@ class Database:
             );
             CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
             CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+
+            CREATE TABLE IF NOT EXISTS fleet_templates (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                project_id TEXT DEFAULT '',
+                agents_json TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_fleet_templates_project ON fleet_templates(project_id);
             """)
             await self._safe_commit()
 
@@ -226,6 +237,16 @@ class Database:
                 "ALTER TABLE agents_history ADD COLUMN git_branch TEXT DEFAULT ''",
                 "ALTER TABLE organizations ADD COLUMN license_key TEXT DEFAULT ''",
                 "ALTER TABLE organizations ADD COLUMN plan TEXT DEFAULT 'community'",
+                # Wave 1: Project-centric foundation — new project columns
+                "ALTER TABLE projects ADD COLUMN git_remote_url TEXT DEFAULT ''",
+                "ALTER TABLE projects ADD COLUMN default_branch TEXT DEFAULT ''",
+                "ALTER TABLE projects ADD COLUMN default_backend TEXT DEFAULT ''",
+                "ALTER TABLE projects ADD COLUMN default_model TEXT DEFAULT ''",
+                "ALTER TABLE projects ADD COLUMN default_role TEXT DEFAULT ''",
+                "ALTER TABLE projects ADD COLUMN tags_json TEXT DEFAULT '[]'",
+                "ALTER TABLE projects ADD COLUMN favorite INTEGER DEFAULT 0",
+                "ALTER TABLE projects ADD COLUMN recent_tasks_json TEXT DEFAULT '[]'",
+                "ALTER TABLE projects ADD COLUMN auto_approve_patterns_json TEXT DEFAULT '[]'",
             ]:
                 try:
                     await self._db.execute(col_sql)
@@ -797,16 +818,41 @@ class Database:
 
     # ── Projects ──
 
+    @staticmethod
+    def _parse_project_row(row) -> dict:
+        """Parse a project DB row into a dict, deserializing JSON columns."""
+        d = dict(row)
+        for json_col, key in [("tags_json", "tags"), ("recent_tasks_json", "recent_tasks"),
+                               ("auto_approve_patterns_json", "auto_approve_patterns")]:
+            raw = d.pop(json_col, "[]")
+            try:
+                d[key] = json.loads(raw) if raw else []
+            except (json.JSONDecodeError, TypeError):
+                d[key] = []
+        d["favorite"] = bool(d.get("favorite", 0))
+        return d
+
     async def save_project(self, project: dict) -> None:
         if not self._db:
             return
         now = datetime.now(timezone.utc).isoformat()
         try:
             await self._db.execute(
-                """INSERT OR REPLACE INTO projects (id, name, path, description, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                """INSERT OR REPLACE INTO projects
+                   (id, name, path, description, created_at, updated_at, org_id,
+                    git_remote_url, default_branch, default_backend, default_model, default_role,
+                    tags_json, favorite, recent_tasks_json, auto_approve_patterns_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (project["id"], project["name"], project["path"],
-                 project.get("description", ""), project.get("created_at", now), now),
+                 project.get("description", ""), project.get("created_at", now), now,
+                 project.get("org_id", ""),
+                 project.get("git_remote_url", ""), project.get("default_branch", ""),
+                 project.get("default_backend", ""), project.get("default_model", ""),
+                 project.get("default_role", ""),
+                 json.dumps(project.get("tags", [])),
+                 int(project.get("favorite", False)),
+                 json.dumps(project.get("recent_tasks", [])),
+                 json.dumps(project.get("auto_approve_patterns", []))),
             )
             await self._safe_commit()
         except Exception as e:
@@ -817,7 +863,7 @@ class Database:
             return []
         async with self._db.execute("SELECT * FROM projects ORDER BY name") as cur:
             rows = await cur.fetchall()
-            return [dict(r) for r in rows]
+            return [self._parse_project_row(r) for r in rows]
 
     async def delete_project(self, project_id: str) -> bool:
         if not self._db:
@@ -833,31 +879,89 @@ class Database:
         try:
             async with self._db.execute("SELECT * FROM projects WHERE id = ?", (project_id,)) as cur:
                 row = await cur.fetchone()
-                return dict(row) if row else None
+                return self._parse_project_row(row) if row else None
         except Exception:
             return None
 
+    async def get_agents_by_project(self, project_id: str) -> list[dict]:
+        """Get agent history records for a project."""
+        if not self._db:
+            return []
+        try:
+            async with self._db.execute(
+                "SELECT id FROM agents_history WHERE project_id = ? ORDER BY created_at DESC LIMIT 50",
+                (project_id,),
+            ) as cur:
+                rows = await cur.fetchall()
+                return [{"id": r[0]} for r in rows]
+        except Exception:
+            return []
+
     async def update_project(self, project_id: str, updates: dict) -> dict | None:
-        """Update a project's name, path, and/or description. Returns updated project or None."""
+        """Update project fields. Supports all Project fields. Returns updated project or None."""
         if not self._db:
             return None
         existing = await self.get_project(project_id)
         if not existing:
             return None
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Merge updates into existing values
         name = updates.get("name", existing["name"])
         path = updates.get("path", existing["path"])
         description = updates.get("description", existing.get("description", ""))
-        now = datetime.now(timezone.utc).isoformat()
+        git_remote_url = updates.get("git_remote_url", existing.get("git_remote_url", ""))
+        default_branch = updates.get("default_branch", existing.get("default_branch", ""))
+        default_backend = updates.get("default_backend", existing.get("default_backend", ""))
+        default_model = updates.get("default_model", existing.get("default_model", ""))
+        default_role = updates.get("default_role", existing.get("default_role", ""))
+        tags = updates.get("tags", existing.get("tags", []))
+        favorite = updates.get("favorite", existing.get("favorite", False))
+        auto_approve_patterns = updates.get("auto_approve_patterns", existing.get("auto_approve_patterns", []))
+
         try:
             await self._db.execute(
-                "UPDATE projects SET name = ?, path = ?, description = ?, updated_at = ? WHERE id = ?",
-                (name, path, description, now, project_id),
+                """UPDATE projects SET name = ?, path = ?, description = ?, updated_at = ?,
+                   git_remote_url = ?, default_branch = ?, default_backend = ?, default_model = ?,
+                   default_role = ?, tags_json = ?, favorite = ?, auto_approve_patterns_json = ?
+                   WHERE id = ?""",
+                (name, path, description, now,
+                 git_remote_url, default_branch, default_backend, default_model,
+                 default_role, json.dumps(tags), int(favorite), json.dumps(auto_approve_patterns),
+                 project_id),
             )
             await self._safe_commit()
             return await self.get_project(project_id)
         except Exception as e:
             log.warning(f"Failed to update project {project_id}: {e}")
             return None
+
+    async def add_recent_task(self, project_id: str, task: str, role: str = "", backend: str = "") -> None:
+        """Add a task to a project's recent_tasks list (FIFO, capped at 10)."""
+        if not self._db:
+            return
+        project = await self.get_project(project_id)
+        if not project:
+            return
+        recent = project.get("recent_tasks", [])
+        entry = {
+            "task": task[:500],
+            "role": role,
+            "backend": backend,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        # Deduplicate: remove existing entry with same task text
+        recent = [r for r in recent if r.get("task") != task[:500]]
+        recent.insert(0, entry)
+        recent = recent[:10]
+        try:
+            await self._db.execute(
+                "UPDATE projects SET recent_tasks_json = ?, updated_at = ? WHERE id = ?",
+                (json.dumps(recent), datetime.now(timezone.utc).isoformat(), project_id),
+            )
+            await self._safe_commit()
+        except Exception as e:
+            log.warning(f"Failed to add recent task to project {project_id}: {e}")
 
     # ── Workflows ──
 
@@ -1157,6 +1261,70 @@ class Database:
             return False
         async with self._db.execute(
             "DELETE FROM agent_presets WHERE id = ?", (preset_id,)
+        ) as cur:
+            await self._safe_commit()
+            return cur.rowcount > 0
+
+    # ── Fleet Templates ──
+
+    async def get_fleet_templates(self, project_id: str | None = None) -> list[dict]:
+        if not self._db:
+            return []
+        if project_id:
+            async with self._db.execute(
+                "SELECT * FROM fleet_templates WHERE project_id = ? OR project_id = '' ORDER BY name",
+                (project_id,),
+            ) as cur:
+                rows = await cur.fetchall()
+        else:
+            async with self._db.execute("SELECT * FROM fleet_templates ORDER BY name") as cur:
+                rows = await cur.fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["agents"] = json.loads(d.pop("agents_json", "[]"))
+            except (json.JSONDecodeError, TypeError):
+                d["agents"] = []
+            result.append(d)
+        return result
+
+    async def get_fleet_template(self, template_id: str) -> dict | None:
+        if not self._db:
+            return None
+        async with self._db.execute(
+            "SELECT * FROM fleet_templates WHERE id = ?", (template_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            if not row:
+                return None
+            d = dict(row)
+            try:
+                d["agents"] = json.loads(d.pop("agents_json", "[]"))
+            except (json.JSONDecodeError, TypeError):
+                d["agents"] = []
+            return d
+
+    async def save_fleet_template(self, template: dict) -> None:
+        if not self._db:
+            return
+        now = datetime.now(timezone.utc).isoformat()
+        agents_json = json.dumps(template.get("agents", []))
+        await self._db.execute(
+            """INSERT OR REPLACE INTO fleet_templates
+               (id, name, description, project_id, agents_json, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (template["id"], template["name"], template.get("description", ""),
+             template.get("project_id", ""), agents_json,
+             template.get("created_at", now), now),
+        )
+        await self._safe_commit()
+
+    async def delete_fleet_template(self, template_id: str) -> bool:
+        if not self._db:
+            return False
+        async with self._db.execute(
+            "DELETE FROM fleet_templates WHERE id = ?", (template_id,)
         ) as cur:
             await self._safe_commit()
             return cur.rowcount > 0

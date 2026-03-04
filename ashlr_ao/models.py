@@ -90,6 +90,57 @@ class User:
 
 
 # ─────────────────────────────────────────────
+# Project
+# ─────────────────────────────────────────────
+
+
+@dataclass
+class Project:
+    """A tracked repository / working directory with defaults for spawning agents."""
+    id: str
+    name: str
+    path: str
+    description: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    org_id: str = ""
+    # Git metadata (auto-detected on creation)
+    git_remote_url: str = ""
+    default_branch: str = ""
+    # Spawn defaults
+    default_backend: str = ""
+    default_model: str = ""
+    default_role: str = ""
+    # Organization
+    tags: list[str] = field(default_factory=list)
+    favorite: bool = False
+    # Recent tasks (FIFO, max 10)
+    recent_tasks: list[dict] = field(default_factory=list)
+    # Auto-approve patterns for auto-pilot (Wave 3)
+    auto_approve_patterns: list[dict] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "path": self.path,
+            "description": self.description,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "org_id": self.org_id,
+            "git_remote_url": self.git_remote_url,
+            "default_branch": self.default_branch,
+            "default_backend": self.default_backend,
+            "default_model": self.default_model,
+            "default_role": self.default_role,
+            "tags": list(self.tags),
+            "favorite": self.favorite,
+            "recent_tasks": list(self.recent_tasks),
+            "auto_approve_patterns": list(self.auto_approve_patterns),
+        }
+
+
+# ─────────────────────────────────────────────
 # Agent
 # ─────────────────────────────────────────────
 
@@ -194,6 +245,8 @@ class Agent:
     # Notes and tags
     notes: str = ""
     tags: list = field(default_factory=list)
+    # Auto-handoff (Wave 5)
+    next_agent_config: dict | None = field(default=None, repr=False)
     bookmarks: list = field(default_factory=list)
 
     def set_status(self, new_status: str) -> bool:

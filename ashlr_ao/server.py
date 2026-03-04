@@ -188,6 +188,7 @@ from ashlr_ao.models import (  # noqa: F401
     OutputSnapshot,
     Organization,
     User,
+    Project,
     Agent,
     SystemMetrics,
     ToolInvocation,
@@ -335,6 +336,23 @@ async def spawn_agent(request: web.Request) -> web.Response:
     if project_id is not None and not isinstance(project_id, str):
         return web.json_response({"error": "project_id must be a string"}, status=400)
 
+    # Project-aware defaults: fill unspecified fields from project config
+    _project_for_task = None
+    if project_id:
+        db_for_defaults: Database = request.app["db"]
+        _project_for_task = await db_for_defaults.get_project(project_id)
+        if _project_for_task:
+            if not working_dir and _project_for_task.get("path"):
+                working_dir = _project_for_task["path"]
+            if "backend" not in data and _project_for_task.get("default_backend"):
+                backend = _project_for_task["default_backend"]
+            if "model" not in data and _project_for_task.get("default_model"):
+                model_sel = _project_for_task["default_model"]
+            if "role" not in data and _project_for_task.get("default_role"):
+                proj_role = _project_for_task["default_role"]
+                if proj_role in BUILTIN_ROLES:
+                    role = proj_role
+
     try:
         agent = await manager.spawn(
             role=role,
@@ -365,6 +383,15 @@ async def spawn_agent(request: web.Request) -> web.Response:
                     best_len = len(proj_path)
             if best_match:
                 agent.project_id = best_match["id"]
+                _project_for_task = best_match
+
+        # Record recent task on the project
+        if agent.project_id and task:
+            try:
+                db_rt: Database = request.app["db"]
+                await db_rt.add_recent_task(agent.project_id, task, role, backend)
+            except Exception:
+                pass  # Non-critical
 
         # Set owner from authenticated user
         user = request.get("user")
@@ -1286,7 +1313,7 @@ async def export_agent_output(request: web.Request) -> web.Response:
 
 
 async def search_agents(request: web.Request) -> web.Response:
-    """GET /api/search?q=pattern — search across all agent outputs."""
+    """GET /api/search?q=pattern&project_id=&status= — search across agent outputs with filters."""
     manager: AgentManager = request.app["agent_manager"]
     query = request.query.get("q", "").strip()
     if not query or len(query) < 2:
@@ -1299,15 +1326,28 @@ async def search_agents(request: web.Request) -> web.Response:
     except re.error:
         return web.json_response({"error": "Invalid search pattern"}, status=400)
 
+    # Optional filters
+    filter_project = request.query.get("project_id", "").strip() or None
+    filter_status = request.query.get("status", "").strip() or None
+    max_matches = int(request.query.get("limit", "20"))
+    max_matches = min(max(1, max_matches), 50)
+
     results = []
+    agents_searched = 0
     for agent in list(manager.agents.values()):
+        # Apply filters
+        if filter_project and agent.project_id != filter_project:
+            continue
+        if filter_status and agent.status != filter_status:
+            continue
+        agents_searched += 1
         matches = []
         lines = list(agent.output_lines)
         for i, line in enumerate(lines):
             stripped = _strip_ansi(line) if callable(_strip_ansi) else line
             if pattern.search(stripped):
                 matches.append({"line": i, "text": stripped[:200]})
-                if len(matches) >= 10:
+                if len(matches) >= max_matches:
                     break
         if matches:
             results.append({
@@ -1315,11 +1355,12 @@ async def search_agents(request: web.Request) -> web.Response:
                 "agent_name": agent.name,
                 "role": agent.role,
                 "status": agent.status,
+                "project_id": agent.project_id,
                 "match_count": len(matches),
                 "matches": matches,
             })
 
-    return web.json_response({"query": query, "results": results, "agents_searched": len(manager.agents)})
+    return web.json_response({"query": query, "results": results, "agents_searched": agents_searched})
 
 
 async def get_config(request: web.Request) -> web.Response:
@@ -1371,6 +1412,9 @@ async def put_config(request: web.Request) -> web.Response:
         "llm_meta_interval": lambda v: isinstance(v, (int, float)) and 5.0 <= v <= 300.0,
         "log_level": lambda v: isinstance(v, str) and v.upper() in {"DEBUG", "INFO", "WARNING", "ERROR"},
         "host": lambda v: isinstance(v, str) and len(v) > 0 and all(c.isalnum() or c in ".-:" for c in v),
+        "auto_restart_on_stall": lambda v: isinstance(v, bool),
+        "auto_approve_enabled": lambda v: isinstance(v, bool),
+        "auto_pause_on_critical_health": lambda v: isinstance(v, bool),
     }
 
     # Clamp max_restarts to [1, 10] range
@@ -1413,6 +1457,11 @@ async def put_config(request: web.Request) -> web.Response:
         "cost_budget_usd": "cost_budget_usd",
         "cost_budget_auto_pause": "cost_budget_auto_pause",
     }
+    autopilot_keys = {
+        "auto_restart_on_stall": "auto_restart_on_stall",
+        "auto_approve_enabled": "auto_approve_enabled",
+        "auto_pause_on_critical_health": "auto_pause_on_critical_health",
+    }
     for key, value in data.items():
         if key not in allowed_keys:
             continue
@@ -1424,6 +1473,8 @@ async def put_config(request: web.Request) -> web.Response:
             yaml_update.setdefault("voice", {})[voice_keys[key]] = value
         elif key in alert_keys:
             yaml_update.setdefault("alerts", {})[alert_keys[key]] = value
+        elif key in autopilot_keys:
+            yaml_update.setdefault("autopilot", {})[autopilot_keys[key]] = value
 
     # FIRST: write YAML to disk. Only update in-memory config on success.
     config_path = ASHLR_DIR / "ashlr.yaml"
@@ -1507,11 +1558,42 @@ async def create_project(request: web.Request) -> web.Response:
     if not any(resolved_path == p or resolved_path.startswith(p + os.sep) for p in allowed_prefixes):
         return web.json_response({"error": "Project path must be under home directory or /tmp"}, status=400)
 
+    # Auto-detect git metadata
+    git_remote_url = ""
+    default_branch = ""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "git", "-C", resolved_path, "remote", "get-url", "origin",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
+        if proc.returncode == 0 and stdout:
+            git_remote_url = stdout.decode().strip()
+    except Exception:
+        pass
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "git", "-C", resolved_path, "symbolic-ref", "--short", "HEAD",
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5.0)
+        if proc.returncode == 0 and stdout:
+            default_branch = stdout.decode().strip()
+    except Exception:
+        pass
+
     project = {
         "id": uuid.uuid4().hex[:8],
         "name": name,
         "path": resolved_path,
         "description": str(data.get("description", "")),
+        "git_remote_url": git_remote_url,
+        "default_branch": default_branch,
+        "default_backend": str(data.get("default_backend", "")),
+        "default_model": str(data.get("default_model", "")),
+        "default_role": str(data.get("default_role", "")),
+        "tags": data.get("tags", []) if isinstance(data.get("tags"), list) else [],
+        "favorite": bool(data.get("favorite", False)),
     }
     try:
         await db.save_project(project)
@@ -1519,6 +1601,39 @@ async def create_project(request: web.Request) -> web.Response:
         log.error("Failed to save project: %s", e)
         return web.json_response({"error": "Failed to save project"}, status=500)
     return web.json_response(project, status=201)
+
+
+async def get_project_context(request: web.Request) -> web.Response:
+    """GET /api/projects/{id}/context — project details + recent tasks + active agents + git info."""
+    db: Database = request.app["db"]
+    manager: AgentManager = request.app["agent_manager"]
+    project_id = request.match_info["id"]
+
+    project = await db.get_project(project_id)
+    if not project:
+        return web.json_response({"error": "Project not found"}, status=404)
+
+    # Active agents for this project
+    agents = [a.to_dict() for a in list(manager.agents.values()) if a.project_id == project_id]
+
+    # Aggregate stats
+    total_cost = round(sum(a.get("estimated_cost_usd", 0) for a in agents), 4)
+    files_touched = set()
+    for a_obj in list(manager.agents.values()):
+        if a_obj.project_id == project_id:
+            files_touched |= a_obj._files_touched_set
+
+    return web.json_response({
+        "project": project,
+        "recent_tasks": project.get("recent_tasks", []),
+        "agents": agents,
+        "stats": {
+            "agent_count": len(agents),
+            "active_count": sum(1 for a in agents if a.get("status") in ("working", "planning", "reading")),
+            "total_cost": total_cost,
+            "files_touched": len(files_touched),
+        },
+    })
 
 
 async def delete_project(request: web.Request) -> web.Response:
@@ -1531,7 +1646,7 @@ async def delete_project(request: web.Request) -> web.Response:
 
 
 async def update_project(request: web.Request) -> web.Response:
-    """PUT /api/projects/{id} — update project name, path, or description."""
+    """PUT /api/projects/{id} — update project fields (name, path, description, defaults, tags, favorite, etc.)."""
     db: Database = request.app["db"]
     hub: WebSocketHub = request.app["ws_hub"]
     project_id = request.match_info["id"]
@@ -1563,6 +1678,38 @@ async def update_project(request: web.Request) -> web.Response:
         if not isinstance(name, str) or not name.strip():
             return web.json_response({"error": "name must be a non-empty string"}, status=400)
         data["name"] = name.strip()
+
+    # Validate default_role if provided
+    if "default_role" in data and data["default_role"]:
+        if data["default_role"] not in BUILTIN_ROLES:
+            return web.json_response({"error": f"Unknown role '{data['default_role']}'"}, status=400)
+
+    # Validate tags if provided
+    if "tags" in data:
+        if not isinstance(data["tags"], list) or not all(isinstance(t, str) for t in data["tags"]):
+            return web.json_response({"error": "tags must be a list of strings"}, status=400)
+
+    # Validate favorite if provided
+    if "favorite" in data:
+        data["favorite"] = bool(data["favorite"])
+
+    # Validate auto_approve_patterns if provided
+    if "auto_approve_patterns" in data:
+        patterns = data["auto_approve_patterns"]
+        if not isinstance(patterns, list):
+            return web.json_response({"error": "auto_approve_patterns must be a list"}, status=400)
+        validated = []
+        for ap in patterns:
+            if not isinstance(ap, dict) or "pattern" not in ap:
+                return web.json_response({"error": "Each auto_approve_pattern must be a dict with 'pattern' key"}, status=400)
+            try:
+                re.compile(ap["pattern"])
+            except re.error as e:
+                return web.json_response({"error": f"Invalid regex in auto_approve_patterns: {e}"}, status=400)
+            if not ap["pattern"].strip():
+                return web.json_response({"error": "Pattern cannot be empty"}, status=400)
+            validated.append({"pattern": ap["pattern"], "response": str(ap.get("response", "yes"))[:200]})
+        data["auto_approve_patterns"] = validated
 
     updated = await db.update_project(project_id, data)
     if not updated:
@@ -2486,6 +2633,215 @@ async def delete_preset(request: web.Request) -> web.Response:
     return web.json_response({"error": "Preset not found"}, status=404)
 
 
+# ── Fleet Templates ──
+
+
+def _substitute_task_vars(task: str, project: dict | None = None, extra: dict | None = None) -> str:
+    """Replace template variables in task strings."""
+    now = datetime.now(timezone.utc)
+    replacements = {
+        "{date}": now.strftime("%Y-%m-%d"),
+        "{time}": now.strftime("%H:%M"),
+    }
+    if project:
+        replacements["{project_name}"] = project.get("name", "")
+        replacements["{branch}"] = project.get("default_branch", "") or project.get("git_branch", "")
+        # Strip control characters from git remote URL to prevent injection
+        git_remote = re.sub(r'[\r\n\x00-\x1f\x7f]', '', project.get("git_remote_url", ""))
+        replacements["{git_remote}"] = git_remote
+    if extra:
+        for k, v in extra.items():
+            replacements[f"{{{k}}}"] = str(v)
+    for placeholder, value in replacements.items():
+        task = task.replace(placeholder, value)
+    return task
+
+
+async def list_fleet_templates(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=1):
+        return r
+    db: Database = request.app["db"]
+    project_id = request.query.get("project_id")
+    templates = await db.get_fleet_templates(project_id)
+    return web.json_response(templates)
+
+
+async def create_fleet_template(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=2):
+        return r
+    db: Database = request.app["db"]
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    if not data.get("name"):
+        return web.json_response({"error": "name is required"}, status=400)
+    agents = data.get("agents", [])
+    if not isinstance(agents, list) or len(agents) == 0:
+        return web.json_response({"error": "agents must be a non-empty list"}, status=400)
+    if len(agents) > 20:
+        return web.json_response({"error": "Maximum 20 agents per template"}, status=400)
+
+    # Validate and sanitize each agent spec
+    validated_agents = []
+    for i, spec in enumerate(agents[:20]):
+        if not isinstance(spec, dict):
+            return web.json_response({"error": f"Agent spec #{i} must be a dict"}, status=400)
+        if not spec.get("task"):
+            return web.json_response({"error": f"Agent spec #{i} must have a 'task' field"}, status=400)
+        validated_agents.append({
+            "role": str(spec.get("role", "general"))[:50],
+            "task": str(spec["task"])[:10000],
+            "backend": str(spec.get("backend", ""))[:50],
+            "model": str(spec.get("model", ""))[:50],
+            "name": str(spec.get("name", ""))[:100],
+            "working_dir": str(spec.get("working_dir", ""))[:500],
+            "tools": str(spec.get("tools", ""))[:2000],
+            "system_prompt": str(spec.get("system_prompt", ""))[:5000],
+        })
+
+    template = {
+        "id": uuid.uuid4().hex[:8],
+        "name": data["name"][:100],
+        "description": data.get("description", "")[:500],
+        "project_id": data.get("project_id", ""),
+        "agents": validated_agents,
+    }
+    await db.save_fleet_template(template)
+    return web.json_response(template, status=201)
+
+
+async def get_fleet_template(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=1):
+        return r
+    db: Database = request.app["db"]
+    template_id = request.match_info["id"]
+    template = await db.get_fleet_template(template_id)
+    if not template:
+        return web.json_response({"error": "Template not found"}, status=404)
+    return web.json_response(template)
+
+
+async def update_fleet_template(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=2):
+        return r
+    db: Database = request.app["db"]
+    template_id = request.match_info["id"]
+    existing = await db.get_fleet_template(template_id)
+    if not existing:
+        return web.json_response({"error": "Template not found"}, status=404)
+
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    for key in ("name", "description", "project_id", "agents"):
+        if key in data:
+            existing[key] = data[key]
+    if existing.get("name"):
+        existing["name"] = existing["name"][:100]
+    if existing.get("description"):
+        existing["description"] = existing["description"][:500]
+    if isinstance(existing.get("agents"), list) and len(existing["agents"]) > 20:
+        existing["agents"] = existing["agents"][:20]
+
+    await db.save_fleet_template(existing)
+    return web.json_response(existing)
+
+
+async def delete_fleet_template(request: web.Request) -> web.Response:
+    if r := _check_rate(request, cost=2):
+        return r
+    db: Database = request.app["db"]
+    template_id = request.match_info["id"]
+    success = await db.delete_fleet_template(template_id)
+    if success:
+        return web.json_response({"status": "deleted"})
+    return web.json_response({"error": "Template not found"}, status=404)
+
+
+async def deploy_fleet_template(request: web.Request) -> web.Response:
+    """Deploy a fleet template — spawn all agents in sequence."""
+    if r := _check_rate(request, cost=5):
+        return r
+    if r := _check_feature(request, "fleet_presets"):
+        return r
+    db: Database = request.app["db"]
+    manager: AgentManager = request.app["agent_manager"]
+    hub: WebSocketHub = request.app["ws_hub"]
+    config: Config = request.app["config"]
+
+    template_id = request.match_info["id"]
+    template = await db.get_fleet_template(template_id)
+    if not template:
+        return web.json_response({"error": "Template not found"}, status=404)
+
+    try:
+        data = await request.json()
+    except (json.JSONDecodeError, Exception):
+        data = {}
+
+    project_id = data.get("project_id", template.get("project_id", ""))
+    project = None
+    project_dict = None
+    if project_id:
+        project = await db.get_project(project_id)
+        if project:
+            project_dict = project.to_dict() if hasattr(project, "to_dict") else (dict(project) if isinstance(project, dict) else None)
+
+    agents_spec = template.get("agents", [])
+    if not agents_spec:
+        return web.json_response({"error": "Template has no agents"}, status=400)
+
+    # Check capacity
+    max_agents = _effective_max_agents(request.app)
+    current = len(manager.agents)
+    if current + len(agents_spec) > max_agents:
+        return web.json_response({
+            "error": f"Would exceed max agents ({current} + {len(agents_spec)} > {max_agents})"
+        }, status=409)
+
+    spawned = []
+    errors = []
+    for spec in agents_spec:
+        try:
+            task_text = spec.get("task", "")
+            task_text = _substitute_task_vars(task_text, project_dict, data.get("vars"))
+
+            working_dir = spec.get("working_dir", "")
+            if not working_dir and project_dict:
+                working_dir = project_dict.get("path", "")
+            if not working_dir:
+                working_dir = config.default_working_dir
+
+            agent_id = await manager.spawn(
+                role=spec.get("role", config.default_role),
+                task=task_text,
+                name=spec.get("name", ""),
+                working_dir=working_dir,
+                backend=spec.get("backend", config.default_backend),
+                model=spec.get("model", ""),
+                tools=spec.get("tools", ""),
+                system_prompt=spec.get("system_prompt", ""),
+                project_id=project_id,
+            )
+            agent = manager.agents.get(agent_id)
+            if agent:
+                spawned.append(agent.to_dict())
+                await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
+        except Exception as e:
+            errors.append({"spec": spec.get("role", "?"), "error": str(e)})
+
+    return web.json_response({
+        "template": template["name"],
+        "spawned": len(spawned),
+        "errors": errors,
+        "agents": spawned,
+    }, status=201 if spawned else 400)
+
+
 # ── Agent Clone endpoint ──
 
 async def get_resumable_sessions(request: web.Request) -> web.Response:
@@ -2770,6 +3126,17 @@ async def upsert_scratchpad(request: web.Request) -> web.Response:
         return web.json_response({"error": "project_id and key are required"}, status=400)
 
     await db.upsert_scratchpad(project_id, key[:200], value[:10000], set_by[:100])
+
+    # Broadcast scratchpad update to connected clients (Wave 5)
+    hub: WebSocketHub = request.app["ws_hub"]
+    await hub.broadcast({
+        "type": "scratchpad_update",
+        "project_id": project_id,
+        "key": key[:200],
+        "value": value[:10000],
+        "set_by": set_by[:100],
+    })
+
     return web.json_response({"status": "ok", "key": key})
 
 
@@ -3169,6 +3536,7 @@ async def global_search(request: web.Request) -> web.Response:
 async def list_events(request: web.Request) -> web.Response:
     """GET /api/events — list activity events with optional filters."""
     db: Database = request.app["db"]
+    manager: AgentManager = request.app["agent_manager"]
     try:
         limit = int(request.query.get("limit", 100))
         offset = int(request.query.get("offset", 0))
@@ -3179,6 +3547,37 @@ async def list_events(request: web.Request) -> web.Response:
     agent_id = request.query.get("agent_id")
     event_type = request.query.get("event_type")
     since = request.query.get("since")
+
+    # Project filter: find agent_ids belonging to this project (active + archived)
+    project_id = request.query.get("project_id")
+    if project_id and not agent_id:
+        # Check active in-memory agents
+        project_agent_ids = [
+            aid for aid, a in list(manager.agents.items())
+            if getattr(a, "project_id", None) == project_id
+        ]
+        # Also check archived agents in DB
+        try:
+            archived = await db.get_agents_by_project(project_id)
+            for rec in archived:
+                aid = rec.get("id", "")
+                if aid and aid not in project_agent_ids:
+                    project_agent_ids.append(aid)
+        except Exception:
+            pass  # DB method may not exist yet, fall back to active-only
+        if not project_agent_ids:
+            return web.json_response({"data": [], "pagination": {"limit": limit, "offset": offset, "total": 0}})
+        # Fetch events for each agent and merge
+        all_events = []
+        for aid in project_agent_ids[:20]:  # Cap to prevent huge queries
+            evts = await db.get_events(limit, 0, aid, event_type, since)
+            all_events.extend(evts)
+        # Sort by created_at descending, apply pagination
+        all_events.sort(key=lambda e: e.get("created_at", ""), reverse=True)
+        total = len(all_events)
+        paginated = all_events[offset:offset + limit]
+        return web.json_response({"data": paginated, "pagination": {"limit": limit, "offset": offset, "total": total}})
+
     events = await db.get_events(limit, offset, agent_id, event_type, since)
     total = await db.get_events_count(agent_id, event_type, since)
     return web.json_response({
@@ -3246,6 +3645,70 @@ async def patch_agent(request: web.Request) -> web.Response:
     await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
 
     return web.json_response(agent.to_dict())
+
+
+# ── Auto-handoff configuration (Wave 5) ──
+
+async def configure_handoff(request: web.Request) -> web.Response:
+    """POST /api/agents/{id}/configure-handoff — set next_agent_config for auto-handoff."""
+    if r := _check_rate(request, cost=2):
+        return r
+    manager: AgentManager = request.app["agent_manager"]
+    agent_id = request.match_info["id"]
+
+    agent = manager.agents.get(agent_id)
+    if not agent:
+        return web.json_response({"error": "Agent not found"}, status=404)
+
+    if err := _check_agent_ownership(request, agent):
+        return err
+
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    next_config = data.get("next_agent_config")
+    if next_config is not None and not isinstance(next_config, dict):
+        return web.json_response({"error": "next_agent_config must be a dict or null"}, status=400)
+
+    if next_config:
+        # Validate required fields
+        if not next_config.get("task"):
+            return web.json_response({"error": "next_agent_config.task is required"}, status=400)
+        # Validate working_dir if provided
+        wd = next_config.get("working_dir", "")
+        if wd:
+            resolved_wd = os.path.realpath(os.path.expanduser(wd))
+            home = str(Path.home())
+            if not (resolved_wd.startswith(home) or resolved_wd.startswith("/tmp") or resolved_wd.startswith("/private/tmp")):
+                return web.json_response({"error": "working_dir must be under home directory or /tmp"}, status=400)
+            wd = resolved_wd
+        # Sanitize
+        next_config = {
+            "role": next_config.get("role", "general"),
+            "task": next_config["task"][:10000],
+            "backend": next_config.get("backend", ""),
+            "model": next_config.get("model", ""),
+            "name": next_config.get("name", ""),
+            "working_dir": wd,
+        }
+
+    agent.next_agent_config = next_config
+    agent.updated_at = datetime.now(timezone.utc).isoformat()
+    return web.json_response({"status": "ok", "agent_id": agent_id, "next_agent_config": next_config})
+
+
+# ── Project scratchpad alias (Wave 5) ──
+
+async def get_project_scratchpad(request: web.Request) -> web.Response:
+    """GET /api/projects/{id}/scratchpad — convenience alias."""
+    if r := _check_rate(request, cost=1):
+        return r
+    db: Database = request.app["db"]
+    project_id = request.match_info["id"]
+    entries = await db.get_scratchpad(project_id)
+    return web.json_response(entries)
 
 
 # ── Bulk operations endpoint (Wave 3B) ──
@@ -3760,6 +4223,7 @@ def create_app(config: Config) -> web.Application:
     # REST API — Projects
     app.router.add_get("/api/projects", list_projects)
     app.router.add_post("/api/projects", create_project)
+    app.router.add_get("/api/projects/{id}/context", get_project_context)
     app.router.add_delete("/api/projects/{id}", delete_project)
     app.router.add_put("/api/projects/{id}", update_project)
 
@@ -3786,8 +4250,20 @@ def create_app(config: Config) -> web.Application:
     app.router.add_put("/api/presets/{id}", update_preset)
     app.router.add_delete("/api/presets/{id}", delete_preset)
 
-    # REST API — Agent Clone
+    # REST API — Fleet Templates
+    app.router.add_get("/api/fleet-templates", list_fleet_templates)
+    app.router.add_post("/api/fleet-templates", create_fleet_template)
+    app.router.add_get("/api/fleet-templates/{id}", get_fleet_template)
+    app.router.add_put("/api/fleet-templates/{id}", update_fleet_template)
+    app.router.add_delete("/api/fleet-templates/{id}", delete_fleet_template)
+    app.router.add_post("/api/fleet-templates/{id}/deploy", deploy_fleet_template)
+
+    # REST API — Agent Clone + Handoff
     app.router.add_post("/api/agents/{id}/clone", clone_agent)
+    app.router.add_post("/api/agents/{id}/configure-handoff", configure_handoff)
+
+    # REST API — Project Scratchpad alias
+    app.router.add_get("/api/projects/{id}/scratchpad", get_project_scratchpad)
 
     # REST API — Session Resume
     app.router.add_get("/api/sessions/resumable", get_resumable_sessions)

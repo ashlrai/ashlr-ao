@@ -109,6 +109,13 @@ class Config:
     context_auto_pause_threshold: float = 0.95
     pathological_error_window_sec: float = 60.0
     max_pathological_restarts: int = 1
+    # Auto-pilot (Wave 3)
+    auto_restart_on_stall: bool = True
+    auto_approve_enabled: bool = False
+    auto_approve_patterns: list = field(default_factory=list)
+    auto_pause_on_critical_health: bool = False
+    # Coordination (Wave 5) — reserved, enforcement logic not yet implemented
+    file_lock_enforcement: bool = False
     # Licensing
     license_key: str = ""
     # Archive rotation
@@ -156,6 +163,10 @@ class Config:
             "cost_budget_usd": self.cost_budget_usd,
             "cost_budget_auto_pause": self.cost_budget_auto_pause,
             "alert_patterns": self.alert_patterns,
+            "auto_restart_on_stall": self.auto_restart_on_stall,
+            "auto_approve_enabled": self.auto_approve_enabled,
+            "auto_approve_patterns": self.auto_approve_patterns,
+            "auto_pause_on_critical_health": self.auto_pause_on_critical_health,
         }
 
 
@@ -299,6 +310,22 @@ def load_config(has_claude: bool = True) -> Config:
     licensing = raw.get("licensing", {})
     license_key_val = licensing.get("key", "")
 
+    # Auto-pilot settings (Wave 3)
+    autopilot = raw.get("autopilot", {})
+    auto_approve_patterns_raw = autopilot.get("auto_approve_patterns", [])
+    validated_approve_patterns = []
+    if isinstance(auto_approve_patterns_raw, list):
+        for ap in auto_approve_patterns_raw:
+            if isinstance(ap, dict) and "pattern" in ap:
+                try:
+                    re.compile(ap["pattern"])
+                    validated_approve_patterns.append({
+                        "pattern": ap["pattern"],
+                        "response": ap.get("response", "yes"),
+                    })
+                except re.error as e:
+                    log.warning(f"Invalid auto-approve pattern regex: {ap.get('pattern')!r} — {e}")
+
     return Config(
         host=host,
         port=port,
@@ -332,5 +359,9 @@ def load_config(has_claude: bool = True) -> Config:
         cost_budget_usd=float(raw.get("cost_budget_usd", 0)),
         cost_budget_auto_pause=bool(raw.get("cost_budget_auto_pause", False)),
         license_key=license_key_val,
+        auto_restart_on_stall=bool(autopilot.get("auto_restart_on_stall", True)),
+        auto_approve_enabled=bool(autopilot.get("auto_approve_enabled", False)),
+        auto_pause_on_critical_health=bool(autopilot.get("auto_pause_on_critical_health", False)),
+        **({"auto_approve_patterns": validated_approve_patterns} if validated_approve_patterns else {}),
         **({"alert_patterns": alert_patterns_final} if alert_patterns_final else {}),
     )

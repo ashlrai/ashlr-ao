@@ -70,11 +70,17 @@ def make_mock_db():
     db.get_agent_history_item = AsyncMock(return_value=None)
     db.get_project = AsyncMock(return_value=None)
     db.update_project = AsyncMock(return_value=None)
+    db.add_recent_task = AsyncMock()
     db.get_preset = AsyncMock(return_value=None)
     db.get_agent_history = AsyncMock(return_value=[])
     db.update_org_license = AsyncMock()
     db.get_org_license_key = AsyncMock(return_value="")
     db.cleanup_old_archives = AsyncMock(return_value=0)
+    # Fleet templates
+    db.get_fleet_templates = AsyncMock(return_value=[])
+    db.get_fleet_template = AsyncMock(return_value=None)
+    db.save_fleet_template = AsyncMock()
+    db.delete_fleet_template = AsyncMock(return_value=False)
     db._db = None
     return db
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import re
 import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -41,6 +42,68 @@ if TYPE_CHECKING:
     from ashlr_ao.manager import AgentManager
 
 log = logging.getLogger("ashlr")
+
+# ─────────────────────────────────────────────
+# Auto-approve safety: never-approve patterns
+# ─────────────────────────────────────────────
+_NEVER_APPROVE_PATTERNS = [
+    re.compile(r"(?i)\brm\s+(-[a-z]*r[a-z]*\b|-r\b|-rf\b|-fr\b)"),  # rm -rf, rm -r, rm -fr, rm -rfi, etc.
+    re.compile(r"(?i)\bforce\s+push\b"),
+    re.compile(r"(?i)\bgit\s+push\s+.*--force"),  # includes --force-with-lease
+    re.compile(r"(?i)\bgit\s+push\s+\S+\s+:"),  # git push origin :branch (remote branch delete)
+    re.compile(r"(?i)\bgit\s+reset\s+--hard\b"),
+    re.compile(r"(?i)\bdrop\s+(?:table|database)\b"),
+    re.compile(r"(?i)\btruncate\s+table\b"),
+    re.compile(r"(?i)\bformat\s+(?:c:|disk)\b"),
+    re.compile(r"(?i)\bsudo\s+rm\b"),
+    re.compile(r"(?i)\bchmod\s+777\b"),
+    re.compile(r"(?i)\b(?:delete|destroy)\s+(?:all|everything|production|prod)\b"),
+    re.compile(r"(?i)\bdd\s+.*\bof=/dev/"),  # dd writing to device
+    re.compile(r"(?i)\bmkfs\b"),  # filesystem format
+    re.compile(r"(?i)\bcurl\s+.*\|\s*(?:ba)?sh\b"),  # curl | bash
+    re.compile(r"(?i)\bwget\s+.*\|\s*(?:ba)?sh\b"),  # wget | bash
+    re.compile(r"(?i)\bfind\s+.*-delete\b"),  # find -delete
+]
+
+# Per-agent auto-approve rate limiter: {agent_id: [monotonic_timestamps]}
+_auto_approve_history: dict[str, list[float]] = {}
+_AUTO_APPROVE_MAX_PER_MINUTE = 5
+
+
+def _check_auto_approve(prompt: str, patterns: list[dict], agent_id: str) -> str | None:
+    """Check if an agent's input prompt matches an auto-approve pattern.
+
+    Returns the response string if matched (and safe), or None if no match / blocked by safety.
+    """
+    # Rate limit check
+    now = time.monotonic()
+    history = _auto_approve_history.get(agent_id, [])
+    history = [t for t in history if now - t < 60.0]
+    _auto_approve_history[agent_id] = history
+    if len(history) >= _AUTO_APPROVE_MAX_PER_MINUTE:
+        log.warning(f"Auto-approve rate limit hit for agent {agent_id} ({len(history)} in last 60s)")
+        return None
+
+    # Safety check: never approve destructive patterns
+    for never_pat in _NEVER_APPROVE_PATTERNS:
+        if never_pat.search(prompt):
+            log.warning(f"Auto-approve blocked by safety pattern for agent {agent_id}: {never_pat.pattern}")
+            return None
+
+    # Match against configured patterns
+    for pat_config in patterns:
+        pattern_str = pat_config.get("pattern", "")
+        response = pat_config.get("response", "yes")
+        if not pattern_str:
+            continue
+        try:
+            if re.search(pattern_str, prompt, re.IGNORECASE):
+                # Record approval
+                _auto_approve_history.setdefault(agent_id, []).append(now)
+                return response
+        except re.error:
+            log.warning(f"Invalid auto-approve regex: {pattern_str!r}")
+    return None
 
 
 # ─────────────────────────────────────────────
@@ -290,15 +353,43 @@ async def output_capture_loop(app: web.Application) -> None:
                 # Output staleness detection (runs whether or not there were new lines)
                 if agent.status in ("working", "planning") and agent.last_output_time != 0.0:
                     silence = time.monotonic() - agent.last_output_time
-                    if silence > 900:
+                    stall_threshold = app["config"].stall_timeout_minutes * 60
+                    if silence > max(stall_threshold, 900):
+                        # Auto-restart on stall (Wave 3): try restart before marking error
+                        if (
+                            app["config"].auto_restart_on_stall
+                            and agent.restart_count < agent.max_restarts
+                        ):
+                            log.info(
+                                f"Auto-restarting stalled agent {agent_id} ({agent.name}) — "
+                                f"no output for {int(silence)}s, attempt {agent.restart_count + 1}/{agent.max_restarts}"
+                            )
+                            try:
+                                success = await manager.restart(agent_id)
+                                if success:
+                                    restarted = manager.agents.get(agent_id)
+                                    if restarted:
+                                        restarted._stale_warned = False
+                                        await hub.broadcast({"type": "agent_update", "agent": restarted.to_dict()})
+                                        await hub.broadcast_event(
+                                            "agent_stall_restarted",
+                                            f"Agent {agent.name} auto-restarted after {int(silence)}s stall (attempt {restarted.restart_count})",
+                                            agent_id, agent.name,
+                                        )
+                                    continue
+                                else:
+                                    log.warning(f"Auto-restart on stall failed for {agent_id}")
+                            except Exception as e:
+                                log.error(f"Auto-restart on stall error for {agent_id}: {e}")
+                        # Fall through to error if restart not enabled/failed/exhausted
                         agent.set_status("error")
-                        agent.error_message = "No output for 15 minutes"
+                        agent.error_message = f"No output for {int(silence // 60)} minutes"
                         agent._error_entered_at = time.monotonic()
                         agent.updated_at = datetime.now(timezone.utc).isoformat()
                         await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
-                        await hub.broadcast_event("agent_stale", f"Agent {agent.name} stale — no output for 15 minutes", agent_id, agent.name)
+                        await hub.broadcast_event("agent_stale", f"Agent {agent.name} stale — no output for {int(silence // 60)} minutes", agent_id, agent.name)
                         continue  # Skip detect_status — don't let it revert error
-                    elif silence > 300:
+                    elif silence > min(stall_threshold, 300):
                         if not agent._stale_warned:
                             agent._stale_warned = True
                             await hub.broadcast_event("agent_stale_warning", f"Agent {agent.name} has had no output for {int(silence)}s", agent_id, agent.name)
@@ -320,6 +411,22 @@ async def output_capture_loop(app: web.Application) -> None:
                             f"Agent {agent.name} health critical ({int(agent.health_score * 100)}%) — consider restarting",
                             agent_id, agent.name,
                         )
+                        # Auto-pause on critical health (Wave 3)
+                        if (
+                            app["config"].auto_pause_on_critical_health
+                            and agent.status in ("working", "planning", "reading")
+                        ):
+                            log.info(f"Auto-pausing agent {agent_id} ({agent.name}) — health critical at {agent.health_score:.0%}")
+                            try:
+                                await manager.pause(agent_id)
+                                await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
+                                await hub.broadcast_event(
+                                    "agent_health_auto_paused",
+                                    f"Agent {agent.name} auto-paused — health critical ({int(agent.health_score * 100)}%)",
+                                    agent_id, agent.name,
+                                )
+                            except Exception as hp_err:
+                                log.warning(f"Health auto-pause failed for {agent_id}: {hp_err}")
                 elif agent.health_score < _low_thresh:
                     if not getattr(agent, '_health_low_warned', False):
                         agent._health_low_warned = True
@@ -418,17 +525,92 @@ async def output_capture_loop(app: web.Application) -> None:
                                     metadata=suggestion,
                                 )
 
+                            # Auto-handoff: spawn successor agent if configured (Wave 5)
+                            if getattr(agent, "next_agent_config", None):
+                                next_cfg = agent.next_agent_config
+                                agent.next_agent_config = None  # Prevent re-triggering
+                                try:
+                                    # Substitute handoff variables in task
+                                    task_text = next_cfg.get("task", "")
+                                    task_text = task_text.replace("{prev_summary}", agent.summary or "")
+                                    task_text = task_text.replace("{prev_agent}", agent.name)
+                                    now_dt = datetime.now(timezone.utc)
+                                    task_text = task_text.replace("{date}", now_dt.strftime("%Y-%m-%d"))
+                                    task_text = task_text.replace("{time}", now_dt.strftime("%H:%M"))
+
+                                    next_id = await manager.spawn(
+                                        role=next_cfg.get("role", "general"),
+                                        task=task_text,
+                                        name=next_cfg.get("name", ""),
+                                        working_dir=next_cfg.get("working_dir", agent.working_dir),
+                                        backend=next_cfg.get("backend", agent.backend),
+                                        model=next_cfg.get("model", ""),
+                                        project_id=agent.project_id,
+                                    )
+                                    next_agent = manager.agents.get(next_id)
+                                    if next_agent:
+                                        # Don't inherit next_agent_config (no recursive handoffs)
+                                        next_agent.next_agent_config = None
+                                        await hub.broadcast({"type": "agent_update", "agent": next_agent.to_dict()})
+                                        await hub.broadcast_event(
+                                            "agent_handoff",
+                                            f"Agent {agent.name} handed off to {next_agent.name}",
+                                            next_id, next_agent.name,
+                                            metadata={"from_agent": agent_id, "from_name": agent.name},
+                                        )
+                                except Exception as ho_err:
+                                    log.warning(f"Auto-handoff failed for {agent_id}: {ho_err}")
+                                    await hub.broadcast_event(
+                                        "agent_handoff_failed",
+                                        f"Handoff from {agent.name} failed: {ho_err}",
+                                        agent_id, agent.name,
+                                    )
+
                         await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
 
                         if agent.needs_input:
                             now_mono = time.monotonic()
                             if now_mono - agent._last_needs_input_event > 5.0:
                                 agent._last_needs_input_event = now_mono
-                                await hub.broadcast_event(
-                                    "agent_needs_input",
-                                    agent.input_prompt or "Agent needs input",
-                                    agent_id, agent.name,
-                                )
+
+                                # Auto-approve pattern matching (Wave 3)
+                                auto_approved = False
+                                if app["config"].auto_approve_enabled:
+                                    prompt_text = agent.input_prompt or ""
+                                    # Merge global + per-project patterns
+                                    all_patterns = list(app["config"].auto_approve_patterns)
+                                    if agent.project_id:
+                                        try:
+                                            db: Database = app["db"]
+                                            project = await db.get_project(agent.project_id)
+                                            if project and project.get("auto_approve_patterns"):
+                                                all_patterns.extend(project.get("auto_approve_patterns", []))
+                                        except Exception:
+                                            pass  # DB unavailable, use global only
+
+                                    if all_patterns:
+                                        response = _check_auto_approve(prompt_text, all_patterns, agent_id)
+                                        if response is not None:
+                                            auto_approved = True
+                                            log.info(f"Auto-approving agent {agent_id} ({agent.name}): sending {response!r}")
+                                            try:
+                                                await manager.send_message(agent_id, response)
+                                                await hub.broadcast_event(
+                                                    "agent_auto_approved",
+                                                    f"Agent {agent.name} auto-approved: sent {response!r} in response to: {prompt_text[:100]}",
+                                                    agent_id, agent.name,
+                                                    metadata={"response": response, "prompt": prompt_text[:200]},
+                                                )
+                                            except Exception as aa_err:
+                                                log.warning(f"Auto-approve send failed for {agent_id}: {aa_err}")
+                                                auto_approved = False
+
+                                if not auto_approved:
+                                    await hub.broadcast_event(
+                                        "agent_needs_input",
+                                        agent.input_prompt or "Agent needs input",
+                                        agent_id, agent.name,
+                                    )
                     else:
                         if new_lines:
                             await hub.broadcast({"type": "agent_update", "agent": agent.to_dict()})
@@ -491,6 +673,11 @@ async def health_check_loop(app: web.Application) -> None:
                 sorted_keys = sorted(_alert_throttle, key=_alert_throttle.get)  # type: ignore[arg-type]
                 for k in sorted_keys[:len(_alert_throttle) - 500]:
                     del _alert_throttle[k]
+            # Evict auto-approve history for dead agents
+            active_ids = set(manager.agents.keys())
+            stale_approve = [k for k in _auto_approve_history if k not in active_ids]
+            for k in stale_approve:
+                del _auto_approve_history[k]
         try:
             for agent_id, agent in list(manager.agents.items()):
                 # -- Auto-restart logic for agents in error state --
