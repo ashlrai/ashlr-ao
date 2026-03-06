@@ -1,0 +1,59 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui/tauri-v2/main/schema.json",
+  "productName": "Ashlr AO",
+  "version": "1.6.1",
+  "identifier": "com.ashlr.ao",
+  "build": {
+    "frontendDist": "html",
+    "devUrl": "http://127.0.0.1:5111"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "title": "Ashlr AO",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' http://127.0.0.1:* ws://127.0.0.1:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*"
+    },
+    "trayIcon": {
+      "id": "main-tray",
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "tooltip": "Ashlr AO"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "category": "DeveloperTool",
+    "shortDescription": "Agent orchestration for AI coding agents",
+    "longDescription": "Local-first agent orchestration platform. One developer, many AI coding agents, single command center."
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
+}

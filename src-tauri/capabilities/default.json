@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicegui/tauri-v2/main/capabilities-schema.json",
+  "identifier": "default",
+  "description": "Default capabilities for Ashlr AO desktop app",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "shell:allow-execute",
+    "shell:allow-spawn",
+    "shell:allow-stdin-write",
+    "notification:default",
+    "notification:allow-is-permission-granted",
+    "notification:allow-request-permission",
+    "notification:allow-notify"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "ashlr-ao",
+  "version": "1.6.1",
+  "private": true,
+  "description": "Ashlr AO — Agent Orchestration Platform (Desktop)",
+  "scripts": {
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

@@ -13,3 +13,6 @@ htmlcov/
 .ruff_cache/
 .claude/
 keys/
+node_modules/
+src-tauri/target/
+src-tauri/gen/

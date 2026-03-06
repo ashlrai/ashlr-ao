@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ashlr AO</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #08090E;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .loader {
+    text-align: center;
+  }
+  .logo {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 24px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.05); }
+  }
+  h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: #F97316;
+    margin-bottom: 8px;
+  }
+  p {
+    font-size: 14px;
+    color: #666;
+  }
+  .dots::after {
+    content: '';
+    animation: dots 1.5s steps(3, end) infinite;
+  }
+  @keyframes dots {
+    0% { content: ''; }
+    33% { content: '.'; }
+    66% { content: '..'; }
+    100% { content: '...'; }
+  }
+</style>
+</head>
+<body>
+<div class="loader">
+  <svg class="logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" rx="6" fill="#0D1520"/>
+    <path d="M16 6L8 26h4l2-5h4l2 5h4L16 6zm0 8l2.5 6h-5L16 14z" fill="#F97316"/>
+  </svg>
+  <h1>Ashlr AO</h1>
+  <p>Starting server<span class="dots"></span></p>
+</div>
+</body>
+</html>
