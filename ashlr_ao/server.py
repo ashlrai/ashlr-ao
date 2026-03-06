@@ -203,6 +203,8 @@ from ashlr_ao.system_endpoints import (  # noqa: F401
     get_server_stats,
     get_config,
     put_config,
+    set_api_key,
+    get_api_key_status,
     license_status,
     activate_license,
     deactivate_license,
@@ -717,8 +719,7 @@ async def resume_agent(request: web.Request) -> web.Response:
         message = data.get("message")
         if message is not None and not isinstance(message, str):
             return web.json_response({"error": "Message must be a string"}, status=400)
-    except Exception as e:
-        log.debug(f"Resume: no message in request body: {e}")
+    except (json.JSONDecodeError, UnicodeDecodeError):
         message = None
 
     success = await manager.resume(agent_id, message)
@@ -2971,6 +2972,8 @@ def create_app(config: Config) -> web.Application:
     app.router.add_get("/api/roles", list_roles)
     app.router.add_get("/api/config", get_config)
     app.router.add_put("/api/config", put_config)
+    app.router.add_post("/api/config/api-key", set_api_key)
+    app.router.add_get("/api/config/api-key/status", get_api_key_status)
     app.router.add_get("/api/backends", list_backends)
     app.router.add_post("/api/auth/verify", verify_auth)
     app.router.add_get("/api/auth/status", auth_status)

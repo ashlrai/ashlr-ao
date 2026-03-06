@@ -192,7 +192,7 @@ Caddy auto-provisions Let's Encrypt HTTPS. SQLite data persisted via Docker volu
 
 ## Architecture
 
-Modular Python package (`ashlr_ao`) with 16 focused modules:
+Modular Python package (`ashlr_ao`) with 24 modules:
 
 | Module | Lines | Purpose |
 |--------|-------|---------|
@@ -212,7 +212,15 @@ Modular Python package (`ashlr_ao`) with 16 focused modules:
 | `constants.py` | ~160 | Logging, ANSI patterns, secret detection |
 | `licensing.py` | ~145 | Ed25519 JWT license validation |
 | `roles.py` | ~80 | 9 built-in roles |
-| `dashboard.html` | ~21K | Single HTML file, all CSS/JS inline |
+| `pty.py` | ~360 | PTY terminal sessions over WebSocket |
+| `files.py` | ~430 | File browser REST API (tree, read, write, create, delete) |
+| `git.py` | ~420 | Git integration (status, diff, log, stage, commit) |
+| `analytics.py` | ~760 | Fleet analytics, collaboration graph, bulk ops |
+| `system_endpoints.py` | ~790 | System metrics, health, config, licensing endpoints |
+| `workflow_endpoints.py` | ~570 | Workflow CRUD, fleet templates, deployment |
+| `dashboard.html` | ~1.5K | HTML shell (CSS/JS in static/) |
+| `static/dashboard.js` | ~17K | Dashboard application logic |
+| `static/dashboard.css` | ~5.8K | Dashboard styles (dark + light themes) |
 
 Data persisted in SQLite at `~/.ashlr/ashlr.db`.
 
@@ -261,7 +269,7 @@ Full WebSocket protocol at `/ws` for real-time updates.
 git clone https://github.com/Ashlar-inc/ashlar-ao.git
 cd ashlar-ao
 pip install -e ".[dev]"
-pytest                    # 1559 tests across 23 files
+pytest                    # 1911 tests across 31 files
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and [CLAUDE.md](CLAUDE.md) for full architecture reference.

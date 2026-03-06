@@ -26,6 +26,7 @@ from aiohttp import web
 from ashlr_ao.config import Config, DEFAULT_CONFIG, deep_merge, load_config
 from ashlr_ao.constants import ASHLR_DIR, redact_secrets
 from ashlr_ao.database import Database
+from ashlr_ao.intelligence import IntelligenceClient
 from ashlr_ao.licensing import (
     COMMUNITY_LICENSE,
     License,
@@ -662,6 +663,73 @@ async def import_config(request: web.Request) -> web.Response:
         log.warning(f"Config reload partial failure: {e}")
 
     return web.json_response({"status": "imported", "changes": diff})
+
+
+# ─────────────────────────────────────────────
+# API Key Endpoints
+# ─────────────────────────────────────────────
+
+async def set_api_key(request: web.Request) -> web.Response:
+    """POST /api/config/api-key — set the AI API key at runtime."""
+    if r := _check_rate(request, cost=10, rate=0.1, burst=2):
+        return r
+
+    config: Config = request.app["config"]
+
+    # Admin-only when auth is enabled
+    if config.require_auth:
+        user = request.get("user")
+        if not user or user.role != "admin":
+            return web.json_response({"error": "Admin access required"}, status=403)
+
+    try:
+        data = await request.json()
+    except json.JSONDecodeError:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+
+    key = data.get("key", "")
+    if not isinstance(key, str) or not key.strip():
+        return web.json_response({"error": "API key must be a non-empty string"}, status=400)
+
+    key = key.strip()
+
+    # Set the environment variable so the rest of the system picks it up
+    os.environ["XAI_API_KEY"] = key
+
+    # Update config in memory
+    config.llm_api_key = key
+    config.llm_enabled = True
+
+    # Close old intelligence client session if present
+    old_client = request.app.get("intelligence")
+    if old_client:
+        try:
+            await old_client.close()
+        except Exception:
+            pass
+
+    # Re-initialize intelligence client with updated config
+    new_client = IntelligenceClient(config)
+    request.app["intelligence"] = new_client
+
+    log.info(f"API key set at runtime, intelligence available={new_client.available}")
+
+    return web.json_response({"ok": True, "available": new_client.available})
+
+
+async def get_api_key_status(request: web.Request) -> web.Response:
+    """GET /api/config/api-key/status — check whether an API key is configured."""
+    if r := _check_rate(request, cost=1):
+        return r
+
+    config: Config = request.app["config"]
+    client = request.app.get("intelligence")
+
+    return web.json_response({
+        "has_key": bool(config.llm_api_key),
+        "available": bool(client and client.available),
+        "model": config.llm_model,
+    })
 
 
 # ─────────────────────────────────────────────

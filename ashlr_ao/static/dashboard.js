@@ -271,15 +271,18 @@ function setCurrentUser(user, org) {
     state.currentUser = user;
     state.currentOrg = org || null;
     const menu = document.getElementById('userMenu');
+    if (!menu) return;
     if (user) {
         menu.style.display = '';
         const initials = user.display_name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-        document.getElementById('userAvatar').textContent = initials;
-        document.getElementById('userName').textContent = user.display_name;
+        const avatarEl = document.getElementById('userAvatar');
+        if (avatarEl) avatarEl.textContent = initials;
+        const nameEl = document.getElementById('userName');
+        if (nameEl) nameEl.textContent = user.display_name;
         const header = document.getElementById('userDropdownHeader');
-        header.textContent = user.email + (org ? ` \u00b7 ${org.name}` : '');
-        // Show team button for admins
-        document.getElementById('teamBtn').style.display = user.role === 'admin' ? '' : 'none';
+        if (header) header.textContent = user.email + (org ? ` \u00b7 ${org.name}` : '');
+        const teamBtn = document.getElementById('teamBtn');
+        if (teamBtn) teamBtn.style.display = user.role === 'admin' ? '' : 'none';
     } else {
         menu.style.display = 'none';
     }
@@ -1046,6 +1049,29 @@ class AshlrSocket {
         this.reconnectDelay = 1000;
         this.maxDelay = 10000;
         this.reconnectAttempts = 0;
+        this._disconnectedAt = null;
+        this._elapsedTimer = null;
+    }
+
+    _stopElapsedTimer() {
+        if (this._elapsedTimer) { clearInterval(this._elapsedTimer); this._elapsedTimer = null; }
+        this._disconnectedAt = null;
+    }
+
+    _startElapsedTimer() {
+        if (!this._disconnectedAt) this._disconnectedAt = Date.now();
+        if (this._elapsedTimer) return;
+        this._elapsedTimer = setInterval(() => {
+            const msg = document.getElementById('connectionBannerMsg');
+            if (!msg || !this._disconnectedAt) return;
+            const secs = Math.round((Date.now() - this._disconnectedAt) / 1000);
+            const elapsed = secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`;
+            if (this.reconnectAttempts >= 10) {
+                msg.textContent = `Server unreachable (${elapsed}) — restart with ./start.sh and refresh`;
+            } else {
+                msg.textContent = `Disconnected ${elapsed} — reconnecting (attempt ${this.reconnectAttempts})...`;
+            }
+        }, 1000);
     }
 
     connect() {
@@ -1058,11 +1084,14 @@ class AshlrSocket {
             state.connected = true;
             state.synced = false;
             this.reconnectDelay = 1000;
+            const wasDisconnected = this.reconnectAttempts > 0;
             this.reconnectAttempts = 0;
+            this._stopElapsedTimer();
             const banner = document.getElementById('connectionBanner');
             if (banner) { banner.classList.remove('active'); }
             const bannerMsg = document.getElementById('connectionBannerMsg');
             if (bannerMsg) bannerMsg.textContent = '';
+            if (wasDisconnected) showToast('Reconnected to server', 'success');
             // Toast shown after sync provides fleet summary
             state._showSyncSummary = true;
         };
@@ -1081,18 +1110,9 @@ class AshlrSocket {
             state.connected = false;
             state.synced = false;
             this.reconnectAttempts++;
+            this._startElapsedTimer();
             const banner = document.getElementById('connectionBanner');
-            if (banner) {
-                banner.classList.add('active');
-                const msg = document.getElementById('connectionBannerMsg');
-                if (msg) {
-                    if (this.reconnectAttempts >= 10) {
-                        msg.textContent = 'Server unreachable — restart with ./start.sh and refresh';
-                    } else {
-                        msg.textContent = `Disconnected — reconnecting (attempt ${this.reconnectAttempts})...`;
-                    }
-                }
-            }
+            if (banner) banner.classList.add('active');
             const jitter = this.reconnectDelay * (0.5 + Math.random());
             this._reconnectTimer = setTimeout(() => this.connect(), jitter);
             this.reconnectDelay = Math.min(this.reconnectDelay * 1.5, this.maxDelay);
@@ -1100,7 +1120,6 @@ class AshlrSocket {
 
         this.ws.onerror = (e) => {
             console.warn('WebSocket error:', e);
-            showToast('WebSocket connection error', 'warning');
         };
     }
 
@@ -1736,15 +1755,16 @@ function handleMetrics(data) {
     }
 
     // Agents
-    document.getElementById('metricAgents').textContent = `${data.agents_active || 0}/${data.agents_total || 0}`;
+    const agentsEl = document.getElementById('metricAgents');
+    if (agentsEl) agentsEl.textContent = `${data.agents_active || 0}/${data.agents_total || 0}`;
 
     // Cost — aggregate from active agents with fleet burn rate
     const agents = [...state.agents.values()];
     const totalCost = agents.reduce((sum, a) => sum + (a.estimated_cost_usd || 0), 0);
     const costEl = document.getElementById('metricCost');
-    costEl.textContent = totalCost < 1 ? `$${totalCost.toFixed(2)}` : `$${totalCost.toFixed(1)}`;
+    if (costEl) costEl.textContent = totalCost < 1 ? `$${totalCost.toFixed(2)}` : `$${totalCost.toFixed(1)}`;
     const fleetBurnRate = agents.reduce((sum, a) => sum + (a.cost_burn_rate?.cost_per_min || 0), 0);
-    if (fleetBurnRate > 0) {
+    if (costEl && fleetBurnRate > 0) {
         costEl.title = `Fleet burn: $${fleetBurnRate.toFixed(4)}/min ($${(fleetBurnRate * 60).toFixed(2)}/hr)`;
     } else {
         costEl.title = 'Total estimated cost';
@@ -1997,19 +2017,14 @@ function updateFleetSummary() {
     const healthScores = agents.filter(a => a.health_score > 0).map(a => a.health_score);
     const avgHealth = healthScores.length ? healthScores.reduce((s, h) => s + h, 0) / healthScores.length : 0;
 
-    document.querySelector('#fsAgents .fs-value').textContent = agents.length;
-    const workingEl = document.querySelector('#fsWorking .fs-value');
-    workingEl.textContent = working;
-    workingEl.style.color = working > 0 ? 'var(--accent)' : 'var(--text-tertiary)';
-    const waitingEl = document.querySelector('#fsWaiting .fs-value');
-    waitingEl.textContent = waiting;
-    waitingEl.style.color = waiting > 0 ? 'var(--orange)' : 'var(--text-tertiary)';
-    document.querySelector('#fsCost .fs-value').textContent = totalCost > 0 ? `$${totalCost.toFixed(3)}` : '$0';
+    const _fsSet = (sel, text, color) => { const el = document.querySelector(sel); if (el) { el.textContent = text; if (color) el.style.color = color; } };
+    _fsSet('#fsAgents .fs-value', agents.length);
+    _fsSet('#fsWorking .fs-value', working, working > 0 ? 'var(--accent)' : 'var(--text-tertiary)');
+    _fsSet('#fsWaiting .fs-value', waiting, waiting > 0 ? 'var(--orange)' : 'var(--text-tertiary)');
+    _fsSet('#fsCost .fs-value', totalCost > 0 ? `$${totalCost.toFixed(3)}` : '$0');
     const tokStr = totalTokens > 1000000 ? `${(totalTokens / 1000000).toFixed(1)}M` : totalTokens > 1000 ? `${(totalTokens / 1000).toFixed(1)}K` : `${totalTokens}`;
-    document.querySelector('#fsTokens .fs-value').textContent = tokStr;
-    const hEl = document.querySelector('#fsHealth .fs-value');
-    hEl.textContent = `${Math.round(avgHealth * 100)}%`;
-    hEl.style.color = avgHealth >= 0.8 ? 'var(--success)' : avgHealth >= 0.6 ? 'var(--warning)' : 'var(--danger)';
+    _fsSet('#fsTokens .fs-value', tokStr);
+    _fsSet('#fsHealth .fs-value', `${Math.round(avgHealth * 100)}%`, avgHealth >= 0.8 ? 'var(--success)' : avgHealth >= 0.6 ? 'var(--warning)' : 'var(--danger)');
 
     // Average context usage
     const ctxValues = agents.filter(a => a.context_pct > 0).map(a => a.context_pct);
@@ -3364,19 +3379,32 @@ function openSpawnDialog() {
     // Load fleet templates on dialog open
     loadFleetTemplates();
 
-    // Populate backend selector
+    // Populate backend selector (fetch from API if sync hasn't arrived yet)
     const backendSel = document.getElementById('spawnBackend');
-    backendSel.innerHTML = '';
-    const backends = state.backends || state.config.backends || {};
-    for (const [key, info] of Object.entries(backends)) {
-        const opt = document.createElement('option');
-        opt.value = key;
-        const avail = info.available !== false;
-        opt.textContent = key + (avail ? '' : ' (not installed)');
-        opt.disabled = !avail;
-        backendSel.appendChild(opt);
+    const _populateBackendOptions = (backends) => {
+        backendSel.innerHTML = '';
+        for (const [key, info] of Object.entries(backends)) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            const avail = info.available !== false;
+            opt.textContent = key + (avail ? '' : ' (not installed)');
+            opt.disabled = !avail;
+            backendSel.appendChild(opt);
+        }
+        backendSel.value = state.config.default_backend || 'claude-code';
+    };
+    let backends = state.backends || state.config.backends || {};
+    if (Object.keys(backends).length === 0) {
+        // Sync hasn't arrived yet — fetch backends directly
+        apiFetch('/api/backends').then(r => r.ok ? r.json() : {}).then(data => {
+            if (data && Object.keys(data).length > 0) {
+                state.backends = data;
+                _populateBackendOptions(data);
+            }
+        }).catch(() => {});
+    } else {
+        _populateBackendOptions(backends);
     }
-    backendSel.value = state.config.default_backend || 'claude-code';
 
     // Show print mode toggle only for claude-code backend
     const printModeRow = document.getElementById('printModeRow');
@@ -3465,6 +3493,7 @@ function closeSpawnDialog() {
 async function loadResumeSessions() {
     const section = document.getElementById('resumeSessionsSection');
     const list = document.getElementById('resumeSessionsList');
+    if (!section || !list) return;
     try {
         const res = await apiFetch('/api/sessions/resumable?limit=10');
         if (!res.ok) { section.style.display = 'none'; return; }
@@ -3481,7 +3510,7 @@ async function loadResumeSessions() {
             const taskPreview = (s.task || '').length > 60 ? s.task.slice(0, 60) + '...' : (s.task || 'No task');
             const dur = s.duration_sec ? formatDuration(s.duration_sec) : '';
             const ago = s.completed_at ? timeAgo(new Date(s.completed_at)) : '';
-            return `<div class="resume-session-item" onclick="selectResumeSession('${s.id}')" data-session='${JSON.stringify(s).replace(/'/g, "&#39;")}'>
+            return `<div class="resume-session-item" data-session-id="${escapeHtml(s.id)}" onclick="selectResumeSession('${escapeHtml(s.id)}')" data-session='${JSON.stringify(s).replace(/'/g, "&#39;")}'>
                 <div class="rs-icon" style="background:color-mix(in srgb, ${color} 15%, transparent);color:${color}">${roleIcon(s.role, 14)}</div>
                 <div class="rs-info"><div class="rs-name">${escapeHtml(s.name || s.role)}</div><div class="rs-task">${escapeHtml(taskPreview)}</div></div>
                 <div class="rs-meta">${dur ? dur + '<br>' : ''}${ago}</div>
@@ -3493,7 +3522,7 @@ async function loadResumeSessions() {
 }
 
 function selectResumeSession(sessionId) {
-    const item = document.querySelector(`.resume-session-item[onclick*="'${sessionId}'"]`);
+    const item = document.querySelector(`.resume-session-item[data-session-id="${sessionId}"]`);
     if (!item) return;
     const session = JSON.parse(item.dataset.session);
 
@@ -3808,8 +3837,16 @@ async function spawnAgent() {
     const task = document.getElementById('spawnTask').value.trim();
     const planMode = document.getElementById('planModeToggle').classList.contains('active');
     const printMode = document.getElementById('printModeToggle').classList.contains('active');
-    const projectId = document.getElementById('spawnProject').value || undefined;
+    const projectSel = document.getElementById('spawnProject');
+    const projectId = projectSel?.value || undefined;
     const backend = document.getElementById('spawnBackend').value || undefined;
+
+    // Validate selected project still exists
+    if (projectId && !state.projects.some(p => p.id === projectId)) {
+        showToast('Selected project no longer exists — please re-select', 'warning');
+        if (projectSel) projectSel.value = '';
+        return;
+    }
 
     if (!task) {
         showToast('Task is required', 'warning');
@@ -3859,8 +3896,15 @@ async function spawnAgent() {
         if (!resp.ok) {
             const errEl = document.createElement('div');
             errEl.className = 'spawn-error';
-            errEl.style.cssText = 'color:var(--danger);background:rgba(239,68,68,.1);padding:8px 12px;border-radius:8px;margin-top:8px;font-size:13px;border:1px solid rgba(239,68,68,.15)';
-            errEl.textContent = data.error || 'Spawn failed';
+            errEl.style.cssText = 'color:var(--danger);background:rgba(239,68,68,.1);padding:8px 12px;border-radius:8px;margin-top:8px;font-size:13px;border:1px solid rgba(239,68,68,.15);display:flex;align-items:center;justify-content:space-between;gap:8px';
+            const errText = document.createElement('span');
+            errText.textContent = data.error || 'Spawn failed';
+            errEl.appendChild(errText);
+            const retryBtn = document.createElement('button');
+            retryBtn.textContent = 'Retry';
+            retryBtn.style.cssText = 'padding:3px 10px;border:1px solid rgba(239,68,68,.3);border-radius:4px;background:transparent;color:var(--danger);cursor:pointer;font-size:12px;white-space:nowrap';
+            retryBtn.onclick = () => { errEl.remove(); spawnAgent(); };
+            errEl.appendChild(retryBtn);
             const actions = document.querySelector('.spawn-dialog .dialog-actions');
             if (actions) actions.parentNode.insertBefore(errEl, actions);
             return;
@@ -3887,10 +3931,17 @@ async function spawnAgent() {
     } catch (err) {
         const errEl = document.createElement('div');
         errEl.className = 'spawn-error';
-        errEl.style.cssText = 'color:var(--danger);background:rgba(239,68,68,.1);padding:8px 12px;border-radius:8px;margin-top:8px;font-size:13px;border:1px solid rgba(239,68,68,.15)';
-        errEl.textContent = 'Network error — is the server running?';
+        errEl.style.cssText = 'color:var(--danger);background:rgba(239,68,68,.1);padding:8px 12px;border-radius:8px;margin-top:8px;font-size:13px;border:1px solid rgba(239,68,68,.15);display:flex;align-items:center;justify-content:space-between;gap:8px';
+        const errText = document.createElement('span');
+        errText.textContent = 'Network error — is the server running?';
+        errEl.appendChild(errText);
+        const retryBtn = document.createElement('button');
+        retryBtn.textContent = 'Retry';
+        retryBtn.style.cssText = 'padding:3px 10px;border:1px solid rgba(239,68,68,.3);border-radius:4px;background:transparent;color:var(--danger);cursor:pointer;font-size:12px;white-space:nowrap';
+        retryBtn.onclick = () => { errEl.remove(); spawnAgent(); };
+        errEl.appendChild(retryBtn);
         const actions = document.querySelector('.spawn-dialog .dialog-actions');
-            if (actions) actions.parentNode.insertBefore(errEl, actions);
+        if (actions) actions.parentNode.insertBefore(errEl, actions);
     } finally {
         if (spawnBtn) { spawnBtn.innerHTML = origText; spawnBtn.disabled = false; }
     }
@@ -4320,20 +4371,17 @@ function updateDeepViewHeader(agent) {
     const iconEl = document.getElementById('deepIcon');
     if (!iconEl) return;  // deep view not in DOM yet
     iconEl.innerHTML = roleIcon(agent.role, 20);
-    document.getElementById('deepName').textContent = agent.name;
-    document.getElementById('deepRole').textContent = info.name;
-    document.getElementById('deepWorkDir').textContent = shortenPath(agent.working_dir);
-    document.getElementById('deepWorkDir').title = agent.working_dir || '';
+    const _ds = (id, text, color, title) => { const el = document.getElementById(id); if (el) { el.textContent = text; if (color) el.style.color = color; if (title !== undefined) el.title = title; } };
+    _ds('deepName', agent.name);
+    _ds('deepRole', info.name);
+    _ds('deepWorkDir', shortenPath(agent.working_dir), null, agent.working_dir || '');
 
-    const statusEl = document.getElementById('deepStatus');
-    statusEl.textContent = agent.status;
-    statusEl.style.color = { working: 'var(--accent)', planning: 'var(--warning)', waiting: 'var(--orange)', error: 'var(--danger)', paused: 'var(--text-tertiary)', reading: 'var(--accent)' }[agent.status] || 'var(--text-primary)';
+    const statusColors = { working: 'var(--accent)', planning: 'var(--warning)', waiting: 'var(--orange)', error: 'var(--danger)', paused: 'var(--text-tertiary)', reading: 'var(--accent)' };
+    _ds('deepStatus', agent.status, statusColors[agent.status] || 'var(--text-primary)');
 
     // Phase
-    const phaseEl = document.getElementById('deepPhase');
-    phaseEl.textContent = agent.phase || '-';
     const phaseColors = { planning: 'var(--warning)', reading: '#3B82F6', implementing: 'var(--success)', testing: 'var(--cyan)', complete: '#10B981' };
-    phaseEl.style.color = phaseColors[agent.phase] || 'var(--text-tertiary)';
+    _ds('deepPhase', agent.phase || '-', phaseColors[agent.phase] || 'var(--text-tertiary)');
 
     const ctxUsedPct = Math.round((agent.context_pct || 0) * 100);
     const ctxRemainPct = Math.max(0, 100 - ctxUsedPct);
@@ -4341,9 +4389,7 @@ function updateDeepViewHeader(agent) {
     const ctxRemainTokens = Math.round((1 - (agent.context_pct || 0)) * ctxWin);
     const ctxRemainK = (ctxRemainTokens / 1000).toFixed(1);
     const ctxWinK = Math.round(ctxWin / 1000);
-    const deepCtxEl = document.getElementById('deepContext');
-    deepCtxEl.textContent = `${ctxRemainPct}% remaining — ${ctxRemainK}K / ${ctxWinK}K left`;
-    deepCtxEl.style.color = ctxRemainPct <= 20 ? 'var(--danger)' : ctxRemainPct <= 50 ? 'var(--warning)' : '#4ADE80';
+    _ds('deepContext', `${ctxRemainPct}% remaining — ${ctxRemainK}K / ${ctxWinK}K left`, ctxRemainPct <= 20 ? 'var(--danger)' : ctxRemainPct <= 50 ? 'var(--warning)' : '#4ADE80');
     // Update deep view context bar (fill = used portion)
     const deepCtxFill = document.getElementById('deepContextFill');
     if (deepCtxFill) {
@@ -4356,12 +4402,11 @@ function updateDeepViewHeader(agent) {
                                        ctxRemainPct <= 50 ? '0 0 6px rgba(245,158,11,0.3)' :
                                                             '0 0 4px rgba(34,197,94,0.25)';
     }
-    document.getElementById('deepMemory').textContent = `${Math.round(agent.memory_mb || 0)} MB`;
+    _ds('deepMemory', `${Math.round(agent.memory_mb || 0)} MB`);
     // Line count — prefer server-side total which includes archived lines
     const totalLines = agent.total_output_lines || (agent._outputBuffer || []).length;
     const lineCountStr = totalLines > 1000 ? `${(totalLines / 1000).toFixed(1)}K lines` : `${totalLines} lines`;
-    document.getElementById('deepLineCount').textContent = totalLines > 0 ? lineCountStr : '';
-    document.getElementById('deepLineCount').title = totalLines > 0 ? `${totalLines.toLocaleString()} lines, ${(agent.total_output_chars || 0).toLocaleString()} chars` : '';
+    _ds('deepLineCount', totalLines > 0 ? lineCountStr : '', null, totalLines > 0 ? `${totalLines.toLocaleString()} lines, ${(agent.total_output_chars || 0).toLocaleString()} chars` : '');
 
     // Health score
     const healthEl = document.getElementById('deepHealth');
@@ -6040,21 +6085,25 @@ function openInteraction(agentId) {
     state.interactionAgentId = agentId;
 
     const info = ROLE_INFO[agent.role] || ROLE_INFO.general;
-    document.getElementById('interactionIcon').innerHTML = roleIcon(agent.role, 20);
-    document.getElementById('interactionName').textContent = agent.name;
-    document.getElementById('interactionInput').value = '';
+    const iconEl = document.getElementById('interactionIcon');
+    if (iconEl) iconEl.innerHTML = roleIcon(agent.role, 20);
+    const nameEl = document.getElementById('interactionName');
+    if (nameEl) nameEl.textContent = agent.name;
+    const inputEl = document.getElementById('interactionInput');
+    if (inputEl) inputEl.value = '';
+    const questionEl = document.getElementById('interactionQuestion');
 
     const actionsEl = document.getElementById('interactionActions');
     if (agent.plan_mode) {
         // Plan-mode: show plan review actions
-        document.getElementById('interactionQuestion').textContent =
+        if (questionEl) questionEl.textContent =
             agent.input_prompt || 'Agent has prepared a plan. Review and approve or reject.';
         actionsEl.innerHTML =
             '<button class="btn btn-primary" onclick="sendInteraction(\'yes\')" style="flex:1">\u2713 Approve Plan</button>' +
             '<button class="btn btn-secondary" onclick="sendInteraction(\'no, please revise\')" style="flex:1">\u270E Revise</button>' +
             '<button class="btn btn-secondary" onclick="(function(){const id=state.interactionAgentId;closeInteraction();openDeepView(id);})()" style="flex:1">\uD83D\uDC41 View Plan</button>';
     } else {
-        document.getElementById('interactionQuestion').textContent = agent.input_prompt || 'Agent is waiting for your response.';
+        if (questionEl) questionEl.textContent = agent.input_prompt || 'Agent is waiting for your response.';
         // Smart buttons: detect yes/no pattern
         const prompt = (agent.input_prompt || '').toLowerCase();
         if (prompt.includes('yes/no') || prompt.includes('y/n') || prompt.includes('proceed') || prompt.includes('approve')) {
@@ -6064,8 +6113,8 @@ function openInteraction(agentId) {
         }
     }
 
-    document.getElementById('interactionOverlay').classList.add('active');
-    trapFocus(document.getElementById('interactionOverlay'));
+    const overlay = document.getElementById('interactionOverlay');
+    if (overlay) { overlay.classList.add('active'); trapFocus(overlay); }
 }
 
 function closeInteraction() {
@@ -8507,9 +8556,9 @@ function updateFavicon(agents, waiting, active) {
     const hasError = agents.some(a => a.status === 'error');
     if (hasError) color = '#EF4444';
     else if (waiting > 0) color = '#F97316';
-    else if (active > 0) color = '#6366F1';
-    else if (agents.length > 0) color = '#64748B';
-    else color = '#64748B'; // no agents — neutral gray
+    else if (active > 0) color = '#706CF0';
+    else if (agents.length > 0) color = '#706CF0';
+    else color = '#555968'; // no agents — muted
 
     if (color === _faviconLastColor) return;
     _faviconLastColor = color;
@@ -8524,27 +8573,36 @@ function updateFavicon(agents, waiting, active) {
     ctx.clearRect(0, 0, 32, 32);
     ctx.beginPath();
     ctx.roundRect(0, 0, 32, 32, 6);
-    ctx.fillStyle = '#0A0F1A';
+    ctx.fillStyle = '#0D1117';
     ctx.fill();
 
-    // "A" letterform
-    ctx.fillStyle = color;
+    // Geometric A letterform (matching Ashlr logo)
+    ctx.fillStyle = '#DCE1EB';
     ctx.beginPath();
-    ctx.moveTo(16, 6);
+    ctx.moveTo(16, 5);
     ctx.lineTo(8, 26);
-    ctx.lineTo(12, 26);
-    ctx.lineTo(14, 21);
-    ctx.lineTo(18, 21);
-    ctx.lineTo(20, 26);
+    ctx.lineTo(11.2, 26);
+    ctx.lineTo(13, 21.8);
+    ctx.lineTo(19, 21.8);
+    ctx.lineTo(20.8, 26);
     ctx.lineTo(24, 26);
     ctx.closePath();
     ctx.fill();
     // Inner cutout
-    ctx.fillStyle = '#0A0F1A';
+    ctx.fillStyle = '#0D1117';
     ctx.beginPath();
-    ctx.moveTo(16, 14);
-    ctx.lineTo(13.5, 20);
-    ctx.lineTo(18.5, 20);
+    ctx.moveTo(16, 11);
+    ctx.lineTo(13.6, 16.6);
+    ctx.lineTo(18.4, 16.6);
+    ctx.closePath();
+    ctx.fill();
+    // Blue accent trapezoid
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(13.2, 17);
+    ctx.lineTo(18.8, 17);
+    ctx.lineTo(20, 20.8);
+    ctx.lineTo(12, 20.8);
     ctx.closePath();
     ctx.fill();
 
@@ -8610,11 +8668,12 @@ function updateStatusFilterChips() {
         else counts.idle++;
     }
 
-    document.getElementById('chipCountWorking').textContent = counts.working;
-    document.getElementById('chipCountWaiting').textContent = counts.waiting;
-    document.getElementById('chipCountError').textContent = counts.error;
-    document.getElementById('chipCountPlanning').textContent = counts.planning;
-    document.getElementById('chipCountIdle').textContent = counts.idle;
+    const _cc = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    _cc('chipCountWorking', counts.working);
+    _cc('chipCountWaiting', counts.waiting);
+    _cc('chipCountError', counts.error);
+    _cc('chipCountPlanning', counts.planning);
+    _cc('chipCountIdle', counts.idle);
 }
 
 function setStatusFilter(status) {
@@ -9293,6 +9352,8 @@ window.addEventListener('beforeunload', () => {
     clearInterval(_healthTimer);
     clearInterval(_timeUpdaterTimer);
     if (_sysMetricsInterval) clearInterval(_sysMetricsInterval);
+    // Clean up WS reconnection timers
+    if (socket) socket._stopElapsedTimer();
     // Clean up terminal WebSocket connections
     if (typeof disconnectInteractiveTerminal === 'function') disconnectInteractiveTerminal();
     if (typeof _bottomTerminals !== 'undefined') {
@@ -9445,26 +9506,34 @@ function openSettings() {
 
     // Backend selector with availability dots
     const backendSel = document.getElementById('setDefaultBackend');
-    backendSel.innerHTML = '';
-    const backends = state.backends || cfg.backends || {};
-    for (const [key, info] of Object.entries(backends)) {
-        const opt = document.createElement('option');
-        opt.value = key;
-        const avail = info.available !== false;
-        opt.textContent = (avail ? '● ' : '○ ') + key + (avail ? '' : ' (not installed)');
-        if (key === cfg.default_backend) opt.selected = true;
-        backendSel.appendChild(opt);
-    }
-
-    // Backend availability list
-    const backendsList = document.getElementById('settingsBackendsList');
-    backendsList.innerHTML = '';
-    for (const [key, info] of Object.entries(backends)) {
-        const avail = info.available !== false;
-        const row = document.createElement('div');
-        row.className = 'settings-row';
-        row.innerHTML = `<span class="settings-label"><span class="backend-dot ${avail ? 'available' : 'unavailable'}"></span>${key}</span><span style="font-size:11px;color:var(--text-tertiary)">${avail ? 'Installed' : 'Not found'}</span>`;
-        backendsList.appendChild(row);
+    const _populateSettingsBackends = (backends) => {
+        backendSel.innerHTML = '';
+        for (const [key, info] of Object.entries(backends)) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            const avail = info.available !== false;
+            opt.textContent = (avail ? '● ' : '○ ') + key + (avail ? '' : ' (not installed)');
+            if (key === cfg.default_backend) opt.selected = true;
+            backendSel.appendChild(opt);
+        }
+        // Backend availability list
+        const backendsList = document.getElementById('settingsBackendsList');
+        backendsList.innerHTML = '';
+        for (const [key, info] of Object.entries(backends)) {
+            const avail = info.available !== false;
+            const row = document.createElement('div');
+            row.className = 'settings-row';
+            row.innerHTML = `<span class="settings-label"><span class="backend-dot ${avail ? 'available' : 'unavailable'}"></span>${key}</span><span style="font-size:11px;color:var(--text-tertiary)">${avail ? 'Installed' : 'Not found'}</span>`;
+            backendsList.appendChild(row);
+        }
+    };
+    let backends = state.backends || cfg.backends || {};
+    if (Object.keys(backends).length === 0) {
+        apiFetch('/api/backends').then(r => r.ok ? r.json() : {}).then(data => {
+            if (data && Object.keys(data).length > 0) { state.backends = data; _populateSettingsBackends(data); }
+        }).catch(() => {});
+    } else {
+        _populateSettingsBackends(backends);
     }
 
     // License settings
@@ -12705,7 +12774,7 @@ async function loadSnapshots(agentId) {
             const color = triggerColors[snap.trigger] || 'var(--text-tertiary)';
             const time = snap.created_at ? new Date(snap.created_at).toLocaleTimeString() : '?';
             const preview = (snap.output_tail || '').split('\n').slice(-5).map(l => escapeHtml(l)).join('<br>');
-            return `<div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer" onclick="this.querySelector('.snap-preview').style.display=this.querySelector('.snap-preview').style.display==='none'?'block':'none'">
+            return `<div style="background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer" onclick="var p=this.querySelector('.snap-preview');if(p)p.style.display=p.style.display==='none'?'block':'none'">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
                     <span style="background:${color};color:white;font-size:9px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:4px;letter-spacing:0.5px">${escapeHtml(snap.trigger)}</span>
                     <span style="font-size:11px;color:var(--text-secondary);font-weight:600">${escapeHtml(snap.status)}</span>
@@ -13345,6 +13414,9 @@ saveSettings = async function() {
                 const f = document.getElementById(fid);
                 if (f) { f.style.borderColor = 'var(--danger)'; const e = document.createElement('div'); e.className = 'field-error'; e.style.cssText = 'color:var(--danger);font-size:11px;margin-top:2px'; e.textContent = msg; f.parentElement.appendChild(e); }
             });
+            // Scroll to first invalid field
+            const firstErr = document.getElementById(errors[0][0]);
+            if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
             showToast('Fix validation errors', 'warning');
             return;
         }
@@ -16030,10 +16102,8 @@ async function deleteFileTreeItem(filePath) {
 
 function openTerminalHere() {
     if (!_fileBrowser.currentPath) { showToast('Open a project first', 'warning'); return; }
-    const panel = document.getElementById('bottomTerminalPanel');
-    if (!panel.classList.contains('open')) {
-        panel.classList.add('open');
-        document.getElementById('mainContent').style.marginBottom = '336px';
+    if (!_rightPanel.isOpen || _rightPanel.activeTab !== 'terminal') {
+        toggleRightPanel('terminal');
     }
     addBottomTerminal(_fileBrowser.currentPath);
 }
@@ -16221,20 +16291,70 @@ const _bottomTerminals = {
     nextId: 1,
 };
 
-function toggleBottomTerminal() {
-    const panel = document.getElementById('bottomTerminalPanel');
+// ── Right Panel (Terminal + AI Chat) ──
+
+const _rightPanel = { isOpen: false, activeTab: 'terminal' };
+
+function toggleRightPanel(tab) {
+    const panel = document.getElementById('rightPanel');
     if (!panel) return;
-    const isOpen = panel.classList.contains('open');
-    if (isOpen) {
+
+    if (_rightPanel.isOpen && tab && tab === _rightPanel.activeTab) {
+        // Close if clicking same tab
+        _rightPanel.isOpen = false;
         panel.classList.remove('open');
-        // Adjust main content margin
-        document.getElementById('mainContent').style.marginBottom = '';
     } else {
+        _rightPanel.isOpen = true;
         panel.classList.add('open');
-        document.getElementById('mainContent').style.marginBottom = '336px';
-        // Auto-create first terminal if empty
-        if (_bottomTerminals.tabs.length === 0) addBottomTerminal();
+        if (tab) switchRightPanelTab(tab);
+        // Auto-create first terminal if opening terminal tab
+        if ((_rightPanel.activeTab === 'terminal') && _bottomTerminals.tabs.length === 0) {
+            addBottomTerminal();
+        }
+        if (_rightPanel.activeTab === 'ai-chat') {
+            checkAiChatAvailability();
+            const inp = document.getElementById('aiChatInput');
+            if (inp) setTimeout(() => inp.focus(), 100);
+        }
     }
+    _updateRightPanelLayout();
+}
+
+function switchRightPanelTab(tab) {
+    _rightPanel.activeTab = tab;
+    document.querySelectorAll('.rp-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.querySelectorAll('.rp-content').forEach(c => c.classList.toggle('active', c.dataset.tab === tab));
+    document.querySelectorAll('.cmd-panel-btn').forEach(b => {
+        const btnTab = b.id === 'cmdTerminalBtn' ? 'terminal' : 'ai-chat';
+        b.classList.toggle('active', _rightPanel.isOpen && btnTab === tab);
+    });
+    // Fit terminal when switching to terminal tab
+    if (tab === 'terminal') {
+        const active = _bottomTerminals.tabs.find(t => t.id === _bottomTerminals.activeId);
+        if (active?.fitAddon) setTimeout(() => active.fitAddon.fit(), 50);
+    }
+    if (tab === 'ai-chat') {
+        checkAiChatAvailability();
+        const inp = document.getElementById('aiChatInput');
+        if (inp) setTimeout(() => inp.focus(), 100);
+    }
+}
+
+function _updateRightPanelLayout() {
+    const mc = document.getElementById('mainContent');
+    const cb = document.querySelector('.command-bar');
+    const open = _rightPanel.isOpen;
+    if (mc) mc.classList.toggle('rp-open', open);
+    if (cb) cb.classList.toggle('rp-open', open);
+    // Update button states
+    document.querySelectorAll('.cmd-panel-btn').forEach(b => {
+        const btnTab = b.id === 'cmdTerminalBtn' ? 'terminal' : 'ai-chat';
+        b.classList.toggle('active', open && btnTab === _rightPanel.activeTab);
+    });
+}
+
+function toggleBottomTerminal() {
+    toggleRightPanel('terminal');
 }
 
 function addBottomTerminal(cwd) {
@@ -16401,32 +16521,7 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Bottom panel resize drag
-(function() {
-    const resize = document.getElementById('bottomTerminalResize');
-    const panel = document.getElementById('bottomTerminalPanel');
-    const body = document.getElementById('bottomTerminalBody');
-    if (!resize || !panel || !body) return;
-    let startY = 0, startH = 0;
-    resize.addEventListener('mousedown', (e) => {
-        startY = e.clientY;
-        startH = body.offsetHeight;
-        const onMove = (e2) => {
-            const newH = Math.max(100, Math.min(600, startH + (startY - e2.clientY)));
-            body.style.height = newH + 'px';
-            document.getElementById('mainContent').style.marginBottom = (newH + 36) + 'px';
-            // Refit active terminal
-            const active = _bottomTerminals.tabs.find(t => t.id === _bottomTerminals.activeId);
-            if (active && active.fitAddon) try { active.fitAddon.fit(); } catch(e3) {}
-        };
-        const onUp = () => {
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onUp);
-        };
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-    });
-})();
+// (Resize drag removed — terminal is now in right panel with fixed width)
 
 // Clean up interactive PTY when leaving deep view
 const _origCloseDeepView = typeof closeDeepView === 'function' ? closeDeepView : null;
@@ -16446,25 +16541,100 @@ if (_origCloseDeepView) {
 
 const _aiChat = {
     messages: [],
-    isOpen: false,
     sending: false,
+    _checkedAvailability: false,
+    _aiAvailable: false,
 };
 
 function toggleAiChat() {
-    _aiChat.isOpen = !_aiChat.isOpen;
-    document.getElementById('aiChatPanel').classList.toggle('open', _aiChat.isOpen);
-    if (_aiChat.isOpen) {
-        const input = document.getElementById('aiChatInput');
-        if (input) setTimeout(() => input.focus(), 100);
-        // Check if LLM is available on first open
-        if (!_aiChat._checkedAvailability) {
-            _aiChat._checkedAvailability = true;
-            const sh = state._serviceHealth;
-            if (sh && !sh.llm_enabled) {
-                _aiChat.messages = [{ role: 'system', content: 'AI chat requires XAI_API_KEY. Set it in your environment and restart the server:\n\nexport XAI_API_KEY="your-key"\nashlr' }];
+    toggleRightPanel('ai-chat');
+}
+
+function checkAiChatAvailability() {
+    // Check API key status and update setup prompt
+    apiFetch('/api/config/api-key/status').then(r => r.json()).then(data => {
+        _aiChat._aiAvailable = data.available;
+        const setupEl = document.getElementById('aiSetupPrompt');
+        const keyRow = document.getElementById('aiKeyRow');
+        const statusEl = document.getElementById('aiKeyStatus');
+        const promptEl = document.getElementById('aiSetupKeyPrompt');
+        // Show model info in chat bar
+        const modelEl = document.getElementById('aiChatModel');
+        if (modelEl) modelEl.textContent = data.available && data.model ? `Model: ${data.model}` : '';
+        if (data.available) {
+            if (setupEl) setupEl.style.display = 'none';
+            if (!_aiChat._checkedAvailability) {
+                _aiChat._checkedAvailability = true;
+                _aiChat.messages = [{ role: 'system', content: 'AI connected. Ask me anything about your fleet.' }];
                 _renderChatMessages();
             }
+        } else if (data.has_key) {
+            if (promptEl) promptEl.textContent = 'Key set but AI is not responding. Check your key.';
+            if (keyRow) keyRow.style.display = 'flex';
+            if (statusEl) { statusEl.textContent = 'Key saved but not working'; statusEl.style.color = 'var(--warning)'; }
+        } else {
+            if (setupEl) setupEl.style.display = 'flex';
+            if (keyRow) keyRow.style.display = 'flex';
         }
+        // Also update settings
+        const settingsStatus = document.getElementById('settingsAiKeyStatus');
+        if (settingsStatus) settingsStatus.textContent = data.available ? 'Connected' : (data.has_key ? 'Key set, not connected' : 'No key set');
+    }).catch(() => {});
+}
+
+async function saveAiApiKey() {
+    const input = document.getElementById('aiApiKeyInput');
+    const key = input?.value?.trim();
+    if (!key) return;
+    const statusEl = document.getElementById('aiKeyStatus');
+    if (statusEl) { statusEl.textContent = 'Activating...'; statusEl.style.color = 'var(--text-tertiary)'; }
+    try {
+        const resp = await apiFetch('/api/config/api-key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key }),
+        });
+        const data = await resp.json();
+        if (data.ok && data.available) {
+            if (statusEl) { statusEl.textContent = 'AI activated successfully!'; statusEl.style.color = 'var(--success)'; }
+            _aiChat._aiAvailable = true;
+            _aiChat._checkedAvailability = true;
+            const setupEl = document.getElementById('aiSetupPrompt');
+            if (setupEl) setupEl.style.display = 'none';
+            _aiChat.messages = [{ role: 'system', content: 'AI connected. Ask me anything about your fleet.' }];
+            _renderChatMessages();
+            if (input) input.value = '';
+        } else {
+            if (statusEl) { statusEl.textContent = data.error || 'Key saved but AI not available'; statusEl.style.color = 'var(--warning)'; }
+        }
+    } catch (e) {
+        if (statusEl) { statusEl.textContent = 'Failed to save key'; statusEl.style.color = 'var(--danger)'; }
+    }
+}
+
+async function saveAiApiKeyFromSettings() {
+    const input = document.getElementById('setAiApiKey');
+    const key = input?.value?.trim();
+    if (!key) return;
+    const statusEl = document.getElementById('settingsAiKeyStatus');
+    if (statusEl) { statusEl.textContent = 'Activating...'; statusEl.style.color = 'var(--text-tertiary)'; }
+    try {
+        const resp = await apiFetch('/api/config/api-key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key }),
+        });
+        const data = await resp.json();
+        if (data.ok && data.available) {
+            if (statusEl) { statusEl.textContent = 'AI activated!'; statusEl.style.color = 'var(--success)'; }
+            _aiChat._aiAvailable = true;
+            if (input) input.value = '';
+            showToast('AI features activated', 'success');
+        } else {
+            if (statusEl) { statusEl.textContent = data.error || 'Key saved but not working'; statusEl.style.color = 'var(--warning)'; }
+        }
+    } catch (e) {
+        if (statusEl) { statusEl.textContent = 'Failed to save'; statusEl.style.color = 'var(--danger)'; }
     }
 }
 

@@ -3223,11 +3223,11 @@ class TestSilentExceptionLogging:
         assert 'log.debug' in src or 'log.warning' in src
         assert 'add_recent_task' in src
 
-    def test_resume_body_parse_logs(self):
-        """resume_agent should log when request body parsing fails."""
+    def test_resume_body_parse_catches_json_errors(self):
+        """resume_agent should catch JSONDecodeError for missing body."""
         import inspect
         src = inspect.getsource(ashlr_server.resume_agent)
-        assert 'log.debug' in src
+        assert 'JSONDecodeError' in src
 
     def test_restart_body_parse_logs(self):
         """restart_agent should log when request body parsing fails."""

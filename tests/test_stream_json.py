@@ -100,7 +100,6 @@ class TestAgentModelStreamFields:
         agent = make_stream_agent()
         assert agent.output_mode == "stream-json"
         assert agent._subprocess_proc is None
-        assert agent._stream_buffer == ""
         assert agent._reader_task is None
 
     def test_to_dict_includes_output_mode(self):

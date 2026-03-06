@@ -63,18 +63,21 @@ pub fn run() {
                     Err(e) => {
                         log::error!("Failed to start Python server: {}", e);
                         if let Some(window) = handle.get_webview_window("main") {
+                            let accent = "#706CF0";
                             let html = format!(
-                                r#"<html><body style="background:#08090E;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-                                <div style="text-align:center">
-                                    <h1 style="color:#F97316">Ashlr AO</h1>
-                                    <p>Failed to start the Python server.</p>
-                                    <p style="color:#888;font-size:14px">{}</p>
-                                    <p style="margin-top:20px;font-size:13px;color:#666">
-                                        Make sure <code>ashlr-ao</code> is installed:<br>
-                                        <code style="color:#706CF0">pip install ashlr-ao</code>
+                                r##"<html><body style="background:#08090E;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+                                <div style="text-align:center;max-width:400px">
+                                    <svg width="48" height="48" viewBox="0 0 32 32" style="margin-bottom:20px"><rect width="32" height="32" rx="5" fill="#0D1117"/><path d="M16 5L8 26h3.2l1.8-4.2h6l1.8 4.2H24L16 5zm0 6l2.4 5.6h-4.8L16 11z" fill="#DCE1EB"/><path d="M13.2 17l5.6 0 1.2 3.8H12z" fill="#4285F4"/></svg>
+                                    <h1 style="color:#F0F0F2;font-size:18px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px">Ashlr AO</h1>
+                                    <p style="color:#8E929E;font-size:14px;margin-bottom:8px">Failed to start the server</p>
+                                    <p style="color:#555968;font-size:12px;margin-bottom:20px;overflow-wrap:break-word">{err}</p>
+                                    <p style="font-size:12px;color:#555968">
+                                        Make sure <code style="color:{accent}">ashlr-ao</code> is installed:<br>
+                                        <code style="color:{accent};font-size:13px">pip install ashlr-ao</code>
                                     </p>
-                                </div></body></html>"#,
-                                e
+                                </div></body></html>"##,
+                                err = e,
+                                accent = accent,
                             );
                             let _ = window.navigate(
                                 format!("data:text/html,{}", urlencoding::encode(&html))

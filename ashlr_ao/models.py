@@ -251,7 +251,6 @@ class Agent:
     # Stream-json subprocess mode (Phase 5: --print mode)
     output_mode: str = field(default="tmux", repr=False)  # "tmux" or "stream-json"
     _subprocess_proc: asyncio.subprocess.Process | None = field(default=None, repr=False)
-    _stream_buffer: str = field(default="", repr=False)  # Partial JSON line buffer
     _reader_task: asyncio.Task | None = field(default=None, repr=False)
 
     def set_status(self, new_status: str) -> bool:

@@ -9,57 +9,106 @@
   body {
     background: #08090E;
     color: #fff;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     display: flex;
     align-items: center;
     justify-content: center;
     height: 100vh;
     -webkit-user-select: none;
     user-select: none;
+    overflow: hidden;
+  }
+  /* Subtle ambient gradient behind the logo */
+  .ambient {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -55%);
+    width: 360px; height: 360px;
+    background: radial-gradient(circle, rgba(66,133,244,0.12) 0%, rgba(66,133,244,0.04) 40%, transparent 70%);
+    pointer-events: none;
+    animation: ambientPulse 3s ease-in-out infinite;
+  }
+  @keyframes ambientPulse {
+    0%, 100% { opacity: 0.7; transform: translate(-50%, -55%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -55%) scale(1.08); }
   }
   .loader {
     text-align: center;
+    position: relative;
+    z-index: 1;
   }
-  .logo {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 24px;
-    animation: pulse 2s ease-in-out infinite;
+  .logo-mark {
+    width: 72px; height: 72px;
+    margin: 0 auto 28px;
+    animation: logoEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
-  @keyframes pulse {
-    0%, 100% { opacity: 0.6; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.05); }
+  @keyframes logoEntrance {
+    0% { opacity: 0; transform: scale(0.8) translateY(8px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
   }
-  h1 {
-    font-size: 24px;
-    font-weight: 600;
-    color: #F97316;
-    margin-bottom: 8px;
+  .brand {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #F0F0F2;
+    margin-bottom: 6px;
+    animation: textFadeIn 0.6s 0.3s ease both;
   }
-  p {
-    font-size: 14px;
-    color: #666;
+  .tagline {
+    font-size: 12px;
+    color: #555968;
+    letter-spacing: 0.5px;
+    margin-bottom: 32px;
+    animation: textFadeIn 0.6s 0.5s ease both;
   }
-  .dots::after {
-    content: '';
-    animation: dots 1.5s steps(3, end) infinite;
+  @keyframes textFadeIn {
+    0% { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
   }
-  @keyframes dots {
-    0% { content: ''; }
-    33% { content: '.'; }
-    66% { content: '..'; }
-    100% { content: '...'; }
+  /* Spinner bar */
+  .spinner-track {
+    width: 120px;
+    height: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    margin: 0 auto;
+    overflow: hidden;
+    animation: textFadeIn 0.6s 0.7s ease both;
+  }
+  .spinner-bar {
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(90deg, #4285F4, #3B7AE0);
+    border-radius: 2px;
+    animation: slide 1.4s ease-in-out infinite;
+  }
+  @keyframes slide {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(200%); }
+    100% { transform: translateX(-100%); }
+  }
+  .status {
+    font-size: 11px;
+    color: #3A3D4A;
+    margin-top: 14px;
+    letter-spacing: 0.3px;
+    animation: textFadeIn 0.6s 0.9s ease both;
   }
 </style>
 </head>
 <body>
+<div class="ambient"></div>
 <div class="loader">
-  <svg class="logo" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-    <rect width="32" height="32" rx="6" fill="#0D1520"/>
-    <path d="M16 6L8 26h4l2-5h4l2 5h4L16 6zm0 8l2.5 6h-5L16 14z" fill="#F97316"/>
+  <svg class="logo-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+    <rect width="32" height="32" rx="5" fill="#0D1117"/>
+    <path d="M16 5L8 26h3.2l1.8-4.2h6l1.8 4.2H24L16 5zm0 6l2.4 5.6h-4.8L16 11z" fill="#DCE1EB"/>
+    <path d="M13.2 17l5.6 0 1.2 3.8H12z" fill="#4285F4"/>
   </svg>
-  <h1>Ashlr AO</h1>
-  <p>Starting server<span class="dots"></span></p>
+  <div class="brand">Ashlr AO</div>
+  <div class="tagline">Agent Orchestrator</div>
+  <div class="spinner-track"><div class="spinner-bar"></div></div>
+  <div class="status">Starting server</div>
 </div>
 </body>
 </html>
