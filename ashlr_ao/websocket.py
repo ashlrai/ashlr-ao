@@ -209,6 +209,18 @@ class WebSocketHub:
                 if not self._ws_rate_check(ws, "spawn"):
                     await ws.send_json({"type": "error", "message": "Rate limit exceeded for spawn"})
                     return
+                # License enforcement — sync license from app and check agent limit
+                app = getattr(self, 'app', None)
+                if app:
+                    # Ensure manager has latest license (may have changed via API)
+                    self.agent_manager.license = app.get("license", COMMUNITY_LICENSE)
+                    max_agents = _effective_max_agents(app)
+                    current = len(self.agent_manager.agents)
+                    if current >= max_agents:
+                        lic: License = app.get("license", COMMUNITY_LICENSE)
+                        suffix = " Upgrade to Pro for more." if not lic.is_pro else ""
+                        await ws.send_json({"type": "error", "message": f"Agent limit reached ({max_agents}).{suffix}"})
+                        return
                 task = data.get("task", "")
                 if not isinstance(task, str) or not task.strip():
                     await ws.send_json({"type": "error", "message": "task is required"})

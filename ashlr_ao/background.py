@@ -969,6 +969,8 @@ async def health_check_loop(app: web.Application) -> None:
         # Auto-spawn from task queue when slots are available
         try:
             config: Config = app["config"]
+            # Sync license from app to manager (may have changed via API)
+            manager.license = app.get("license", COMMUNITY_LICENSE)
             queue_max = _effective_max_agents(app)
             active_count = sum(1 for a in list(manager.agents.values()) if a.status not in ("idle", "complete"))
             while manager.task_queue and active_count < queue_max:

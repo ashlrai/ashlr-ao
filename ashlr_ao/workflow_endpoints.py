@@ -283,6 +283,8 @@ async def cancel_workflow_run(request: web.Request) -> web.Response:
 
 
 async def delete_workflow(request: web.Request) -> web.Response:
+    if r := _check_feature(request, "workflows"):
+        return r
     db: Database = request.app["db"]
     workflow_id = request.match_info["id"]
     if workflow_id.startswith("builtin-"):

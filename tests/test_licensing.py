@@ -540,6 +540,52 @@ class TestAgentLimitEnforcement:
         assert "upgrade to Pro" in body["error"]
 
 
+    @pytest.mark.asyncio
+    async def test_community_ws_spawn_limit(self, aiohttp_client):
+        """WebSocket spawn should also enforce Community agent limit."""
+        app = _make_test_app(license=COMMUNITY_LICENSE)
+        manager = app["agent_manager"]
+        # Fill up to limit with mock agents
+        from collections import deque
+        for i in range(5):
+            agent = ashlr_server.Agent(
+                id=f"a{i}", name=f"agent-{i}", role="general",
+                status="working", working_dir=TEST_WORKING_DIR,
+                backend="claude-code", task="test",
+            )
+            agent.output_lines = deque(maxlen=2000)
+            manager.agents[agent.id] = agent
+
+        client = await aiohttp_client(app)
+        ws = await client.ws_connect("/ws")
+        # Consume initial sync
+        await ws.receive_json()
+
+        await ws.send_json({
+            "type": "spawn",
+            "role": "general",
+            "task": "should be blocked",
+            "working_dir": TEST_WORKING_DIR,
+        })
+
+        # Should receive error about agent limit
+        msg = await asyncio.wait_for(ws.receive_json(), timeout=2.0)
+        assert msg["type"] == "error"
+        assert "Agent limit reached" in msg["message"]
+        assert "Upgrade to Pro" in msg["message"]
+        await ws.close()
+
+    @pytest.mark.asyncio
+    async def test_delete_workflow_gated_on_community(self, aiohttp_client):
+        """DELETE /api/workflows/{id} should be gated to Pro tier."""
+        app = _make_test_app(license=COMMUNITY_LICENSE)
+        client = await aiohttp_client(app)
+        resp = await client.delete("/api/workflows/some-id")
+        assert resp.status == 403
+        body = await resp.json()
+        assert body["feature"] == "workflows"
+
+
 class TestAdminOnlyConfig:
     @pytest.mark.asyncio
     async def test_max_agents_clamped_to_license(self, aiohttp_client):
