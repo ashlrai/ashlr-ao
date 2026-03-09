@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deployment — Ashlr AO Docs</title>
+  <meta name="description" content="Deploy Ashlr AO with Docker, Caddy HTTPS, and multi-user authentication for team use.">
+  <link rel="canonical" href="https://ashlrao.com/docs/deployment">
+
+  <meta property="og:title" content="Deployment Guide — Ashlr AO">
+  <meta property="og:description" content="Docker Compose + Caddy HTTPS deployment, production environment variables, and multi-user auth setup.">
+  <meta property="og:url" content="https://ashlrao.com/docs/deployment">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Ashlr AO">
+  <meta property="og:image" content="https://ashlrao.com/public/og-image.png">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Deployment Guide — Ashlr AO">
+  <meta name="twitter:description" content="Docker Compose + Caddy HTTPS deployment, production environment variables, and multi-user auth setup.">
+  <meta name="twitter:image" content="https://ashlrao.com/public/og-image.png">
+
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+  <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/docs.css">
+</head>
+<body>
+
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a href="/" aria-label="Ashlr AO Home"><img src="/public/logo.svg" alt="Ashlr AO" class="nav-logo"></a>
+      <div class="nav-links">
+        <a href="/#features">Features</a>
+        <a href="/docs/" class="active">Docs</a>
+        <a href="/blog/">Blog</a>
+        <a href="/pricing">Pricing</a>
+        <a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="nav-right">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <a href="/docs/getting-started" class="btn btn-primary">Get Started</a>
+        <button class="nav-mobile-toggle" aria-label="Toggle menu" aria-expanded="false"><span></span></button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="docs-nav-group">
+        <h4>Getting Started</h4>
+        <a href="/docs/">Overview</a>
+        <a href="/docs/getting-started">Installation &amp; Setup</a>
+      </div>
+      <div class="docs-nav-group">
+        <h4>Configuration</h4>
+        <a href="/docs/configuration">Config Reference</a>
+        <a href="/docs/deployment" class="active">Deployment</a>
+      </div>
+      <div class="docs-nav-group">
+        <h4>Reference</h4>
+        <a href="/docs/api-reference">API Reference</a>
+        <a href="/docs/desktop-app">Desktop App</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <h1>Deployment</h1>
+      <p class="docs-subtitle">Deploy Ashlr AO for team use with Docker, HTTPS, and multi-user authentication.</p>
+
+      <h2>Deployment Options</h2>
+      <table>
+        <thead><tr><th>Method</th><th>Best For</th><th>HTTPS</th><th>Multi-User</th></tr></thead>
+        <tbody>
+          <tr><td>Local (pip install)</td><td>Solo developer</td><td>No</td><td>Optional</td></tr>
+          <tr><td>Local (from source)</td><td>Development / contributing</td><td>No</td><td>Optional</td></tr>
+          <tr><td>Docker Compose</td><td>Team deployment</td><td>Yes (Caddy)</td><td>Yes</td></tr>
+          <tr><td>Desktop App</td><td>macOS native experience</td><td>No</td><td>No</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Docker Compose + Caddy HTTPS</h2>
+      <p>The recommended production deployment uses Docker Compose with Caddy as a reverse proxy. Caddy automatically provisions Let's Encrypt HTTPS certificates.</p>
+
+      <h3>Prerequisites</h3>
+      <ul>
+        <li>Docker and Docker Compose installed</li>
+        <li>A domain name pointing to your server's IP address</li>
+        <li>Port 80 and 443 open on your firewall</li>
+        <li>tmux installed on the host (agents run on the host, not inside containers)</li>
+      </ul>
+
+      <h3>docker-compose.yml</h3>
+      <pre><code>version: "3.8"
+
+services:
+  ashlr:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "5111:5111"
+    environment:
+      - ASHLR_HOST=0.0.0.0
+      - ASHLR_PORT=5111
+      - ASHLR_ALLOWED_ORIGINS=https://ashlr.yourdomain.com
+      - XAI_API_KEY=${XAI_API_KEY:-}
+    volumes:
+      - ashlr-data:/root/.ashlr
+      - /tmp:/tmp
+    network_mode: host
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  ashlr-data:
+  caddy-data:
+  caddy-config:</code></pre>
+
+      <h3>Caddyfile</h3>
+      <pre><code>ashlr.yourdomain.com {
+    reverse_proxy localhost:5111
+}</code></pre>
+      <p>Replace <code>ashlr.yourdomain.com</code> with your actual domain. Caddy handles TLS certificate provisioning and renewal automatically.</p>
+
+      <h3>Dockerfile</h3>
+      <pre><code>FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y tmux && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+RUN pip install --no-cache-dir -e .
+
+EXPOSE 5111
+CMD ["ashlr"]</code></pre>
+
+      <h3>Launch</h3>
+      <pre><code># Set your domain
+export ASHLR_DOMAIN=ashlr.yourdomain.com
+
+# Optional: enable intelligence layer
+export XAI_API_KEY=your-xai-api-key
+
+# Start services
+docker compose up -d
+
+# Check logs
+docker compose logs -f ashlr</code></pre>
+      <p>Your Ashlr instance will be available at <code>https://ashlr.yourdomain.com</code> with auto-provisioned HTTPS.</p>
+
+      <h2>Production Environment Variables</h2>
+      <table>
+        <thead><tr><th>Variable</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>ASHLR_HOST</code></td><td>Yes (Docker)</td><td>Set to <code>0.0.0.0</code> to accept connections from all interfaces.</td></tr>
+          <tr><td><code>ASHLR_PORT</code></td><td>No</td><td>HTTP port (default: 5111).</td></tr>
+          <tr><td><code>ASHLR_ALLOWED_ORIGINS</code></td><td>Yes</td><td>Set to your domain (e.g., <code>https://ashlr.yourdomain.com</code>). Do NOT use <code>*</code> in production.</td></tr>
+          <tr><td><code>XAI_API_KEY</code></td><td>No</td><td>Enables intelligence features (summaries, NLU, fleet analysis).</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-warning">
+        <p><strong>Security:</strong> Always set <code>ASHLR_ALLOWED_ORIGINS</code> to your specific domain in production. The default <code>*</code> allows any origin to make requests to your Ashlr instance.</p>
+      </div>
+
+      <h2>Multi-User Authentication</h2>
+      <p>Ashlr AO supports session-based multi-user authentication with bcrypt password hashing. This is a Pro tier feature.</p>
+
+      <h3>How Auth Works</h3>
+      <ol>
+        <li>The <strong>first user</strong> to register becomes the admin and automatically creates the organization.</li>
+        <li>The admin can <strong>invite additional users</strong> via <code>POST /api/auth/invite</code>, which generates a temporary password.</li>
+        <li>Invited users log in with their email and temporary password, then change their password.</li>
+        <li>All organization members can <strong>view all agents</strong> (the whole point of a command center), but only the <strong>agent owner or admin</strong> can control (send, pause, kill) an agent.</li>
+      </ol>
+
+      <h3>Setting Up Auth</h3>
+      <p>Auth activates automatically when the first user registers:</p>
+      <pre><code># 1. Register the admin user
+curl -X POST https://ashlr.yourdomain.com/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@yourcompany.com",
+    "password": "strong-password-here",
+    "name": "Admin"
+  }'
+
+# 2. Login to get a session cookie
+curl -X POST https://ashlr.yourdomain.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -c cookies.txt \
+  -d '{"email": "admin@yourcompany.com", "password": "strong-password-here"}'
+
+# 3. Invite a team member (admin only)
+curl -X POST https://ashlr.yourdomain.com/api/auth/invite \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"email": "dev@yourcompany.com", "name": "Developer"}'
+# Returns: {"email": "dev@yourcompany.com", "temp_password": "..."}</code></pre>
+
+      <h3>Session Security</h3>
+      <p>Authentication sessions use secure cookies:</p>
+      <ul>
+        <li><strong>HttpOnly</strong> &mdash; Not accessible via JavaScript (prevents XSS token theft)</li>
+        <li><strong>SameSite=Strict</strong> &mdash; Only sent on same-origin requests (prevents CSRF)</li>
+        <li><strong>Secure</strong> &mdash; Only sent over HTTPS (when behind Caddy or another TLS proxy)</li>
+      </ul>
+      <p>For API/CLI access, Ashlr also supports <code>Authorization: Bearer &lt;token&gt;</code> headers as a fallback.</p>
+
+      <h3>Agent Ownership</h3>
+      <p>When auth is enabled, every spawned agent is tagged with the owner's email. Ownership rules:</p>
+      <ul>
+        <li>All org members can <strong>view</strong> all agents and their output</li>
+        <li>Only the <strong>owner</strong> can send messages, pause, resume, or kill their agent</li>
+        <li><strong>Admins</strong> can control any agent</li>
+        <li>The <code>PUT /api/config</code> endpoint requires admin role</li>
+      </ul>
+
+      <h2>License Activation</h2>
+      <p>For team deployments, you will need a Pro license to unlock multi-user auth, workflows, fleet templates, and the intelligence layer.</p>
+      <pre><code># Activate a license key (admin only)
+curl -X POST https://ashlr.yourdomain.com/api/license/activate \
+  -H "Content-Type: application/json" \
+  -b cookies.txt \
+  -d '{"key": "eyJhbGciOiJFZERTQSIs..."}'
+
+# Check license status
+curl https://ashlr.yourdomain.com/api/license/status</code></pre>
+      <p>License keys are Ed25519-signed JWTs that are validated offline. There is no phone-home or license server.</p>
+
+      <h2>Data Persistence</h2>
+      <p>Ashlr stores all persistent data in two files under <code>~/.ashlr/</code>:</p>
+      <table>
+        <thead><tr><th>File</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><td><code>~/.ashlr/ashlr.yaml</code></td><td>Configuration (server, agents, backends, auto-pilot, display, licensing)</td></tr>
+          <tr><td><code>~/.ashlr/ashlr.db</code></td><td>SQLite database (agent history, projects, workflows, users, organizations, fleet templates)</td></tr>
+        </tbody>
+      </table>
+      <p>In Docker, mount <code>/root/.ashlr</code> as a named volume to persist data across container restarts:</p>
+      <pre><code>volumes:
+  - ashlr-data:/root/.ashlr</code></pre>
+
+      <h2>Security Hardening Checklist</h2>
+      <p>Before exposing Ashlr AO to the network, verify these security measures:</p>
+      <ul>
+        <li><strong>Set ASHLR_ALLOWED_ORIGINS</strong> to your specific domain</li>
+        <li><strong>Enable auth</strong> by registering an admin user</li>
+        <li><strong>Use HTTPS</strong> via Caddy or another TLS proxy</li>
+        <li><strong>Activate a Pro license</strong> to enforce multi-user auth and agent ownership</li>
+        <li><strong>Review auto-pilot settings</strong> &mdash; disable auto-approve in shared environments unless you trust all patterns</li>
+        <li><strong>Restrict working directories</strong> &mdash; Ashlr enforces <code>~/</code> and <code>/tmp</code> restrictions, but verify no sensitive symlinks exist</li>
+        <li><strong>Set memory limits</strong> &mdash; Configure <code>agents.memory_limit_mb</code> to prevent runaway agents</li>
+      </ul>
+
+      <h2>Built-in Security Features</h2>
+      <p>Ashlr AO includes several security measures by default:</p>
+      <ul>
+        <li><strong>CSP headers</strong> &mdash; Content Security Policy restricts script sources</li>
+        <li><strong>Rate limiting</strong> &mdash; Request rate limiting via middleware</li>
+        <li><strong>Request size limits</strong> &mdash; Maximum request body size enforced</li>
+        <li><strong>Secret redaction</strong> &mdash; API keys and passwords are redacted in error responses and logs</li>
+        <li><strong>Path traversal protection</strong> &mdash; Working directory paths are validated with <code>os.path.realpath</code> and restricted to allowed prefixes</li>
+        <li><strong>Message size limits</strong> &mdash; Agent messages capped at 50,000 characters</li>
+        <li><strong>Compression</strong> &mdash; Response compression via middleware</li>
+      </ul>
+
+      <h2>Monitoring</h2>
+      <p>Monitor your Ashlr instance health via these endpoints:</p>
+      <ul>
+        <li><code>GET /api/health</code> &mdash; Returns <code>{"status": "ok"}</code> when the server is running</li>
+        <li><code>GET /api/system</code> &mdash; CPU, memory, active agent count, uptime</li>
+        <li><code>GET /api/costs</code> &mdash; Estimated cost tracking for all agents</li>
+      </ul>
+      <p>The WebSocket connection at <code>/ws</code> broadcasts system metrics every 2 seconds, making it suitable for real-time monitoring dashboards.</p>
+
+      <h2>Backup &amp; Restore</h2>
+      <p>To backup your Ashlr instance, copy the <code>~/.ashlr/</code> directory:</p>
+      <pre><code># Backup
+cp -r ~/.ashlr ~/.ashlr-backup-$(date +%Y%m%d)
+
+# Restore
+cp -r ~/.ashlr-backup-20260308 ~/.ashlr</code></pre>
+      <p>The SQLite database supports online backup. For Docker deployments, you can also use <code>docker cp</code> to extract the volume data.</p>
+
+      <a href="https://github.com/Ashlar-inc/ashlar-ao/edit/main/docs/deployment.md" target="_blank" rel="noopener" class="docs-edit-link">Edit this page on GitHub</a>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="/public/logo.svg" alt="Ashlr AO" width="100" height="32">
+          <p>Local-first agent orchestration platform for AI coding agents.</p>
+        </div>
+        <div class="footer-col"><h4>Product</h4><a href="/#features">Features</a><a href="/pricing">Pricing</a><a href="https://github.com/Ashlar-inc/ashlar-ao/releases" target="_blank" rel="noopener">Downloads</a></div>
+        <div class="footer-col"><h4>Resources</h4><a href="/docs/">Documentation</a><a href="/docs/getting-started">Getting Started</a><a href="/docs/api-reference">API Reference</a><a href="/blog/">Blog</a></div>
+        <div class="footer-col"><h4>Community</h4><a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a><a href="https://pypi.org/project/ashlr-ao/" target="_blank" rel="noopener">PyPI</a><a href="https://github.com/Ashlar-inc/ashlar-ao/issues" target="_blank" rel="noopener">Issues</a></div>
+      </div>
+      <div class="footer-bottom">
+        <span>A product by <a href="https://ashlr.ai">ashlr.ai</a></span>
+        <span>&copy; 2026 Ashlr. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/main.js"></script>
+</body>
+</html>

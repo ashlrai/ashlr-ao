@@ -429,6 +429,10 @@ python generate_license.py decode <jwt-token>
 
 When auth is enabled, `PUT /api/config` requires admin role. `max_agents` in config updates is clamped to the license ceiling.
 
+## Website
+
+Marketing website at [ashlrao.com](https://ashlrao.com). Static HTML/CSS/JS in `website/` directory, deployed to Vercel. Includes landing page, docs (6 pages), blog, and pricing page.
+
 ## Deployment
 
 ```bash

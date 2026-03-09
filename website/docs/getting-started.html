@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Getting Started — Ashlr AO Docs</title>
+  <meta name="description" content="Install Ashlr AO, spawn your first AI coding agent, and learn the dashboard basics in under 5 minutes.">
+  <link rel="canonical" href="https://ashlrao.com/docs/getting-started">
+
+  <meta property="og:title" content="Getting Started with Ashlr AO">
+  <meta property="og:description" content="Install Ashlr AO and spawn your first AI coding agent in under 30 seconds.">
+  <meta property="og:url" content="https://ashlrao.com/docs/getting-started">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Ashlr AO">
+  <meta property="og:image" content="https://ashlrao.com/public/og-image.png">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Getting Started with Ashlr AO">
+  <meta name="twitter:description" content="Install Ashlr AO and spawn your first AI coding agent in under 30 seconds.">
+  <meta name="twitter:image" content="https://ashlrao.com/public/og-image.png">
+
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+  <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/docs.css">
+</head>
+<body>
+
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a href="/" aria-label="Ashlr AO Home"><img src="/public/logo.svg" alt="Ashlr AO" class="nav-logo"></a>
+      <div class="nav-links">
+        <a href="/#features">Features</a>
+        <a href="/docs/" class="active">Docs</a>
+        <a href="/blog/">Blog</a>
+        <a href="/pricing">Pricing</a>
+        <a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="nav-right">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <a href="/docs/getting-started" class="btn btn-primary">Get Started</a>
+        <button class="nav-mobile-toggle" aria-label="Toggle menu" aria-expanded="false"><span></span></button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="docs-nav-group">
+        <h4>Getting Started</h4>
+        <a href="/docs/">Overview</a>
+        <a href="/docs/getting-started" class="active">Installation &amp; Setup</a>
+      </div>
+      <div class="docs-nav-group">
+        <h4>Configuration</h4>
+        <a href="/docs/configuration">Config Reference</a>
+        <a href="/docs/deployment">Deployment</a>
+      </div>
+      <div class="docs-nav-group">
+        <h4>Reference</h4>
+        <a href="/docs/api-reference">API Reference</a>
+        <a href="/docs/desktop-app">Desktop App</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <h1>Installation &amp; Setup</h1>
+      <p class="docs-subtitle">Get Ashlr AO running and spawn your first AI coding agent in under 30 seconds.</p>
+
+      <h2>Prerequisites</h2>
+      <p>Before installing Ashlr AO, make sure you have the following:</p>
+      <ul>
+        <li><strong>Python 3.11+</strong> &mdash; Check with <code>python3 --version</code></li>
+        <li><strong>tmux</strong> &mdash; Terminal multiplexer for agent session isolation. Install with <code>brew install tmux</code> (macOS) or <code>apt install tmux</code> (Linux)</li>
+        <li><strong>At least one AI coding agent backend:</strong>
+          <ul>
+            <li><a href="https://docs.anthropic.com/en/docs/claude-code" target="_blank" rel="noopener">Claude Code</a> &mdash; <code>npm install -g @anthropic-ai/claude-code</code></li>
+            <li><a href="https://github.com/openai/codex" target="_blank" rel="noopener">Codex</a> &mdash; <code>npm install -g @openai/codex</code></li>
+            <li><a href="https://aider.chat" target="_blank" rel="noopener">Aider</a> &mdash; <code>pip install aider-chat</code></li>
+            <li><a href="https://github.com/block/goose" target="_blank" rel="noopener">Goose</a> &mdash; <code>pip install goose-ai</code></li>
+          </ul>
+        </li>
+      </ul>
+
+      <div class="callout callout-tip">
+        <p><strong>Tip:</strong> Claude Code is the recommended backend. It supports plan mode, model selection, tool restriction, and stream-json output mode.</p>
+      </div>
+
+      <h2>Install via pip</h2>
+      <p>The fastest way to get started:</p>
+      <pre><code>pip install ashlr-ao
+ashlr</code></pre>
+      <p>This installs the <code>ashlr</code> CLI command. Running it starts the server and opens the dashboard at <a href="http://127.0.0.1:5111">http://127.0.0.1:5111</a>.</p>
+
+      <h3>CLI Options</h3>
+      <pre><code>ashlr                          # Start with defaults
+ashlr --port 8080              # Custom port
+ashlr --host 0.0.0.0           # Bind to all interfaces
+ashlr --demo                   # Demo mode (no real agents)
+ashlr --log-level DEBUG        # Verbose logging
+ashlr --version                # Print version and exit</code></pre>
+
+      <h2>Install from Source</h2>
+      <p>Clone the repository and use the included start script:</p>
+      <pre><code>git clone https://github.com/Ashlar-inc/ashlar-ao.git
+cd ashlar-ao
+./start.sh</code></pre>
+      <p>The <code>start.sh</code> script creates a virtual environment, runs <code>pip install -e .</code>, verifies tmux and backends are available, and starts the server.</p>
+
+      <h2>Install with Docker</h2>
+      <p>For containerized deployments:</p>
+      <pre><code>git clone https://github.com/Ashlar-inc/ashlar-ao.git
+cd ashlar-ao
+docker compose up -d</code></pre>
+      <p>See the <a href="/docs/deployment">Deployment guide</a> for full Docker + HTTPS configuration with Caddy.</p>
+
+      <h2>First Run</h2>
+      <p>On first launch, Ashlr AO automatically:</p>
+      <ol>
+        <li>Creates the config directory at <code>~/.ashlr/</code></li>
+        <li>Generates a default <code>ashlr.yaml</code> config file</li>
+        <li>Creates the SQLite database at <code>~/.ashlr/ashlr.db</code></li>
+        <li>Cleans up any orphaned tmux sessions from prior crashes</li>
+        <li>Starts the aiohttp server on port 5111</li>
+        <li>Opens the dashboard in your default browser</li>
+      </ol>
+
+      <h2>Spawning Your First Agent</h2>
+
+      <h3>From the Dashboard</h3>
+      <ol>
+        <li>Open the dashboard at <a href="http://127.0.0.1:5111">http://127.0.0.1:5111</a></li>
+        <li>Press <kbd>Cmd+N</kbd> or click the <strong>+</strong> card to open the spawn dialog</li>
+        <li>Choose a <strong>role</strong> (e.g., Backend Engineer)</li>
+        <li>Select a <strong>backend</strong> (e.g., claude-code)</li>
+        <li>Enter the <strong>working directory</strong> path to your project (e.g., <code>~/Projects/my-app</code>)</li>
+        <li>Type a <strong>task</strong> description (e.g., "Add input validation to the user registration endpoint")</li>
+        <li>Click <strong>Spawn</strong></li>
+      </ol>
+      <p>The agent card appears in the grid immediately. Status updates from planning to working to idle as the agent progresses.</p>
+
+      <h3>From the Command Bar</h3>
+      <p>Press <kbd>Cmd+K</kbd> to open the command palette, then type a natural language command:</p>
+      <pre><code>spawn backend agent on ~/Projects/my-app to add input validation</code></pre>
+      <p>If you have the intelligence layer enabled (requires <code>XAI_API_KEY</code>), Ashlr parses natural language into structured commands automatically.</p>
+
+      <h3>From the REST API</h3>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "role": "backend",
+    "task": "Add input validation to the user registration endpoint",
+    "working_dir": "~/Projects/my-app",
+    "backend": "claude-code"
+  }'</code></pre>
+
+      <h3>Quick Templates</h3>
+      <p>The spawn dialog includes quick templates for common tasks:</p>
+      <ul>
+        <li><strong>Code Review</strong> &mdash; Review code for bugs, style issues, and improvements</li>
+        <li><strong>Tests</strong> &mdash; Write comprehensive test coverage</li>
+        <li><strong>Bug Fix</strong> &mdash; Investigate and fix a reported bug</li>
+        <li><strong>Feature</strong> &mdash; Implement a new feature</li>
+        <li><strong>Security</strong> &mdash; Run a security audit</li>
+        <li><strong>Refactor</strong> &mdash; Refactor code for clarity and performance</li>
+      </ul>
+
+      <h3>Fleet Presets (Pro)</h3>
+      <p>Spawn multiple agents at once with fleet presets:</p>
+      <ul>
+        <li><strong>Full Stack</strong> &mdash; Frontend + Backend + Tester agents</li>
+        <li><strong>Review Team</strong> &mdash; Reviewer + Security Auditor agents</li>
+        <li><strong>Quality Check</strong> &mdash; Tester + Reviewer + Docs agents</li>
+      </ul>
+
+      <h2>Dashboard Overview</h2>
+
+      <h3>Agent Card Grid</h3>
+      <p>The main view shows a grid of agent cards. Each card displays:</p>
+      <ul>
+        <li>Role icon and color</li>
+        <li>Agent name and project</li>
+        <li>Git branch badge</li>
+        <li>Live summary text</li>
+        <li>Status badge (planning, working, waiting, error, idle)</li>
+      </ul>
+      <p>Click any card to open the <strong>deep view</strong> with full terminal output, activity feed, and scratchpad.</p>
+
+      <h3>Interacting with Agents</h3>
+      <p>When an agent needs input (status: waiting), the card highlights with an orange attention indicator. Click the card or press <kbd>Cmd+Shift+A</kbd> to open the attention queue. Interaction options include:</p>
+      <ul>
+        <li><strong>Approve</strong> (keyboard: A or Y) &mdash; Accept the agent's proposal</li>
+        <li><strong>Reject</strong> (keyboard: R or N) &mdash; Decline and provide alternative direction</li>
+        <li><strong>Custom response</strong> &mdash; Type any message to send to the agent's stdin</li>
+      </ul>
+
+      <h3>Filtering and Search</h3>
+      <p>Use the toolbar above the card grid to filter agents by:</p>
+      <ul>
+        <li><strong>Project</strong> &mdash; Dropdown selector</li>
+        <li><strong>Branch</strong> &mdash; Dropdown selector</li>
+        <li><strong>Status</strong> &mdash; Clickable status chips</li>
+        <li><strong>Text search</strong> &mdash; <kbd>Cmd+/</kbd> for global search</li>
+      </ul>
+
+      <h3>Keyboard Shortcuts</h3>
+      <table>
+        <thead>
+          <tr><th>Shortcut</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><kbd>Cmd+K</kbd></td><td>Command palette</td></tr>
+          <tr><td><kbd>Cmd+N</kbd></td><td>New agent</td></tr>
+          <tr><td><kbd>Cmd+,</kbd></td><td>Settings</td></tr>
+          <tr><td><kbd>Cmd+Shift+S</kbd></td><td>Toggle bulk select mode</td></tr>
+          <tr><td><kbd>Cmd+Shift+A</kbd></td><td>Attention queue (waiting agents)</td></tr>
+          <tr><td><kbd>Cmd+Shift+F</kbd></td><td>Focus mode (single project)</td></tr>
+          <tr><td><kbd>Cmd+/</kbd></td><td>Global search</td></tr>
+          <tr><td><kbd>1</kbd>&ndash;<kbd>9</kbd></td><td>Focus agent or select role</td></tr>
+          <tr><td><kbd>Escape</kbd></td><td>Close overlay / back to grid</td></tr>
+          <tr><td><kbd>Space</kbd> (hold)</td><td>Push-to-talk voice input</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Enabling the Intelligence Layer</h2>
+      <p>The intelligence layer provides LLM-powered agent summaries, natural language command parsing, and fleet analysis. It requires an xAI API key:</p>
+      <pre><code>export XAI_API_KEY="your-xai-api-key"
+ashlr</code></pre>
+      <p>When enabled, Ashlr uses xAI Grok (via OpenAI-compatible API) to:</p>
+      <ul>
+        <li>Generate 1-line agent status summaries from terminal output</li>
+        <li>Parse natural language commands into structured intents</li>
+        <li>Run fleet analysis every 30 seconds (conflict detection, stuck agent identification, handoff opportunities)</li>
+      </ul>
+      <p>The intelligence layer includes a circuit breaker: after 5 consecutive failures, it enters a 60-second cooldown. When the LLM is unavailable, Ashlr falls back to regex-based parsing.</p>
+
+      <h2>Adding Projects</h2>
+      <p>Projects group agents by repository. To add a project:</p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/projects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-app",
+    "path": "~/Projects/my-app"
+  }'</code></pre>
+      <p>Or use the dashboard: open Settings (<kbd>Cmd+,</kbd>) and add projects from the Projects section. Ashlr auto-detects git remote URL, default branch, and other metadata.</p>
+
+      <div class="callout callout-warning">
+        <p><strong>Security note:</strong> Working directories are restricted to paths under <code>~/</code> or <code>/tmp</code>. Use symlinks if your repos are elsewhere.</p>
+      </div>
+
+      <h2>Next Steps</h2>
+      <ul>
+        <li><a href="/docs/configuration">Configure</a> backends, auto-pilot, and display settings</li>
+        <li><a href="/docs/api-reference">Explore the API</a> for programmatic control</li>
+        <li><a href="/docs/deployment">Deploy</a> with Docker and HTTPS for team use</li>
+        <li><a href="/docs/desktop-app">Download the desktop app</a> for native macOS integration</li>
+      </ul>
+
+      <a href="https://github.com/Ashlar-inc/ashlar-ao/edit/main/docs/getting-started.md" target="_blank" rel="noopener" class="docs-edit-link">Edit this page on GitHub</a>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="/public/logo.svg" alt="Ashlr AO" width="100" height="32">
+          <p>Local-first agent orchestration platform for AI coding agents.</p>
+        </div>
+        <div class="footer-col"><h4>Product</h4><a href="/#features">Features</a><a href="/pricing">Pricing</a><a href="https://github.com/Ashlar-inc/ashlar-ao/releases" target="_blank" rel="noopener">Downloads</a></div>
+        <div class="footer-col"><h4>Resources</h4><a href="/docs/">Documentation</a><a href="/docs/getting-started">Getting Started</a><a href="/docs/api-reference">API Reference</a><a href="/blog/">Blog</a></div>
+        <div class="footer-col"><h4>Community</h4><a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a><a href="https://pypi.org/project/ashlr-ao/" target="_blank" rel="noopener">PyPI</a><a href="https://github.com/Ashlar-inc/ashlar-ao/issues" target="_blank" rel="noopener">Issues</a></div>
+      </div>
+      <div class="footer-bottom">
+        <span>A product by <a href="https://ashlr.ai">ashlr.ai</a></span>
+        <span>&copy; 2026 Ashlr. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/main.js"></script>
+</body>
+</html>

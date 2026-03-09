@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ashlr AO — AI Agent Orchestration Platform</title>
+  <meta name="description" content="Local-first agent orchestration platform. Orchestrate Claude Code, Codex, Aider, and Goose from a single glassmorphic dashboard. 1,926 tests. Production-ready.">
+  <link rel="canonical" href="https://ashlrao.com">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Ashlr AO — Your AI Agents, One Command Center">
+  <meta property="og:description" content="Orchestrate Claude Code, Codex, Aider, and Goose from a single glassmorphic dashboard. Local-first. Zero config.">
+  <meta property="og:image" content="https://ashlrao.com/public/og-image.png">
+  <meta property="og:url" content="https://ashlrao.com">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Ashlr AO">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Ashlr AO — AI Agent Orchestration Platform">
+  <meta name="twitter:description" content="Orchestrate multiple AI coding agents from one command center.">
+  <meta name="twitter:image" content="https://ashlrao.com/public/twitter-card.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+  <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/landing.css">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Ashlr AO",
+    "description": "Ashlr AO is a local-first agent orchestration platform that lets developers manage multiple AI coding agents from a single glassmorphic dashboard.",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS, Linux",
+    "softwareVersion": "1.6.1",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Organization",
+      "name": "Ashlr",
+      "url": "https://ashlr.ai"
+    },
+    "downloadUrl": "https://pypi.org/project/ashlr-ao/",
+    "screenshot": "https://ashlrao.com/public/screenshot.png",
+    "featureList": [
+      "Multi-agent orchestration (5-100 agents)",
+      "Multi-repo project management",
+      "Real-time glassmorphic dashboard",
+      "Auto-pilot with stall detection",
+      "LLM-powered intelligence layer",
+      "Native macOS desktop app via Tauri v2"
+    ]
+  }
+  </script>
+
+  <!-- FAQ Schema -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is Ashlr AO?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Ashlr AO is a local-first agent orchestration platform for AI coding agents. It provides a single command center to spawn, monitor, and manage multiple AI agents (Claude Code, Codex, Aider, Goose) across multiple repositories."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I install Ashlr AO?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Install via pip: pip install ashlr-ao. Then run 'ashlr' to start. Requires Python 3.11+, tmux, and at least one AI coding agent backend installed."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is Ashlr AO free?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. The Community tier is free and includes core orchestration for up to 5 concurrent agents. The Pro tier supports up to 100 agents, multi-user auth, workflows, and the intelligence layer."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What AI coding agents does Ashlr AO support?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Ashlr AO supports Claude Code, OpenAI Codex, Aider, and Goose. Each agent runs in an isolated tmux session with real-time terminal capture."
+        }
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a href="/" aria-label="Ashlr AO Home">
+        <img src="/public/logo.svg" alt="Ashlr AO" class="nav-logo">
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/">Blog</a>
+        <a href="/pricing">Pricing</a>
+        <a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="nav-right">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <a href="/docs/getting-started" class="btn btn-primary">Get Started</a>
+        <button class="nav-mobile-toggle" aria-label="Toggle menu" aria-expanded="false">
+          <span></span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <img src="/public/logo-mark.svg" alt="" class="hero-logo" width="80" height="80">
+      <h1>Your AI agents,<br>one command center</h1>
+      <p class="hero-sub">Orchestrate Claude Code, Codex, Aider, and Goose from a single glassmorphic dashboard. Local-first. Zero config. Keyboard-driven.</p>
+      <div class="hero-actions">
+        <button class="install-cmd" aria-label="Copy install command">
+          <span class="cmd-text">pip install ashlr-ao</span>
+          <span class="copy-icon">Copy</span>
+        </button>
+        <a href="https://github.com/Ashlar-inc/ashlar-ao/releases" class="btn btn-secondary" target="_blank" rel="noopener">Download for Mac</a>
+        <a href="https://github.com/Ashlar-inc/ashlar-ao" class="btn btn-ghost" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          View on GitHub
+        </a>
+      </div>
+      <img src="/public/screenshot.png" alt="Ashlr AO Dashboard showing multiple AI agents being orchestrated" class="hero-screenshot" width="960" height="540" loading="lazy">
+    </section>
+
+    <!-- Stats Bar -->
+    <section class="section" style="padding-top: 0;">
+      <div class="container">
+        <div class="stats-bar glass">
+          <div class="stat-item"><span class="stat-value">1,926</span> tests</div>
+          <div class="stat-divider" aria-hidden="true"></div>
+          <div class="stat-item"><span class="stat-value">22</span> modules</div>
+          <div class="stat-divider" aria-hidden="true"></div>
+          <div class="stat-item"><span class="stat-value">4</span> backends</div>
+          <div class="stat-divider" aria-hidden="true"></div>
+          <div class="stat-item"><span class="stat-value">v1.6.1</span></div>
+          <div class="stat-divider" aria-hidden="true"></div>
+          <div class="stat-item"><span class="stat-value">MIT</span> License</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section-header">
+          <h2>Everything you need to<br>manage your AI fleet</h2>
+          <p>From spawning agents to auto-pilot, Ashlr AO handles the orchestration so you can focus on building.</p>
+        </div>
+        <div class="features-grid">
+          <div class="feature-card glass">
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            </div>
+            <h3>Multi-Agent Orchestration</h3>
+            <p>Spawn, monitor, and kill 5-100 AI agents. Each runs in an isolated tmux session with real-time terminal capture every second.</p>
+          </div>
+          <div class="feature-card glass">
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <h3>Multi-Repo Projects</h3>
+            <p>Organize agents by git repo. Per-project defaults for backend, model, and role. Branch tracking. Focus mode with Cmd+Shift+F.</p>
+          </div>
+          <div class="feature-card glass">
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </div>
+            <h3>Real-Time Dashboard</h3>
+            <p>Glassmorphic agent cards with live status, deep view with ANSI terminal output, activity feed, and file browser. Zero build step.</p>
+          </div>
+          <div class="feature-card glass">
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            </div>
+            <h3>Auto-Pilot</h3>
+            <p>Auto-restart stalled agents. Auto-approve safe patterns with never-approve safety list. Health-based auto-pause. Browser notifications.</p>
+          </div>
+          <div class="feature-card glass">
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <h3>Intelligence Layer</h3>
+            <p>LLM-powered agent summaries. Natural language commands. Fleet analysis every 30 seconds. Cross-agent handoff with context passing.</p>
+          </div>
+          <div class="feature-card glass">
+            <div class="feature-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M2 7h20"/></svg>
+            </div>
+            <h3>Desktop App</h3>
+            <p>Native macOS app via Tauri v2. 5.9MB binary, 3.1MB DMG. System tray integration. Sidecar Python server management.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="section" style="background: var(--bg-secondary);">
+      <div class="container">
+        <div class="section-header">
+          <h2>Up and running in 30 seconds</h2>
+          <p>No build tools. No Docker required. Just pip install and go.</p>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <h3>Install</h3>
+            <p><code>pip install ashlr-ao && ashlr</code></p>
+            <p>One command. Auto-creates config. Dashboard opens at localhost:5111.</p>
+          </div>
+          <div class="step">
+            <h3>Spawn</h3>
+            <p>Choose a role, backend, and task. Cmd+N or click. Agent launches in isolated tmux session.</p>
+          </div>
+          <div class="step">
+            <h3>Orchestrate</h3>
+            <p>Monitor your fleet in real-time. Approve changes, manage conflicts, or enable auto-pilot.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Backends -->
+    <section class="section">
+      <div class="container">
+        <div class="section-header">
+          <h2>Works with your favorite AI agents</h2>
+          <p>Plug in any CLI-based coding agent. Four backends supported out of the box.</p>
+        </div>
+        <div class="backends-grid">
+          <div class="backend-card glass">
+            <div class="backend-icon">C</div>
+            <div class="backend-name">Claude Code</div>
+            <div class="backend-desc">Plan mode, model selection, tool restriction, stream-json output</div>
+          </div>
+          <div class="backend-card glass">
+            <div class="backend-icon">X</div>
+            <div class="backend-name">Codex</div>
+            <div class="backend-desc">OpenAI's coding agent with full lifecycle support</div>
+          </div>
+          <div class="backend-card glass">
+            <div class="backend-icon">A</div>
+            <div class="backend-name">Aider</div>
+            <div class="backend-desc">AI pair programming in your terminal</div>
+          </div>
+          <div class="backend-card glass">
+            <div class="backend-icon">G</div>
+            <div class="backend-name">Goose</div>
+            <div class="backend-desc">Autonomous coding agent by Block</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Keyboard Shortcuts -->
+    <section class="section" style="background: var(--bg-secondary);">
+      <div class="container">
+        <div class="section-header">
+          <h2>Built for keyboard-driven developers</h2>
+          <p>Every action is a shortcut away. No mouse required.</p>
+        </div>
+        <div class="shortcuts-showcase">
+          <div class="shortcut-item glass">
+            <div class="shortcut-keys"><span class="key">&#8984;</span><span class="key">K</span></div>
+            <span class="shortcut-label">Command palette</span>
+          </div>
+          <div class="shortcut-item glass">
+            <div class="shortcut-keys"><span class="key">&#8984;</span><span class="key">N</span></div>
+            <span class="shortcut-label">New agent</span>
+          </div>
+          <div class="shortcut-item glass">
+            <div class="shortcut-keys"><span class="key">&#8984;</span><span class="key">&#8679;</span><span class="key">A</span></div>
+            <span class="shortcut-label">Attention queue</span>
+          </div>
+          <div class="shortcut-item glass">
+            <div class="shortcut-keys"><span class="key">&#8984;</span><span class="key">&#8679;</span><span class="key">F</span></div>
+            <span class="shortcut-label">Focus mode</span>
+          </div>
+          <div class="shortcut-item glass">
+            <div class="shortcut-keys"><span class="key">&#8984;</span><span class="key">,</span></div>
+            <span class="shortcut-label">Settings</span>
+          </div>
+          <div class="shortcut-item glass">
+            <div class="shortcut-keys"><span class="key">&#8984;</span><span class="key">/</span></div>
+            <span class="shortcut-label">Global search</span>
+          </div>
+          <div class="shortcut-item glass">
+            <div class="shortcut-keys"><span class="key">1</span>-<span class="key">9</span></div>
+            <span class="shortcut-label">Select agent / role</span>
+          </div>
+          <div class="shortcut-item glass">
+            <div class="shortcut-keys"><span class="key">Space</span></div>
+            <span class="shortcut-label">Push-to-talk</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing -->
+    <section class="section" id="pricing">
+      <div class="container">
+        <div class="section-header">
+          <h2>Simple, transparent pricing</h2>
+          <p>Start free. Upgrade when your fleet grows.</p>
+        </div>
+        <div class="pricing-grid">
+          <div class="pricing-card glass">
+            <div class="pricing-tier">Community</div>
+            <div class="pricing-price">Free</div>
+            <ul class="pricing-features">
+              <li>Up to 5 concurrent agents</li>
+              <li>Full orchestration engine</li>
+              <li>Real-time dashboard</li>
+              <li>All 4 backends supported</li>
+              <li>Auto-pilot basics</li>
+              <li>Desktop app (macOS)</li>
+              <li>Unlimited projects</li>
+            </ul>
+            <a href="/docs/getting-started" class="btn btn-secondary">Get Started</a>
+          </div>
+          <div class="pricing-card glass featured">
+            <div class="pricing-tier">Pro</div>
+            <div class="pricing-price">Contact us</div>
+            <ul class="pricing-features">
+              <li>Up to 100 concurrent agents</li>
+              <li>Everything in Community</li>
+              <li>Intelligence layer (LLM summaries)</li>
+              <li>Workflows &amp; DAG execution</li>
+              <li>Fleet templates &amp; presets</li>
+              <li>Multi-user auth (up to 50 seats)</li>
+              <li>Priority support</li>
+            </ul>
+            <a href="mailto:hello@ashlr.ai" class="btn btn-primary">Contact Us</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tech Stack -->
+    <section class="section" style="background: var(--bg-secondary);">
+      <div class="container">
+        <div class="section-header">
+          <h2>Production-hardened stack</h2>
+          <p>1,926 tests. 22 modules. Battle-tested async Python.</p>
+        </div>
+        <div class="tech-grid">
+          <span class="tech-item glass">Python 3.11+</span>
+          <span class="tech-item glass">aiohttp</span>
+          <span class="tech-item glass">SQLite</span>
+          <span class="tech-item glass">tmux</span>
+          <span class="tech-item glass">Tauri v2</span>
+          <span class="tech-item glass">Ed25519 JWT</span>
+          <span class="tech-item glass">WebSocket</span>
+          <span class="tech-item glass">Vanilla JS</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section" id="faq">
+      <div class="container">
+        <div class="section-header">
+          <h2>Frequently asked questions</h2>
+        </div>
+        <div class="faq-grid">
+          <details class="faq-item">
+            <summary>What is Ashlr AO?</summary>
+            <p>Ashlr AO is a local-first agent orchestration platform for AI coding agents. It provides a single command center to spawn, monitor, and manage multiple AI agents (Claude Code, Codex, Aider, Goose) across multiple repositories. Think of it as a mission control for your AI fleet.</p>
+          </details>
+          <details class="faq-item">
+            <summary>How do I install it?</summary>
+            <p>Run <code>pip install ashlr-ao</code> and then <code>ashlr</code> to start. Requires Python 3.11+, tmux, and at least one AI coding agent backend (like Claude Code) installed.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Is my code sent to any servers?</summary>
+            <p>No. Ashlr AO is local-first. Your code stays on your machine. The only external calls are to the AI agent backends you choose to use (Claude Code, Codex, etc.) and optionally to xAI Grok for the intelligence layer.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Can I use it with my team?</summary>
+            <p>Yes. The Pro tier supports multi-user auth with up to 50 seats. The first user becomes admin and can invite team members. All org members can view all agents but only owners or admins can control them.</p>
+          </details>
+          <details class="faq-item">
+            <summary>What operating systems are supported?</summary>
+            <p>Ashlr AO runs on macOS and Linux. The native desktop app (Tauri v2) is currently macOS-only. The Python server and web dashboard work on any platform with Python 3.11+ and tmux.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Is it open source?</summary>
+            <p>Yes. Ashlr AO is open source with an open-core licensing model. The Community tier is free with full orchestration capabilities. The Pro tier adds enterprise features like multi-user auth and the intelligence layer.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+      <div class="container">
+        <h2>Ready to orchestrate?</h2>
+        <p>Get started in under 30 seconds. No credit card required.</p>
+        <div class="hero-actions" style="margin-top: var(--space-xl);">
+          <button class="install-cmd" aria-label="Copy install command">
+            <span class="cmd-text">pip install ashlr-ao</span>
+            <span class="copy-icon">Copy</span>
+          </button>
+          <a href="https://github.com/Ashlar-inc/ashlar-ao" class="btn btn-secondary" target="_blank" rel="noopener">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="/public/logo.svg" alt="Ashlr AO" width="100" height="32">
+          <p>Local-first agent orchestration platform for AI coding agents.</p>
+        </div>
+        <div class="footer-col">
+          <h4>Product</h4>
+          <a href="#features">Features</a>
+          <a href="/pricing">Pricing</a>
+          <a href="https://github.com/Ashlar-inc/ashlar-ao/releases" target="_blank" rel="noopener">Downloads</a>
+          <a href="https://github.com/Ashlar-inc/ashlar-ao/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+        </div>
+        <div class="footer-col">
+          <h4>Resources</h4>
+          <a href="/docs/">Documentation</a>
+          <a href="/docs/getting-started">Getting Started</a>
+          <a href="/docs/api-reference">API Reference</a>
+          <a href="/blog/">Blog</a>
+        </div>
+        <div class="footer-col">
+          <h4>Community</h4>
+          <a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://pypi.org/project/ashlr-ao/" target="_blank" rel="noopener">PyPI</a>
+          <a href="https://github.com/Ashlar-inc/ashlar-ao/issues" target="_blank" rel="noopener">Issues</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>A product by <a href="https://ashlr.ai">ashlr.ai</a></span>
+        <span>&copy; 2026 Ashlr. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>

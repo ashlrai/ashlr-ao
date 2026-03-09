@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pricing — Ashlr AO</title>
+  <meta name="description" content="Ashlr AO pricing: free Community tier with 5 concurrent agents, or Pro for teams needing up to 100 agents, multi-user auth, workflows, and the intelligence layer.">
+  <link rel="canonical" href="https://ashlrao.com/pricing">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Pricing — Ashlr AO">
+  <meta property="og:description" content="Start free with 5 agents. Upgrade to Pro for up to 100 agents, multi-user auth, and the intelligence layer.">
+  <meta property="og:image" content="https://ashlrao.com/public/og-image.png">
+  <meta property="og:url" content="https://ashlrao.com/pricing">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Ashlr AO">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Pricing — Ashlr AO">
+  <meta name="twitter:description" content="Start free with 5 agents. Upgrade to Pro for teams and power users.">
+  <meta name="twitter:image" content="https://ashlrao.com/public/twitter-card.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+  <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/landing.css">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is Ashlr AO free?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. The Community tier is free forever and includes full orchestration for up to 5 concurrent agents, all 4 backends, the real-time dashboard, and the desktop app."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What does the Pro tier include?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Pro includes up to 100 concurrent agents, up to 50 user seats, the LLM-powered intelligence layer, workflow DAG execution, fleet templates and presets, and multi-user authentication."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Ashlr AO require a license server?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. Ashlr uses offline-first Ed25519-signed JWT license keys. There is no phone-home, no license server, and no internet connection required for license validation."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <style>
+    /* Pricing page specific styles */
+    .pricing-hero {
+      text-align: center;
+      padding: calc(var(--nav-height) + var(--space-3xl)) var(--space-lg) var(--space-3xl);
+    }
+    .pricing-hero h1 { margin-bottom: var(--space-md); }
+    .pricing-hero p { margin: 0 auto; }
+
+    /* Feature comparison table */
+    .comparison-section {
+      padding: var(--space-3xl) 0 var(--space-4xl);
+    }
+    .comparison-table {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      border-collapse: collapse;
+    }
+    .comparison-table th,
+    .comparison-table td {
+      padding: var(--space-md) var(--space-lg);
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .comparison-table thead th {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-tertiary);
+      font-weight: 600;
+      padding-bottom: var(--space-lg);
+    }
+    .comparison-table thead th:not(:first-child) {
+      text-align: center;
+    }
+    .comparison-table td:not(:first-child) {
+      text-align: center;
+      color: var(--text-secondary);
+    }
+    .comparison-table td:first-child {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+    .comparison-table tbody tr:hover {
+      background: var(--bg-secondary);
+    }
+    .comparison-table .category-row td {
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding-top: var(--space-xl);
+      border-bottom: 2px solid var(--border);
+    }
+    .check {
+      color: var(--success);
+      font-weight: 600;
+    }
+    .dash {
+      color: var(--text-tertiary);
+    }
+
+    @media (max-width: 768px) {
+      .comparison-table th,
+      .comparison-table td {
+        padding: var(--space-sm) var(--space-md);
+        font-size: 0.8rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a href="/" aria-label="Ashlr AO Home"><img src="/public/logo.svg" alt="Ashlr AO" class="nav-logo"></a>
+      <div class="nav-links">
+        <a href="/#features">Features</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/">Blog</a>
+        <a href="/pricing" class="active">Pricing</a>
+        <a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="nav-right">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <a href="/docs/getting-started" class="btn btn-primary">Get Started</a>
+        <button class="nav-mobile-toggle" aria-label="Toggle menu" aria-expanded="false"><span></span></button>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <!-- Hero -->
+    <section class="pricing-hero">
+      <h1>Simple, transparent pricing</h1>
+      <p>Start free. Upgrade when your fleet grows. No credit card required.</p>
+    </section>
+
+    <!-- Pricing Cards -->
+    <section class="section" style="padding-top: 0;">
+      <div class="container">
+        <div class="pricing-grid">
+          <div class="pricing-card glass">
+            <div class="pricing-tier">Community</div>
+            <div class="pricing-price">Free <span>forever</span></div>
+            <ul class="pricing-features">
+              <li>Up to 5 concurrent agents</li>
+              <li>Single user</li>
+              <li>Full orchestration engine</li>
+              <li>Real-time dashboard</li>
+              <li>All 4 backends (Claude Code, Codex, Aider, Goose)</li>
+              <li>9 built-in roles</li>
+              <li>Auto-pilot basics (restart, approve, pause)</li>
+              <li>Desktop app (macOS)</li>
+              <li>Unlimited projects</li>
+              <li>File browser &amp; git integration</li>
+              <li>PTY terminal</li>
+              <li>WebSocket real-time updates</li>
+              <li>YAML configuration</li>
+            </ul>
+            <a href="/docs/getting-started" class="btn btn-secondary">Get Started</a>
+          </div>
+          <div class="pricing-card glass featured">
+            <div class="pricing-tier">Pro</div>
+            <div class="pricing-price">Contact us</div>
+            <ul class="pricing-features">
+              <li>Up to 100 concurrent agents</li>
+              <li>Up to 50 user seats</li>
+              <li>Everything in Community</li>
+              <li>Intelligence layer (LLM summaries, NLU, fleet analysis)</li>
+              <li>Workflow DAG execution</li>
+              <li>Fleet templates &amp; presets</li>
+              <li>Multi-user auth with roles</li>
+              <li>Cross-agent handoff</li>
+              <li>Ed25519 offline license key</li>
+              <li>Priority support</li>
+            </ul>
+            <a href="mailto:hello@ashlr.ai" class="btn btn-primary">Contact Us</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature Comparison Table -->
+    <section class="comparison-section" style="background: var(--bg-secondary);">
+      <div class="container">
+        <div class="section-header">
+          <h2>Full feature comparison</h2>
+          <p>Everything you need to know, side by side.</p>
+        </div>
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Community</th>
+              <th>Pro</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="category-row"><td colspan="3">Orchestration</td></tr>
+            <tr><td>Concurrent agents</td><td>5</td><td>Up to 100</td></tr>
+            <tr><td>Agent backends</td><td>All 4</td><td>All 4</td></tr>
+            <tr><td>Built-in roles</td><td>9</td><td>9</td></tr>
+            <tr><td>Spawn / kill / pause / resume</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Bulk operations</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Agent restart</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Stream-json output mode</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+
+            <tr class="category-row"><td colspan="3">Dashboard</td></tr>
+            <tr><td>Real-time WebSocket updates</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Glassmorphic agent cards</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Deep view with ANSI terminal</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Activity feed</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Keyboard shortcuts</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Command palette</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Dark &amp; light themes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+
+            <tr class="category-row"><td colspan="3">Projects &amp; IDE</td></tr>
+            <tr><td>Unlimited projects</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>File browser</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Git integration (status, diff, log, commit)</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>PTY terminal</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Project scratchpad</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Focus mode</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+
+            <tr class="category-row"><td colspan="3">Auto-Pilot</td></tr>
+            <tr><td>Auto-restart on stall</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Auto-approve safe patterns</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Health-based auto-pause</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Browser notifications</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+
+            <tr class="category-row"><td colspan="3">Intelligence (requires XAI_API_KEY)</td></tr>
+            <tr><td>LLM agent summaries</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Natural language commands (NLU)</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Fleet analysis (every 30s)</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Cross-agent handoff</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+
+            <tr class="category-row"><td colspan="3">Workflows &amp; Templates</td></tr>
+            <tr><td>Workflow DAG execution</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Fleet templates</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Fleet presets (batch spawn)</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+
+            <tr class="category-row"><td colspan="3">Team &amp; Security</td></tr>
+            <tr><td>User seats</td><td>1</td><td>Up to 50</td></tr>
+            <tr><td>Multi-user auth</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Role-based access (admin/member)</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Agent ownership enforcement</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Rate limiting &amp; CSP headers</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+
+            <tr class="category-row"><td colspan="3">Platform</td></tr>
+            <tr><td>macOS desktop app (Tauri v2)</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Docker deployment</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>pip install</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>REST API</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Offline license (no phone-home)</td><td>N/A</td><td class="check">Yes</td></tr>
+            <tr><td>Priority support</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section" id="faq">
+      <div class="container">
+        <div class="section-header">
+          <h2>Pricing FAQ</h2>
+        </div>
+        <div class="faq-grid">
+          <details class="faq-item">
+            <summary>Is the Community tier really free?</summary>
+            <p>Yes. The Community tier is free forever with no time limit, no trial period, and no credit card required. It includes full orchestration for up to 5 concurrent agents, the real-time dashboard, auto-pilot, the desktop app, and all 4 backends.</p>
+          </details>
+          <details class="faq-item">
+            <summary>What happens if I exceed the 5-agent limit?</summary>
+            <p>The server will return an error when you try to spawn a 6th agent. Existing agents continue running normally. You can kill an agent to free up a slot, or upgrade to Pro for up to 100 concurrent agents.</p>
+          </details>
+          <details class="faq-item">
+            <summary>How does licensing work?</summary>
+            <p>Ashlr uses offline-first Ed25519-signed JWT license keys. When you purchase Pro, you receive a license key that you activate via the dashboard settings or the API. The key is validated locally using the embedded public key &mdash; there is no license server, no phone-home, and no internet connection required for validation.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Can I use the intelligence layer on Community?</summary>
+            <p>The intelligence layer (LLM summaries, NLU command parsing, and fleet analysis) requires a Pro license. However, the core status detection, summary extraction, and command bar work on Community using regex-based parsing, which covers the essential experience.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Do I need to pay for each user?</summary>
+            <p>No. Pro licenses include up to 50 seats. The first user to register becomes the admin and can invite team members. All seats are included in the Pro license &mdash; there is no per-seat pricing.</p>
+          </details>
+          <details class="faq-item">
+            <summary>What if my license expires?</summary>
+            <p>If your Pro license expires, Ashlr gracefully reverts to the Community tier. Your data, projects, and configuration are preserved. Agents beyond the Community limit will not be spawnable until you renew, but existing running agents are not terminated.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Is my code sent to any external servers?</summary>
+            <p>No. Ashlr AO is local-first. Your code never leaves your machine. The only external calls are to the AI agent backends you choose (Claude Code, Codex, etc.) and optionally to xAI Grok for the intelligence layer. Neither of these is handled by Ashlr &mdash; they go directly to the provider APIs.</p>
+          </details>
+          <details class="faq-item">
+            <summary>Can I self-host for my team?</summary>
+            <p>Yes. Ashlr includes a Dockerfile and docker-compose.yml with Caddy for automatic HTTPS. Set <code>ASHLR_HOST=0.0.0.0</code> and <code>ASHLR_ALLOWED_ORIGINS</code> to your domain. A Pro license is required for multi-user auth.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+      <div class="container">
+        <h2>Ready to orchestrate?</h2>
+        <p>Get started in under 30 seconds. No credit card required.</p>
+        <div class="hero-actions" style="margin-top: var(--space-xl);">
+          <button class="install-cmd" aria-label="Copy install command">
+            <span class="cmd-text">pip install ashlr-ao</span>
+            <span class="copy-icon">Copy</span>
+          </button>
+          <a href="mailto:hello@ashlr.ai" class="btn btn-primary">Contact Us for Pro</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="/public/logo.svg" alt="Ashlr AO" width="100" height="32">
+          <p>Local-first agent orchestration platform for AI coding agents.</p>
+        </div>
+        <div class="footer-col"><h4>Product</h4><a href="/#features">Features</a><a href="/pricing">Pricing</a><a href="https://github.com/Ashlar-inc/ashlar-ao/releases" target="_blank" rel="noopener">Downloads</a></div>
+        <div class="footer-col"><h4>Resources</h4><a href="/docs/">Documentation</a><a href="/docs/getting-started">Getting Started</a><a href="/docs/api-reference">API Reference</a><a href="/blog/">Blog</a></div>
+        <div class="footer-col"><h4>Community</h4><a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a><a href="https://pypi.org/project/ashlr-ao/" target="_blank" rel="noopener">PyPI</a><a href="https://github.com/Ashlar-inc/ashlar-ao/issues" target="_blank" rel="noopener">Issues</a></div>
+      </div>
+      <div class="footer-bottom">
+        <span>A product by <a href="https://ashlr.ai">ashlr.ai</a></span>
+        <span>&copy; 2026 Ashlr. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/main.js"></script>
+</body>
+</html>

@@ -7,6 +7,8 @@
 
 **Local-first agent orchestration platform.** One developer, many AI coding agents, single command center.
 
+**Website: [ashlrao.com](https://ashlrao.com)** | **Docs: [ashlrao.com/docs](https://ashlrao.com/docs)**
+
 - **Multi-agent orchestration** — spawn, monitor, and coordinate Claude Code, Codex, Aider, and Goose agents from one dashboard
 - **Multi-repo projects** — organize agents by project with per-project defaults, git branch tracking, and focus mode
 - **Auto-pilot** — auto-restart stalled agents, auto-approve safe patterns, health-based auto-pause

@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration Reference — Ashlr AO Docs</title>
+  <meta name="description" content="Complete configuration reference for Ashlr AO. All YAML options, environment variables, and backend settings.">
+  <link rel="canonical" href="https://ashlrao.com/docs/configuration">
+
+  <meta property="og:title" content="Configuration Reference — Ashlr AO">
+  <meta property="og:description" content="Full reference for ~/.ashlr/ashlr.yaml configuration, environment variables, and backend setup.">
+  <meta property="og:url" content="https://ashlrao.com/docs/configuration">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Ashlr AO">
+  <meta property="og:image" content="https://ashlrao.com/public/og-image.png">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Configuration Reference — Ashlr AO">
+  <meta name="twitter:description" content="Full reference for ~/.ashlr/ashlr.yaml configuration, environment variables, and backend setup.">
+  <meta name="twitter:image" content="https://ashlrao.com/public/og-image.png">
+
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+  <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/docs.css">
+</head>
+<body>
+
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a href="/" aria-label="Ashlr AO Home"><img src="/public/logo.svg" alt="Ashlr AO" class="nav-logo"></a>
+      <div class="nav-links">
+        <a href="/#features">Features</a>
+        <a href="/docs/" class="active">Docs</a>
+        <a href="/blog/">Blog</a>
+        <a href="/pricing">Pricing</a>
+        <a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="nav-right">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <a href="/docs/getting-started" class="btn btn-primary">Get Started</a>
+        <button class="nav-mobile-toggle" aria-label="Toggle menu" aria-expanded="false"><span></span></button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="docs-nav-group">
+        <h4>Getting Started</h4>
+        <a href="/docs/">Overview</a>
+        <a href="/docs/getting-started">Installation &amp; Setup</a>
+      </div>
+      <div class="docs-nav-group">
+        <h4>Configuration</h4>
+        <a href="/docs/configuration" class="active">Config Reference</a>
+        <a href="/docs/deployment">Deployment</a>
+      </div>
+      <div class="docs-nav-group">
+        <h4>Reference</h4>
+        <a href="/docs/api-reference">API Reference</a>
+        <a href="/docs/desktop-app">Desktop App</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <h1>Configuration Reference</h1>
+      <p class="docs-subtitle">Complete reference for <code>~/.ashlr/ashlr.yaml</code>, environment variables, and backend configuration.</p>
+
+      <h2>Config File Location</h2>
+      <p>Ashlr AO stores its configuration at <code>~/.ashlr/ashlr.yaml</code>. This file is auto-created on first run with sensible defaults. You can edit it manually or update it through the dashboard settings (<kbd>Cmd+,</kbd>) or the <code>PUT /api/config</code> endpoint.</p>
+
+      <h2>Full Config Reference</h2>
+      <p>Below is the complete <code>ashlr.yaml</code> with all available options and their defaults:</p>
+
+      <pre><code># ~/.ashlr/ashlr.yaml
+
+server:
+  host: "127.0.0.1"                    # Bind address (use 0.0.0.0 for Docker)
+  port: 5111                            # HTTP port
+  log_level: "INFO"                     # DEBUG, INFO, WARNING, ERROR
+
+agents:
+  max_concurrent: 16                    # Max simultaneous agents (clamped by license)
+  default_role: "general"               # Default role for new agents
+  default_working_dir: "~/Projects"     # Default working directory
+  output_capture_interval_sec: 1.0      # tmux capture frequency (seconds)
+  memory_limit_mb: 2048                 # Per-agent memory limit (MB)
+  default_backend: "claude-code"        # Default backend (claude-code|codex|aider|goose)
+  backends:
+    claude-code:
+      command: "claude"
+      args: ["--dangerously-skip-permissions"]
+    codex:
+      command: "codex"
+      args: []
+    aider:
+      command: "aider"
+      args: []
+    goose:
+      command: "goose"
+      args: []
+
+llm:
+  enabled: false                        # Enable intelligence layer
+  provider: "xai"                       # LLM provider
+  model: "grok-4-1-fast-reasoning"      # Model name
+  api_key_env: "XAI_API_KEY"            # Env var holding the API key
+  base_url: "https://api.x.ai/v1"      # API base URL
+  summary_interval_sec: 10.0            # Agent summary generation interval
+  meta_interval_sec: 30.0               # Fleet analysis interval
+
+voice:
+  enabled: true                         # Enable push-to-talk voice input
+  ptt_key: "Space"                      # Push-to-talk key binding
+
+licensing:
+  key: ""                               # JWT license key (set via API or YAML)
+
+auto_pilot:
+  auto_restart_on_stall: false          # Auto-restart stalled agents
+  auto_approve_enabled: false           # Enable pattern-based auto-approve
+  auto_approve_patterns: []             # Regex patterns to auto-approve
+  auto_pause_on_critical_health: false  # Pause agents on critical health
+  file_lock_enforcement: false          # Prevent concurrent edits to same file
+
+display:
+  theme: "dark"                         # dark or light
+  cards_per_row: 4                      # Agent cards per grid row</code></pre>
+
+      <h2>Server Settings</h2>
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>server.host</code></td><td>string</td><td><code>"127.0.0.1"</code></td><td>IP address to bind the HTTP server. Use <code>"0.0.0.0"</code> to accept connections from all interfaces (required for Docker).</td></tr>
+          <tr><td><code>server.port</code></td><td>integer</td><td><code>5111</code></td><td>HTTP port number. Can be overridden with <code>ASHLR_PORT</code> env var.</td></tr>
+          <tr><td><code>server.log_level</code></td><td>string</td><td><code>"INFO"</code></td><td>Python logging level. One of: <code>DEBUG</code>, <code>INFO</code>, <code>WARNING</code>, <code>ERROR</code>.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Agent Settings</h2>
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>agents.max_concurrent</code></td><td>integer</td><td><code>16</code></td><td>Maximum number of agents that can run simultaneously. Effective limit is <code>min(config, license)</code> &mdash; Community tier caps at 5, Pro at up to 100.</td></tr>
+          <tr><td><code>agents.default_role</code></td><td>string</td><td><code>"general"</code></td><td>Default role assigned to new agents. One of: <code>frontend</code>, <code>backend</code>, <code>devops</code>, <code>tester</code>, <code>reviewer</code>, <code>security</code>, <code>architect</code>, <code>docs</code>, <code>general</code>.</td></tr>
+          <tr><td><code>agents.default_working_dir</code></td><td>string</td><td><code>"~/Projects"</code></td><td>Default working directory for new agents. Must be under <code>~/</code> or <code>/tmp</code>.</td></tr>
+          <tr><td><code>agents.output_capture_interval_sec</code></td><td>float</td><td><code>1.0</code></td><td>How often (in seconds) Ashlr captures tmux pane output. Lower values mean more responsive status updates but higher CPU usage.</td></tr>
+          <tr><td><code>agents.memory_limit_mb</code></td><td>integer</td><td><code>2048</code></td><td>Per-agent memory limit in megabytes. The memory watchdog background task checks this every 10 seconds.</td></tr>
+          <tr><td><code>agents.default_backend</code></td><td>string</td><td><code>"claude-code"</code></td><td>Default backend for new agents. One of: <code>claude-code</code>, <code>codex</code>, <code>aider</code>, <code>goose</code>.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Backend Configuration</h2>
+      <p>Each backend defines the CLI command and default arguments used to spawn agents:</p>
+
+      <h3>claude-code</h3>
+      <pre><code>agents:
+  backends:
+    claude-code:
+      command: "claude"
+      args: ["--dangerously-skip-permissions"]</code></pre>
+      <p>Claude Code supports additional per-agent options at spawn time:</p>
+      <ul>
+        <li><strong>Plan mode</strong> &mdash; Replaces <code>--dangerously-skip-permissions</code> with <code>--permission-mode plan</code></li>
+        <li><strong>Model selection</strong> &mdash; Adds <code>--model &lt;model-name&gt;</code> flag</li>
+        <li><strong>Tool restriction</strong> &mdash; Adds <code>--allowedTools &lt;tool-list&gt;</code> flag</li>
+        <li><strong>Stream-json mode</strong> &mdash; Uses <code>--print --output-format stream-json</code> instead of tmux (non-interactive)</li>
+      </ul>
+
+      <h3>codex</h3>
+      <pre><code>agents:
+  backends:
+    codex:
+      command: "codex"
+      args: []</code></pre>
+
+      <h3>aider</h3>
+      <pre><code>agents:
+  backends:
+    aider:
+      command: "aider"
+      args: []</code></pre>
+
+      <h3>goose</h3>
+      <pre><code>agents:
+  backends:
+    goose:
+      command: "goose"
+      args: []</code></pre>
+
+      <div class="callout callout-info">
+        <p><strong>Custom backends:</strong> You can add any CLI-based tool as a backend by adding an entry under <code>agents.backends</code> with a <code>command</code> and <code>args</code>. The tool must accept input via stdin and produce output on stdout.</p>
+      </div>
+
+      <h2>Intelligence (LLM) Settings</h2>
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>llm.enabled</code></td><td>boolean</td><td><code>false</code></td><td>Enable the intelligence layer. Requires <code>XAI_API_KEY</code> environment variable.</td></tr>
+          <tr><td><code>llm.provider</code></td><td>string</td><td><code>"xai"</code></td><td>LLM provider identifier.</td></tr>
+          <tr><td><code>llm.model</code></td><td>string</td><td><code>"grok-4-1-fast-reasoning"</code></td><td>Model name for the LLM API.</td></tr>
+          <tr><td><code>llm.api_key_env</code></td><td>string</td><td><code>"XAI_API_KEY"</code></td><td>Name of the environment variable containing the API key.</td></tr>
+          <tr><td><code>llm.base_url</code></td><td>string</td><td><code>"https://api.x.ai/v1"</code></td><td>Base URL for the OpenAI-compatible API endpoint.</td></tr>
+          <tr><td><code>llm.summary_interval_sec</code></td><td>float</td><td><code>10.0</code></td><td>How often (in seconds) to generate LLM summaries for active agents.</td></tr>
+          <tr><td><code>llm.meta_interval_sec</code></td><td>float</td><td><code>30.0</code></td><td>How often (in seconds) to run fleet-wide analysis (conflict detection, stuck agents, handoff recommendations).</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Voice Settings</h2>
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>voice.enabled</code></td><td>boolean</td><td><code>true</code></td><td>Enable browser-native push-to-talk voice input using the Web Speech API.</td></tr>
+          <tr><td><code>voice.ptt_key</code></td><td>string</td><td><code>"Space"</code></td><td>Key binding for push-to-talk. Hold to activate, release to stop.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Auto-Pilot Settings</h2>
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>auto_pilot.auto_restart_on_stall</code></td><td>boolean</td><td><code>false</code></td><td>Automatically restart agents that have stalled (no output for extended period).</td></tr>
+          <tr><td><code>auto_pilot.auto_approve_enabled</code></td><td>boolean</td><td><code>false</code></td><td>Enable automatic approval of agent questions that match safe patterns.</td></tr>
+          <tr><td><code>auto_pilot.auto_approve_patterns</code></td><td>list</td><td><code>[]</code></td><td>Regex patterns to auto-approve. Example: <code>["proceed with.*changes", "apply.*fix"]</code></td></tr>
+          <tr><td><code>auto_pilot.auto_pause_on_critical_health</code></td><td>boolean</td><td><code>false</code></td><td>Pause agents when system health becomes critical (high memory or CPU pressure).</td></tr>
+          <tr><td><code>auto_pilot.file_lock_enforcement</code></td><td>boolean</td><td><code>false</code></td><td>Prevent multiple agents from editing the same file simultaneously. Agents receive a warning but are not blocked by default.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-warning">
+        <p><strong>Safety:</strong> Auto-approve has a hardcoded never-approve list that blocks dangerous commands like <code>rm -rf</code>, <code>git push --force</code>, <code>DROP TABLE</code>, etc. There is also a rate limit of 5 auto-approvals per minute per agent.</p>
+      </div>
+
+      <h2>Display Settings</h2>
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>display.theme</code></td><td>string</td><td><code>"dark"</code></td><td>Dashboard color theme. Either <code>"dark"</code> or <code>"light"</code>.</td></tr>
+          <tr><td><code>display.cards_per_row</code></td><td>integer</td><td><code>4</code></td><td>Number of agent cards per row in the grid layout.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Licensing</h2>
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>licensing.key</code></td><td>string</td><td><code>""</code></td><td>Ed25519-signed JWT license key. Set via <code>POST /api/license/activate</code> or directly in YAML. Empty string means Community tier.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Environment Variables</h2>
+      <p>Environment variables override config file values where applicable:</p>
+      <table>
+        <thead>
+          <tr><th>Variable</th><th>Required</th><th>Default</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>XAI_API_KEY</code></td><td>No</td><td>&mdash;</td><td>API key for xAI Grok. Enables all intelligence features: agent summaries, NLU command parsing, and fleet analysis.</td></tr>
+          <tr><td><code>ASHLR_PORT</code></td><td>No</td><td><code>5111</code></td><td>Override the HTTP port. Takes precedence over <code>server.port</code> in config.</td></tr>
+          <tr><td><code>ASHLR_HOST</code></td><td>No</td><td><code>127.0.0.1</code></td><td>Override the bind address. Takes precedence over <code>server.host</code> in config.</td></tr>
+          <tr><td><code>ASHLR_ALLOWED_ORIGINS</code></td><td>No</td><td><code>*</code></td><td>CORS allowed origin. Set to your domain in production (e.g., <code>https://ashlr.yourdomain.com</code>).</td></tr>
+          <tr><td><code>CLAUDECODE</code></td><td>No</td><td>&mdash;</td><td>Set to any value to enable demo mode. Agents are simulated without real CLI backends. Useful for development and testing.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Updating Config at Runtime</h2>
+      <p>You can update configuration without restarting the server:</p>
+
+      <h3>Via the Dashboard</h3>
+      <p>Open Settings (<kbd>Cmd+,</kbd>) to modify agent limits, backend settings, auto-pilot options, and display preferences. Changes are saved to YAML and applied to the running server immediately.</p>
+
+      <h3>Via the API</h3>
+      <pre><code>curl -X PUT http://127.0.0.1:5111/api/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "agents": {
+      "max_concurrent": 10,
+      "default_backend": "claude-code"
+    },
+    "auto_pilot": {
+      "auto_restart_on_stall": true
+    }
+  }'</code></pre>
+      <p>The server validates the update, merges it with the current config, writes to <code>~/.ashlr/ashlr.yaml</code>, and applies changes to the running process. If auth is enabled, only admin users can update the config.</p>
+
+      <div class="callout callout-info">
+        <p><strong>Note:</strong> The <code>max_concurrent</code> value is always clamped to the license ceiling. On Community tier, even if you set <code>max_concurrent: 100</code>, the effective limit will be 5.</p>
+      </div>
+
+      <h2>Background Tasks</h2>
+      <p>Ashlr runs 6 supervised background tasks that are configured implicitly by the settings above:</p>
+      <table>
+        <thead>
+          <tr><th>Task</th><th>Interval</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Output capture</td><td>1s (<code>output_capture_interval_sec</code>)</td><td>Captures tmux pane output, detects status, generates summaries</td></tr>
+          <tr><td>Metrics</td><td>2s</td><td>CPU, memory, per-agent resource tracking</td></tr>
+          <tr><td>Health check</td><td>5s</td><td>Stall detection, hung agent detection, memory pressure</td></tr>
+          <tr><td>Memory watchdog</td><td>10s</td><td>Per-agent memory limits (<code>memory_limit_mb</code>), system pressure response</td></tr>
+          <tr><td>Meta-agent</td><td>30s (<code>meta_interval_sec</code>)</td><td>LLM fleet analysis (requires intelligence layer)</td></tr>
+          <tr><td>Archive cleanup</td><td>1hr</td><td>Purges archived agent records older than 48 hours</td></tr>
+        </tbody>
+      </table>
+      <p>All background tasks are supervised with automatic restart on failure.</p>
+
+      <a href="https://github.com/Ashlar-inc/ashlar-ao/edit/main/docs/configuration.md" target="_blank" rel="noopener" class="docs-edit-link">Edit this page on GitHub</a>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="/public/logo.svg" alt="Ashlr AO" width="100" height="32">
+          <p>Local-first agent orchestration platform for AI coding agents.</p>
+        </div>
+        <div class="footer-col"><h4>Product</h4><a href="/#features">Features</a><a href="/pricing">Pricing</a><a href="https://github.com/Ashlar-inc/ashlar-ao/releases" target="_blank" rel="noopener">Downloads</a></div>
+        <div class="footer-col"><h4>Resources</h4><a href="/docs/">Documentation</a><a href="/docs/getting-started">Getting Started</a><a href="/docs/api-reference">API Reference</a><a href="/blog/">Blog</a></div>
+        <div class="footer-col"><h4>Community</h4><a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a><a href="https://pypi.org/project/ashlr-ao/" target="_blank" rel="noopener">PyPI</a><a href="https://github.com/Ashlar-inc/ashlar-ao/issues" target="_blank" rel="noopener">Issues</a></div>
+      </div>
+      <div class="footer-bottom">
+        <span>A product by <a href="https://ashlr.ai">ashlr.ai</a></span>
+        <span>&copy; 2026 Ashlr. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/main.js"></script>
+</body>
+</html>

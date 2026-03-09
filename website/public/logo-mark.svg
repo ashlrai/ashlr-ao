@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B87F5"/>
+      <stop offset="100%" stop-color="#706CF0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#08090E"/>
+  <!-- A letterform -->
+  <path d="M72 400L168 112h32l96 288h-40l-22-56H134l-22 56H72zm76-104h72L180 186 148 296z" fill="#F0F0F2"/>
+  <!-- O letterform -->
+  <circle cx="348" cy="256" r="100" fill="url(#accent)"/>
+  <circle cx="348" cy="256" r="65" fill="#08090E"/>
+</svg>

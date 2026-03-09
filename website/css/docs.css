@@ -1,0 +1,198 @@
+/* Ashlr AO — Documentation Layout */
+
+.docs-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: var(--space-2xl);
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: calc(var(--nav-height) + var(--space-xl)) var(--space-lg) var(--space-3xl);
+  min-height: 100vh;
+}
+
+/* ===== Sidebar ===== */
+.docs-sidebar {
+  position: sticky;
+  top: calc(var(--nav-height) + var(--space-xl));
+  height: fit-content;
+  max-height: calc(100vh - var(--nav-height) - var(--space-2xl));
+  overflow-y: auto;
+  padding-right: var(--space-md);
+}
+
+.docs-sidebar::-webkit-scrollbar { width: 3px; }
+.docs-sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.docs-nav-group {
+  margin-bottom: var(--space-lg);
+}
+
+.docs-nav-group h4 {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-sm);
+  padding-left: var(--space-md);
+}
+
+.docs-nav-group a {
+  display: block;
+  padding: 6px var(--space-md);
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.docs-nav-group a:hover {
+  color: var(--text-primary);
+  background: var(--accent-bg);
+}
+
+.docs-nav-group a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+/* ===== Content ===== */
+.docs-content {
+  max-width: 780px;
+}
+
+.docs-content h1 {
+  font-size: 2rem;
+  margin-bottom: var(--space-sm);
+}
+
+.docs-content .docs-subtitle {
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2xl);
+}
+
+.docs-content h2 {
+  font-size: 1.5rem;
+  margin-top: var(--space-3xl);
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-content h3 {
+  font-size: 1.15rem;
+  margin-top: var(--space-xl);
+  margin-bottom: var(--space-sm);
+}
+
+.docs-content p {
+  margin-bottom: var(--space-md);
+  max-width: 100%;
+}
+
+.docs-content ul, .docs-content ol {
+  margin-bottom: var(--space-md);
+  padding-left: var(--space-lg);
+}
+
+.docs-content li {
+  list-style: disc;
+  margin-bottom: var(--space-xs);
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.docs-content ol li { list-style: decimal; }
+
+.docs-content pre {
+  margin-bottom: var(--space-lg);
+}
+
+.docs-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-lg);
+  font-size: 0.9rem;
+}
+
+.docs-content th, .docs-content td {
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.docs-content th {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.docs-content td {
+  color: var(--text-secondary);
+}
+
+.docs-content td code {
+  font-size: 0.8rem;
+}
+
+/* ===== Callout Boxes ===== */
+.callout {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-lg);
+  border-left: 3px solid;
+}
+
+.callout-info {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+}
+
+.callout-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: var(--warning);
+}
+
+.callout-tip {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: var(--success);
+}
+
+.callout p { margin-bottom: 0; }
+
+/* ===== Edit Link ===== */
+.docs-edit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-3xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+  transition: color 0.2s;
+}
+
+.docs-edit-link:hover {
+  color: var(--accent);
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+  .docs-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-sidebar {
+    position: static;
+    max-height: none;
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+  }
+}

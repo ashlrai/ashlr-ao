@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Reference — Ashlr AO Docs</title>
+  <meta name="description" content="Complete REST API and WebSocket reference for Ashlr AO. All endpoints with request/response examples.">
+  <link rel="canonical" href="https://ashlrao.com/docs/api-reference">
+
+  <meta property="og:title" content="API Reference — Ashlr AO">
+  <meta property="og:description" content="Full REST API and WebSocket protocol documentation for the Ashlr AO agent orchestration platform.">
+  <meta property="og:url" content="https://ashlrao.com/docs/api-reference">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Ashlr AO">
+  <meta property="og:image" content="https://ashlrao.com/public/og-image.png">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="API Reference — Ashlr AO">
+  <meta name="twitter:description" content="Full REST API and WebSocket protocol documentation for the Ashlr AO agent orchestration platform.">
+  <meta name="twitter:image" content="https://ashlrao.com/public/og-image.png">
+
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+  <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/docs.css">
+</head>
+<body>
+
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a href="/" aria-label="Ashlr AO Home"><img src="/public/logo.svg" alt="Ashlr AO" class="nav-logo"></a>
+      <div class="nav-links">
+        <a href="/#features">Features</a>
+        <a href="/docs/" class="active">Docs</a>
+        <a href="/blog/">Blog</a>
+        <a href="/pricing">Pricing</a>
+        <a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="nav-right">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <a href="/docs/getting-started" class="btn btn-primary">Get Started</a>
+        <button class="nav-mobile-toggle" aria-label="Toggle menu" aria-expanded="false"><span></span></button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="docs-nav-group">
+        <h4>Getting Started</h4>
+        <a href="/docs/">Overview</a>
+        <a href="/docs/getting-started">Installation &amp; Setup</a>
+      </div>
+      <div class="docs-nav-group">
+        <h4>Configuration</h4>
+        <a href="/docs/configuration">Config Reference</a>
+        <a href="/docs/deployment">Deployment</a>
+      </div>
+      <div class="docs-nav-group">
+        <h4>Reference</h4>
+        <a href="/docs/api-reference" class="active">API Reference</a>
+        <a href="/docs/desktop-app">Desktop App</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <h1>API Reference</h1>
+      <p class="docs-subtitle">Complete REST API and WebSocket protocol for programmatic control of your agent fleet.</p>
+
+      <div class="callout callout-info">
+        <p><strong>Base URL:</strong> <code>http://127.0.0.1:5111</code> (default). All endpoints return JSON. When auth is enabled, include the session cookie or <code>Authorization: Bearer &lt;token&gt;</code> header.</p>
+      </div>
+
+      <!-- ========== AGENTS ========== -->
+      <h2>Agents</h2>
+
+      <h3>List Agents</h3>
+      <p><code>GET /api/agents</code></p>
+      <p>Returns all active agents. Supports optional query filters:</p>
+      <table>
+        <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>project_id</code></td><td>string</td><td>Filter by project ID</td></tr>
+          <tr><td><code>branch</code></td><td>string</td><td>Filter by git branch name</td></tr>
+          <tr><td><code>status</code></td><td>string</td><td>Filter by status (planning, working, waiting, error, idle)</td></tr>
+        </tbody>
+      </table>
+      <pre><code># Example
+curl http://127.0.0.1:5111/api/agents?status=working
+
+# Response
+[
+  {
+    "id": "a7f3",
+    "name": "auth-api",
+    "role": "backend",
+    "status": "working",
+    "task": "Add input validation to the user registration endpoint",
+    "working_dir": "/Users/dev/Projects/my-app",
+    "backend": "claude-code",
+    "project_id": "p1a2",
+    "git_branch": "feature/auth-validation",
+    "created_at": "2026-03-08T10:30:00Z",
+    "summary": "Editing src/auth/validators.py — adding email format checks",
+    "health_score": 92,
+    "owner": "admin@example.com"
+  }
+]</code></pre>
+
+      <h3>Spawn Agent</h3>
+      <p><code>POST /api/agents</code></p>
+      <table>
+        <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>role</code></td><td>string</td><td>No</td><td>Agent role (default from config). One of: frontend, backend, devops, tester, reviewer, security, architect, docs, general.</td></tr>
+          <tr><td><code>task</code></td><td>string</td><td>Yes</td><td>The task description to send to the agent.</td></tr>
+          <tr><td><code>working_dir</code></td><td>string</td><td>No</td><td>Working directory path. Must be under ~/ or /tmp.</td></tr>
+          <tr><td><code>backend</code></td><td>string</td><td>No</td><td>Backend to use (default from config).</td></tr>
+          <tr><td><code>name</code></td><td>string</td><td>No</td><td>Agent display name. Auto-generated if omitted.</td></tr>
+          <tr><td><code>plan_mode</code></td><td>boolean</td><td>No</td><td>Enable plan mode (Claude Code only).</td></tr>
+          <tr><td><code>project_id</code></td><td>string</td><td>No</td><td>Assign to a project.</td></tr>
+          <tr><td><code>model</code></td><td>string</td><td>No</td><td>Model name override (Claude Code only).</td></tr>
+          <tr><td><code>tools</code></td><td>string</td><td>No</td><td>Comma-separated tool restriction list (Claude Code only).</td></tr>
+          <tr><td><code>output_mode</code></td><td>string</td><td>No</td><td><code>"tmux"</code> (default) or <code>"stream-json"</code>. Stream-json uses subprocess instead of tmux (non-interactive, Claude Code only).</td></tr>
+        </tbody>
+      </table>
+      <pre><code># Example
+curl -X POST http://127.0.0.1:5111/api/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "role": "backend",
+    "task": "Add input validation to user registration",
+    "working_dir": "~/Projects/my-app",
+    "backend": "claude-code",
+    "plan_mode": true
+  }'
+
+# Response
+{
+  "id": "b2c4",
+  "name": "backend-b2c4",
+  "role": "backend",
+  "status": "starting",
+  "task": "Add input validation to user registration",
+  "working_dir": "/Users/dev/Projects/my-app",
+  "backend": "claude-code",
+  "plan_mode": true
+}</code></pre>
+
+      <h3>Get Agent Details</h3>
+      <p><code>GET /api/agents/{id}</code></p>
+      <p>Returns full agent details including recent terminal output.</p>
+      <pre><code># Response includes output lines
+{
+  "id": "a7f3",
+  "name": "auth-api",
+  "role": "backend",
+  "status": "working",
+  "output": ["line1", "line2", "..."],
+  "git_branch": "feature/auth-validation",
+  "health_score": 92,
+  "summary": "Editing src/auth/validators.py"
+}</code></pre>
+
+      <h3>Kill Agent</h3>
+      <p><code>DELETE /api/agents/{id}</code></p>
+      <p>Sends <code>/exit</code> to the agent, waits 3 seconds, then kills the tmux session. Only the agent owner or admin can kill an agent.</p>
+      <pre><code>curl -X DELETE http://127.0.0.1:5111/api/agents/a7f3</code></pre>
+
+      <h3>Send Message to Agent</h3>
+      <p><code>POST /api/agents/{id}/send</code></p>
+      <p>Sends a message to the agent's stdin via <code>tmux send-keys</code>. Maximum message length: 50,000 characters. Returns 400 for stream-json agents (non-interactive).</p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/agents/a7f3/send \
+  -H "Content-Type: application/json" \
+  -d '{"message": "yes, proceed with those changes"}'</code></pre>
+
+      <h3>Pause / Resume Agent</h3>
+      <p><code>POST /api/agents/{id}/pause</code> &mdash; Sends SIGTSTP to pause the agent process.</p>
+      <p><code>POST /api/agents/{id}/resume</code> &mdash; Sends SIGCONT to resume a paused agent.</p>
+
+      <h3>Restart Agent</h3>
+      <p><code>POST /api/agents/{id}/restart</code></p>
+      <p>Kills the current agent and respawns with the same configuration (role, task, working directory, backend).</p>
+
+      <h3>Bulk Actions</h3>
+      <p><code>POST /api/agents/bulk</code></p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/agents/bulk \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "pause",
+    "agent_ids": ["a7f3", "b2c4", "d5e6"]
+  }'</code></pre>
+      <p>Supported actions: <code>pause</code>, <code>resume</code>, <code>kill</code>, <code>restart</code>.</p>
+
+      <!-- ========== PROJECTS ========== -->
+      <h2>Projects</h2>
+
+      <h3>List Projects</h3>
+      <p><code>GET /api/projects</code></p>
+      <pre><code># Response
+[
+  {
+    "id": "p1a2",
+    "name": "my-app",
+    "path": "/Users/dev/Projects/my-app",
+    "git_remote_url": "git@github.com:user/my-app.git",
+    "default_branch": "main",
+    "default_backend": "claude-code",
+    "created_at": "2026-03-01T09:00:00Z"
+  }
+]</code></pre>
+
+      <h3>Create Project</h3>
+      <p><code>POST /api/projects</code></p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/projects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-app",
+    "path": "~/Projects/my-app"
+  }'</code></pre>
+      <p>The path must be a real directory under <code>~/</code> or <code>/tmp</code>. Git metadata (remote URL, default branch) is auto-detected.</p>
+
+      <h3>Update Project</h3>
+      <p><code>PUT /api/projects/{id}</code></p>
+      <pre><code>curl -X PUT http://127.0.0.1:5111/api/projects/p1a2 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-app-v2",
+    "description": "Main application repository"
+  }'</code></pre>
+
+      <h3>Delete Project</h3>
+      <p><code>DELETE /api/projects/{id}</code></p>
+
+      <h3>Project Context</h3>
+      <p><code>GET /api/projects/{id}/context</code> &mdash; Returns project agents, branches, and recent tasks.</p>
+
+      <h3>Project Scratchpad</h3>
+      <p><code>GET /api/projects/{id}/scratchpad</code> &mdash; Get project-level scratchpad notes.</p>
+      <p><code>POST /api/projects/{id}/scratchpad</code> &mdash; Update project scratchpad.</p>
+
+      <h3>Project Events</h3>
+      <p><code>GET /api/projects/{id}/events</code> &mdash; Project event feed (agent spawns, completions, conflicts).</p>
+
+      <!-- ========== WORKFLOWS ========== -->
+      <h2>Workflows (Pro)</h2>
+
+      <h3>List Workflows</h3>
+      <p><code>GET /api/workflows</code></p>
+
+      <h3>Create Workflow</h3>
+      <p><code>POST /api/workflows</code></p>
+      <p>Define a DAG of agent tasks with dependency ordering:</p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/workflows \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Full Stack Feature",
+    "agents": [
+      {
+        "name": "backend-api",
+        "role": "backend",
+        "task": "Create REST endpoint for user profiles",
+        "backend": "claude-code"
+      },
+      {
+        "name": "frontend-ui",
+        "role": "frontend",
+        "task": "Build profile page component",
+        "backend": "claude-code",
+        "depends_on": ["backend-api"]
+      },
+      {
+        "name": "test-suite",
+        "role": "tester",
+        "task": "Write integration tests for profile feature",
+        "backend": "claude-code",
+        "depends_on": ["backend-api", "frontend-ui"]
+      }
+    ]
+  }'</code></pre>
+
+      <h3>Update Workflow</h3>
+      <p><code>PUT /api/workflows/{id}</code> &mdash; Validates that there are no circular dependencies.</p>
+
+      <h3>Run Workflow</h3>
+      <p><code>POST /api/workflows/{id}/run</code> &mdash; Executes the workflow. Agents are spawned in dependency order.</p>
+
+      <h3>Delete Workflow</h3>
+      <p><code>DELETE /api/workflows/{id}</code></p>
+
+      <!-- ========== INTELLIGENCE ========== -->
+      <h2>Intelligence (Pro)</h2>
+
+      <h3>Parse Natural Language Command</h3>
+      <p><code>POST /api/intelligence/command</code></p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/intelligence/command \
+  -H "Content-Type: application/json" \
+  -d '{"text": "spawn 3 backend agents on my-app to refactor the auth module"}'
+
+# Response
+{
+  "intent": "spawn",
+  "count": 3,
+  "role": "backend",
+  "project": "my-app",
+  "task": "refactor the auth module"
+}</code></pre>
+
+      <h3>Fleet Insights</h3>
+      <p><code>GET /api/intelligence/insights</code></p>
+      <p>Returns LLM-generated analysis of the current fleet: conflicts, stuck agents, handoff opportunities, optimization suggestions.</p>
+
+      <!-- ========== AUTH ========== -->
+      <h2>Authentication</h2>
+      <p>Session-based authentication with bcrypt password hashing. Auth is optional &mdash; single-user setups work without it.</p>
+
+      <h3>Check Auth Status</h3>
+      <p><code>GET /api/auth/status</code></p>
+      <pre><code># Response (auth not required)
+{"require_auth": false}
+
+# Response (auth required)
+{"require_auth": true, "user": {"email": "admin@example.com", "role": "admin"}}</code></pre>
+
+      <h3>Register</h3>
+      <p><code>POST /api/auth/register</code></p>
+      <p>The first user to register becomes the admin and creates the organization.</p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@example.com",
+    "password": "securepassword123",
+    "name": "Admin User"
+  }'</code></pre>
+
+      <h3>Login</h3>
+      <p><code>POST /api/auth/login</code></p>
+      <p>Returns a session cookie (<code>HttpOnly</code>, <code>SameSite=Strict</code>, <code>Secure</code> behind HTTPS).</p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@example.com", "password": "securepassword123"}'</code></pre>
+
+      <h3>Logout</h3>
+      <p><code>POST /api/auth/logout</code> &mdash; Clears the session cookie.</p>
+
+      <h3>Current User</h3>
+      <p><code>GET /api/auth/me</code> &mdash; Returns the current authenticated user info.</p>
+
+      <h3>Invite User (Admin, Pro)</h3>
+      <p><code>POST /api/auth/invite</code></p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/auth/invite \
+  -H "Content-Type: application/json" \
+  -d '{"email": "dev@example.com", "name": "Developer"}'
+
+# Response includes temporary password
+{"email": "dev@example.com", "temp_password": "abc123xyz"}</code></pre>
+
+      <h3>List Team Members (Pro)</h3>
+      <p><code>GET /api/auth/team</code> &mdash; Lists all organization members.</p>
+
+      <!-- ========== LICENSING ========== -->
+      <h2>Licensing</h2>
+
+      <h3>License Status</h3>
+      <p><code>GET /api/license/status</code></p>
+      <pre><code># Response
+{
+  "tier": "community",
+  "max_agents": 5,
+  "max_seats": 1,
+  "features": ["core"],
+  "expires_at": null,
+  "effective_max_agents": 5
+}</code></pre>
+
+      <h3>Activate License</h3>
+      <p><code>POST /api/license/activate</code> &mdash; Admin only.</p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/license/activate \
+  -H "Content-Type: application/json" \
+  -d '{"key": "eyJhbGciOiJFZERTQSIs..."}'</code></pre>
+
+      <h3>Deactivate License</h3>
+      <p><code>DELETE /api/license/deactivate</code> &mdash; Admin only. Reverts to Community tier.</p>
+
+      <!-- ========== SYSTEM ========== -->
+      <h2>System</h2>
+
+      <h3>System Metrics</h3>
+      <p><code>GET /api/system</code></p>
+      <pre><code># Response
+{
+  "cpu_pct": 34.2,
+  "memory": {"total": 17179869184, "used": 8589934592, "pct": 50.0},
+  "agents_active": 3,
+  "agents_total": 5,
+  "uptime_seconds": 3600
+}</code></pre>
+
+      <h3>Health Check</h3>
+      <p><code>GET /api/health</code></p>
+      <pre><code>{"status": "ok", "version": "1.6.1"}</code></pre>
+
+      <h3>Get Config</h3>
+      <p><code>GET /api/config</code> &mdash; Returns current runtime configuration.</p>
+
+      <h3>Update Config</h3>
+      <p><code>PUT /api/config</code> &mdash; Updates config, saves to YAML, applies at runtime. Admin only when auth is enabled.</p>
+
+      <h3>List Roles</h3>
+      <p><code>GET /api/roles</code> &mdash; Returns all available agent roles with names, colors, and icons.</p>
+
+      <h3>List Backends</h3>
+      <p><code>GET /api/backends</code> &mdash; Returns available backends with capabilities.</p>
+
+      <h3>Cost Estimates</h3>
+      <p><code>GET /api/costs</code> &mdash; Returns cost estimates for active and historical agents (heuristic based on character count).</p>
+
+      <!-- ========== FLEET TEMPLATES ========== -->
+      <h2>Fleet Templates</h2>
+
+      <h3>List Templates</h3>
+      <p><code>GET /api/fleet-templates</code></p>
+
+      <h3>Create Template</h3>
+      <p><code>POST /api/fleet-templates</code></p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/fleet-templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Feature Sprint",
+    "agents": [
+      {"role": "backend", "task": "Implement {feature} API endpoints"},
+      {"role": "frontend", "task": "Build {feature} UI components"},
+      {"role": "tester", "task": "Write tests for {feature}"}
+    ]
+  }'</code></pre>
+      <p>Task strings support parameterized variables: <code>{branch}</code>, <code>{project_name}</code>, <code>{date}</code>, and custom variables.</p>
+
+      <h3>Update / Delete Template</h3>
+      <p><code>PUT /api/fleet-templates/{id}</code></p>
+      <p><code>DELETE /api/fleet-templates/{id}</code></p>
+
+      <h3>Deploy Template</h3>
+      <p><code>POST /api/fleet-templates/{id}/deploy</code></p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/fleet-templates/ft1/deploy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "project_id": "p1a2",
+    "variables": {"feature": "user-profiles"}
+  }'</code></pre>
+
+      <!-- ========== AGENT EXTRAS ========== -->
+      <h2>Agent Extras</h2>
+
+      <h3>Trigger LLM Summary</h3>
+      <p><code>POST /api/agents/{id}/summarize</code> &mdash; Triggers an immediate LLM-generated summary for the agent.</p>
+
+      <h3>Configure Auto-Handoff</h3>
+      <p><code>POST /api/agents/{id}/configure-handoff</code></p>
+      <pre><code>curl -X POST http://127.0.0.1:5111/api/agents/a7f3/configure-handoff \
+  -H "Content-Type: application/json" \
+  -d '{
+    "next_agent_config": {
+      "role": "tester",
+      "task": "Write tests for the changes made by {prev_agent}: {prev_summary}",
+      "backend": "claude-code"
+    }
+  }'</code></pre>
+      <p>When the agent completes, Ashlr automatically spawns the next agent with the configured settings. Variables <code>{prev_summary}</code> and <code>{prev_agent}</code> are interpolated. No recursive chains are allowed.</p>
+
+      <!-- ========== WEBSOCKET ========== -->
+      <h2>WebSocket Protocol</h2>
+      <p>Connect to <code>ws://127.0.0.1:5111/ws</code> for real-time updates.</p>
+
+      <h3>Server-to-Client Messages</h3>
+      <table>
+        <thead><tr><th>Type</th><th>Description</th><th>Payload</th></tr></thead>
+        <tbody>
+          <tr><td><code>sync</code></td><td>Initial state on connection</td><td><code>agents</code>, <code>projects</code>, <code>config</code>, <code>license</code>, <code>effective_max_agents</code></td></tr>
+          <tr><td><code>agent_update</code></td><td>Agent state changed</td><td><code>agent</code> object with all fields</td></tr>
+          <tr><td><code>agent_output</code></td><td>New terminal output lines</td><td><code>agent_id</code>, <code>lines</code> array</td></tr>
+          <tr><td><code>metrics</code></td><td>System metrics update</td><td><code>cpu_pct</code>, <code>memory</code>, <code>agents_active</code></td></tr>
+          <tr><td><code>event</code></td><td>Agent event (needs input, etc.)</td><td><code>event</code> name, <code>agent_id</code>, <code>message</code></td></tr>
+          <tr><td><code>license_update</code></td><td>License changed</td><td><code>license</code> object, <code>effective_max_agents</code></td></tr>
+          <tr><td><code>intelligence_alert</code></td><td>Fleet analysis insight</td><td><code>insight</code> object</td></tr>
+          <tr><td><code>file_conflict</code></td><td>Two agents editing same file</td><td><code>conflict</code> object with agent IDs and file path</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Client-to-Server Messages</h3>
+      <table>
+        <thead><tr><th>Type</th><th>Fields</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>spawn</code></td><td><code>role</code>, <code>name</code>, <code>working_dir</code>, <code>task</code>, <code>plan_mode</code></td><td>Spawn a new agent</td></tr>
+          <tr><td><code>send</code></td><td><code>agent_id</code>, <code>message</code></td><td>Send message to agent</td></tr>
+          <tr><td><code>kill</code></td><td><code>agent_id</code></td><td>Kill an agent</td></tr>
+          <tr><td><code>pause</code></td><td><code>agent_id</code></td><td>Pause an agent</td></tr>
+          <tr><td><code>resume</code></td><td><code>agent_id</code></td><td>Resume a paused agent</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Example WebSocket Client</h3>
+      <pre><code>const ws = new WebSocket('ws://127.0.0.1:5111/ws');
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  switch (msg.type) {
+    case 'sync':
+      console.log('Connected, agents:', msg.agents.length);
+      break;
+    case 'agent_update':
+      console.log(`Agent ${msg.agent.id}: ${msg.agent.status}`);
+      break;
+    case 'agent_output':
+      console.log(`Output from ${msg.agent_id}:`, msg.lines);
+      break;
+    case 'event':
+      if (msg.event === 'agent_needs_input') {
+        console.log(`Agent ${msg.agent_id} needs input: ${msg.message}`);
+      }
+      break;
+  }
+};
+
+// Spawn an agent via WebSocket
+ws.send(JSON.stringify({
+  type: 'spawn',
+  role: 'backend',
+  name: 'my-agent',
+  working_dir: '~/Projects/my-app',
+  task: 'Add input validation'
+}));
+
+// Send a response to a waiting agent
+ws.send(JSON.stringify({
+  type: 'send',
+  agent_id: 'a7f3',
+  message: 'yes, proceed'
+}));</code></pre>
+
+      <h2>Error Responses</h2>
+      <p>All endpoints return consistent error JSON:</p>
+      <pre><code>// 400 Bad Request
+{"error": "task is required"}
+
+// 403 Forbidden (feature gated)
+{"error": "Pro plan required for workflows", "feature": "workflows", "current_plan": "community"}
+
+// 404 Not Found
+{"error": "agent not found"}
+
+// 429 Too Many Requests
+{"error": "rate limit exceeded"}</code></pre>
+
+      <h2>Rate Limiting</h2>
+      <p>The server applies rate limiting via middleware. Default limits are generous for local use but can be hit during automated scripting. Rate-limited responses return HTTP 429 with a <code>Retry-After</code> header.</p>
+
+      <a href="https://github.com/Ashlar-inc/ashlar-ao/edit/main/docs/api-reference.md" target="_blank" rel="noopener" class="docs-edit-link">Edit this page on GitHub</a>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="/public/logo.svg" alt="Ashlr AO" width="100" height="32">
+          <p>Local-first agent orchestration platform for AI coding agents.</p>
+        </div>
+        <div class="footer-col"><h4>Product</h4><a href="/#features">Features</a><a href="/pricing">Pricing</a><a href="https://github.com/Ashlar-inc/ashlar-ao/releases" target="_blank" rel="noopener">Downloads</a></div>
+        <div class="footer-col"><h4>Resources</h4><a href="/docs/">Documentation</a><a href="/docs/getting-started">Getting Started</a><a href="/docs/api-reference">API Reference</a><a href="/blog/">Blog</a></div>
+        <div class="footer-col"><h4>Community</h4><a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a><a href="https://pypi.org/project/ashlr-ao/" target="_blank" rel="noopener">PyPI</a><a href="https://github.com/Ashlar-inc/ashlar-ao/issues" target="_blank" rel="noopener">Issues</a></div>
+      </div>
+      <div class="footer-bottom">
+        <span>A product by <a href="https://ashlr.ai">ashlr.ai</a></span>
+        <span>&copy; 2026 Ashlr. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Introducing Ashlr AO: One Command Center for All Your AI Agents — Ashlr AO Blog</title>
+  <meta name="description" content="Managing multiple AI coding agents is chaos. Ashlr AO is a local-first agent orchestration platform that gives you a single command center for Claude Code, Codex, Aider, and Goose.">
+  <link rel="canonical" href="https://ashlrao.com/blog/introducing-ashlr-ao">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Introducing Ashlr AO: One Command Center for All Your AI Agents">
+  <meta property="og:description" content="Managing multiple AI coding agents is chaos. Ashlr AO is a single command center for Claude Code, Codex, Aider, and Goose.">
+  <meta property="og:image" content="https://ashlrao.com/public/og-image.png">
+  <meta property="og:url" content="https://ashlrao.com/blog/introducing-ashlr-ao">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Ashlr AO">
+  <meta property="article:published_time" content="2026-03-08T00:00:00Z">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Introducing Ashlr AO: One Command Center for All Your AI Agents">
+  <meta name="twitter:description" content="A local-first AI agent orchestration platform for developers running multiple coding agents.">
+  <meta name="twitter:image" content="https://ashlrao.com/public/twitter-card.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+  <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/blog.css">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Introducing Ashlr AO: One Command Center for All Your AI Agents",
+    "datePublished": "2026-03-08",
+    "author": {
+      "@type": "Organization",
+      "name": "Ashlr",
+      "url": "https://ashlr.ai"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Ashlr",
+      "url": "https://ashlr.ai"
+    },
+    "description": "Managing multiple AI coding agents is chaos. Ashlr AO is a local-first agent orchestration platform that gives you a single command center for Claude Code, Codex, Aider, and Goose.",
+    "mainEntityOfPage": "https://ashlrao.com/blog/introducing-ashlr-ao"
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a href="/" aria-label="Ashlr AO Home"><img src="/public/logo.svg" alt="Ashlr AO" class="nav-logo"></a>
+      <div class="nav-links">
+        <a href="/#features">Features</a>
+        <a href="/docs/">Docs</a>
+        <a href="/blog/" class="active">Blog</a>
+        <a href="/pricing">Pricing</a>
+        <a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="nav-right">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <a href="/docs/getting-started" class="btn btn-primary">Get Started</a>
+        <button class="nav-mobile-toggle" aria-label="Toggle menu" aria-expanded="false"><span></span></button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="blog-post">
+    <a href="/blog/" class="blog-back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back to Blog
+    </a>
+
+    <header class="blog-post-header">
+      <h1>Introducing Ashlr AO: One Command Center for All Your AI Agents</h1>
+      <div class="blog-post-meta">
+        <time datetime="2026-03-08">March 8, 2026</time>
+        <span>&middot;</span>
+        <span>8 min read</span>
+      </div>
+    </header>
+
+    <article class="blog-post-content">
+      <p>If you're a developer using AI coding agents in 2026, you've probably experienced the same problem we did: chaos. You have Claude Code running in one terminal tab refactoring your auth module, Codex in another writing tests for the API layer, maybe Aider doing a code review in a third. Each agent lives in its own silo. You're constantly switching tabs, losing context, missing when an agent asks a question, and hoping two agents don't try to edit the same file at the same time.</p>
+
+      <p>Today we're open-sourcing <strong>Ashlr AO</strong> &mdash; a local-first agent orchestration platform that gives you a single command center to manage all of your AI coding agents, across all of your repositories, from one dashboard.</p>
+
+      <h2>The Problem: AI Agents Don't Play Well Together</h2>
+
+      <p>AI coding agents have become remarkably capable. Claude Code can plan and execute multi-file refactors. Codex can generate entire test suites from a single prompt. Aider and Goose bring their own strengths to pair programming and autonomous coding. But the moment you try to run more than one at a time, the experience falls apart.</p>
+
+      <p>The core issues are always the same:</p>
+      <ul>
+        <li><strong>No unified view.</strong> Each agent runs in its own terminal. You're tab-switching constantly, and when you have five or six agents running across two repos, you inevitably lose track of what's happening.</li>
+        <li><strong>Missed interactions.</strong> An agent asks a question and blocks, waiting for your input. You don't notice for ten minutes because it's buried in a background tab. That's ten minutes of an expensive LLM session sitting idle.</li>
+        <li><strong>File conflicts.</strong> Two agents decide to edit the same file. Neither knows the other exists. You end up with merge conflicts, lost work, or subtle bugs that take longer to debug than the original task.</li>
+        <li><strong>No fleet-level awareness.</strong> You can't see at a glance which agents are working, which are stuck, which need input. There's no concept of "my AI fleet" &mdash; just a collection of disconnected terminal sessions.</li>
+      </ul>
+
+      <p>We built Ashlr AO to solve all of these problems at once.</p>
+
+      <h2>The Solution: One Command Center</h2>
+
+      <p>Ashlr AO is a Python server that runs locally on your machine. It provides a real-time web dashboard where you can spawn, monitor, pause, resume, restart, and kill AI coding agents. Every agent runs in an isolated tmux session, and Ashlr captures their terminal output every second, parses it for status changes, and streams updates to your browser over WebSocket.</p>
+
+      <p>The result is a glassmorphic mission control for your AI fleet. Each agent gets a card showing its role, status, current task summary, and git branch. Cards pulse with the agent's role color when working, turn orange when an agent needs your attention, and flash red on errors. Click any card to dive into the full terminal output with ANSI color rendering, an activity feed of file edits and commands, and a scratchpad for notes.</p>
+
+      <p>The entire experience is keyboard-driven. <code>Cmd+N</code> to spawn a new agent. <code>Cmd+K</code> for the command palette. <code>Cmd+Shift+A</code> to see every agent waiting for input. Number keys to jump between agents. You can orchestrate a fleet of ten agents without touching your mouse.</p>
+
+      <h2>Key Features</h2>
+
+      <h3>Multi-Agent Orchestration</h3>
+      <p>Spawn up to 100 concurrent agents (5 on the free Community tier, up to 100 on Pro). Each agent runs in a tmux session with full process isolation. Ashlr supports four backends out of the box: Claude Code, Codex, Aider, and Goose. Claude Code gets first-class support with plan mode toggling, model selection, tool restriction, and stream-json output mode for non-interactive tasks.</p>
+
+      <p>Agents are organized by project and git branch. You can filter your fleet by project, branch, status, or free-text search. Focus mode (<code>Cmd+Shift+F</code>) narrows the dashboard to a single project when you need to concentrate.</p>
+
+      <h3>Real-Time Dashboard</h3>
+      <p>The dashboard is a single HTML file with inline CSS and JavaScript. No React. No build step. No node_modules. It loads instantly and uses WebSocket for real-time updates. The design language is glassmorphism &mdash; translucent cards with backdrop blur, inner light highlights, and deep shadows. It looks good and stays out of your way.</p>
+
+      <p>The deep view gives you the full terminal output with ANSI color rendering, line numbers, and search. An activity tab parses agent output into structured events: file reads, file edits, bash commands, test results, errors, and git operations. You can see at a glance what an agent has done without scrolling through raw terminal output.</p>
+
+      <h3>Auto-Pilot</h3>
+      <p>For workflows where you trust the agents to proceed without constant supervision, Ashlr includes auto-pilot capabilities. Auto-restart detects when an agent has stalled (no output for a configurable period) and restarts it with the same task. Auto-approve matches agent questions against safe patterns and automatically responds, with a hardcoded never-approve list that blocks dangerous operations like <code>rm -rf</code>, force pushes, and <code>DROP TABLE</code> commands. Rate limiting prevents runaway auto-approvals.</p>
+
+      <p>Health-based auto-pause monitors system resources and pauses agents when memory pressure gets critical. Browser notifications alert you to specific events &mdash; errors, waiting agents, completions &mdash; so you can step away from the dashboard and still stay in the loop.</p>
+
+      <h3>Intelligence Layer</h3>
+      <p>When you set an <code>XAI_API_KEY</code> environment variable, Ashlr activates its intelligence layer powered by xAI's Grok. This adds LLM-generated one-line summaries for each agent (replacing the regex-based fallback), natural language command parsing in the command bar ("spawn 3 backend agents on the auth-service repo"), and fleet-level analysis every 30 seconds that detects stuck agents, potential conflicts, and handoff opportunities.</p>
+
+      <p>The intelligence layer is entirely optional. Without it, Ashlr falls back to regex-based status detection and summary extraction, which works well for the core experience. The LLM layer is a quality-of-life upgrade, not a requirement.</p>
+
+      <h3>Cross-Agent Coordination</h3>
+      <p>Ashlr detects when two agents are editing the same file and alerts you in real-time. Per-agent scratchpads let you leave notes that persist across sessions. Auto-handoff lets you configure an agent to automatically spawn a successor when it completes &mdash; for example, a backend agent that hands off to a tester agent with context about what was built.</p>
+
+      <p>Fleet templates let you define reusable multi-agent configurations ("Full Stack" might spawn a frontend agent, a backend agent, and a tester) and deploy them to any project with one click. Task templates support variables like <code>{branch}</code>, <code>{project_name}</code>, and <code>{date}</code> that are interpolated at deploy time.</p>
+
+      <h3>Native Desktop App</h3>
+      <p>For developers who prefer a native experience, Ashlr ships as a macOS desktop app built with Tauri v2. The app weighs 5.9MB, ships as a 3.1MB DMG, and includes system tray integration with agent count and fleet status. It manages the Python server as a sidecar process &mdash; starting, stopping, and monitoring it automatically. No Electron. No 200MB download.</p>
+
+      <h2>Technical Decisions</h2>
+
+      <p>Every tool reflects the tradeoffs its creators were willing to make. Here are ours.</p>
+
+      <h3>Why Python and aiohttp</h3>
+      <p>Ashlr needs async HTTP, WebSocket support, and good process management. Python's <code>asyncio</code> gives us all three. aiohttp is mature, fast enough for a local orchestration server, and doesn't bring a framework's worth of opinions. We use <code>psutil</code> for process and system metrics, <code>aiosqlite</code> for non-blocking database access, and <code>asyncio.create_subprocess_exec</code> for stream-json mode. The entire server is 22 modules totaling around 15,000 lines of Python.</p>
+
+      <h3>Why tmux</h3>
+      <p>Each AI coding agent is a CLI process that reads from stdin and writes to stdout. tmux gives us session isolation, the ability to capture pane output programmatically, and the ability to send keystrokes to a session &mdash; which is exactly what we need to respond to agent questions. It's battle-tested, available on every macOS and Linux system, and adds zero overhead. We also support a stream-json mode for Claude Code that bypasses tmux entirely and reads structured ndjson output from a subprocess, which is useful for non-interactive batch tasks.</p>
+
+      <h3>Why SQLite</h3>
+      <p>Ashlr is local-first. A single SQLite file at <code>~/.ashlr/ashlr.db</code> stores agent history, projects, workflows, fleet templates, and user accounts. No Postgres to configure. No Docker container to run. The database is created automatically on first launch. We use <code>aiosqlite</code> for async access and schema migrations are handled via a versioned migration system in the Database class.</p>
+
+      <h3>Why No Build Step</h3>
+      <p>The dashboard is vanilla JavaScript. ES2022+ features, no transpilation, no bundling. The CSS uses custom properties and <code>backdrop-filter</code> for glassmorphism. Everything is served as static files by the aiohttp server. This means contributors can edit the dashboard with any text editor and refresh the browser to see changes. No <code>npm install</code>. No webpack config. No waiting for hot module replacement. Just HTML, CSS, and JavaScript.</p>
+
+      <h2>By the Numbers</h2>
+
+      <p>We believe in shipping with confidence, and that means testing extensively:</p>
+
+      <ul>
+        <li><strong>1,926 tests</strong> across 31 test files, covering agent lifecycle, API endpoints, WebSocket protocol, authentication, workflows, database migrations, stream-json parsing, PTY management, file operations, and git integration.</li>
+        <li><strong>22 Python modules</strong> in a clean package structure, each with a single responsibility. The largest module (server.py) is 3,200 lines; most are under 500.</li>
+        <li><strong>~15,000 lines of Python</strong> for the server, plus ~17,000 lines of JavaScript and ~5,800 lines of CSS for the dashboard.</li>
+        <li><strong>5.9MB native app</strong> via Tauri v2, compared to 150-200MB for a typical Electron app.</li>
+        <li><strong>4 supported backends</strong>: Claude Code, Codex, Aider, and Goose.</li>
+        <li><strong>9 built-in roles</strong>: Frontend, Backend, DevOps, QA/Tester, Reviewer, Security, Architect, Docs, and General Purpose.</li>
+        <li><strong>6 supervised background tasks</strong> running continuously: output capture, metrics collection, health monitoring, memory watchdog, meta-agent analysis, and archive cleanup.</li>
+      </ul>
+
+      <h2>What's Next</h2>
+
+      <p>Ashlr AO is production-ready today &mdash; we use it daily to orchestrate our own development. But we have plans for where to take it next:</p>
+
+      <ul>
+        <li><strong>Cloud-hosted version.</strong> A SaaS offering for teams that want managed infrastructure, with Stripe billing and a license portal for key management.</li>
+        <li><strong>More backends.</strong> As new AI coding agents emerge, we'll add first-class support. The backend system is pluggable, so community contributions are straightforward.</li>
+        <li><strong>More platforms.</strong> The Tauri desktop app is macOS-only today. Linux and Windows builds are on the roadmap.</li>
+        <li><strong>Richer cross-agent intelligence.</strong> We want agents to be able to share context more deeply &mdash; not just scratchpads and handoffs, but shared understanding of project state, code structure, and intent.</li>
+        <li><strong>Plugin ecosystem.</strong> Extension scanning is already built into the server. We want to make it easy to write plugins that add new roles, custom status patterns, and third-party integrations.</li>
+      </ul>
+
+      <h2>Get Started</h2>
+
+      <p>Ashlr AO is open source and free to use. Install it in one command:</p>
+
+      <pre><code>pip install ashlr-ao
+ashlr</code></pre>
+
+      <p>That's it. The server starts, creates its config at <code>~/.ashlr/ashlr.yaml</code>, and opens the dashboard at <code>http://127.0.0.1:5111</code>. You'll need Python 3.11+, tmux, and at least one AI coding agent backend installed (Claude Code, Codex, Aider, or Goose).</p>
+
+      <p>For the native macOS app, grab the DMG from the <a href="https://github.com/Ashlar-inc/ashlar-ao/releases" target="_blank" rel="noopener">GitHub releases page</a>.</p>
+
+      <p>We'd love to hear what you think. File issues, submit PRs, or just tell us how you're using it. The repo is at <a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">github.com/Ashlar-inc/ashlar-ao</a>.</p>
+
+      <blockquote>
+        <p>Your AI agents deserve a command center. Stop juggling terminal tabs.</p>
+      </blockquote>
+    </article>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="/public/logo.svg" alt="Ashlr AO" width="100" height="32">
+          <p>Local-first agent orchestration platform for AI coding agents.</p>
+        </div>
+        <div class="footer-col"><h4>Product</h4><a href="/#features">Features</a><a href="/pricing">Pricing</a><a href="https://github.com/Ashlar-inc/ashlar-ao/releases" target="_blank" rel="noopener">Downloads</a></div>
+        <div class="footer-col"><h4>Resources</h4><a href="/docs/">Documentation</a><a href="/docs/getting-started">Getting Started</a><a href="/docs/api-reference">API Reference</a><a href="/blog/">Blog</a></div>
+        <div class="footer-col"><h4>Community</h4><a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a><a href="https://pypi.org/project/ashlr-ao/" target="_blank" rel="noopener">PyPI</a><a href="https://github.com/Ashlar-inc/ashlar-ao/issues" target="_blank" rel="noopener">Issues</a></div>
+      </div>
+      <div class="footer-bottom">
+        <span>A product by <a href="https://ashlr.ai">ashlr.ai</a></span>
+        <span>&copy; 2026 Ashlr. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/main.js"></script>
+</body>
+</html>

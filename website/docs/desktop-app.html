@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Desktop App — Ashlr AO Docs</title>
+  <meta name="description" content="Ashlr AO desktop app for macOS. Native Tauri v2 app with system tray integration and sidecar server management.">
+  <link rel="canonical" href="https://ashlrao.com/docs/desktop-app">
+
+  <meta property="og:title" content="Desktop App — Ashlr AO">
+  <meta property="og:description" content="Native macOS desktop app built with Tauri v2. 5.9MB binary, system tray, automatic server management.">
+  <meta property="og:url" content="https://ashlrao.com/docs/desktop-app">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Ashlr AO">
+  <meta property="og:image" content="https://ashlrao.com/public/og-image.png">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Desktop App — Ashlr AO">
+  <meta name="twitter:description" content="Native macOS desktop app built with Tauri v2. 5.9MB binary, system tray, automatic server management.">
+  <meta name="twitter:image" content="https://ashlrao.com/public/og-image.png">
+
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+  <link rel="apple-touch-icon" href="/public/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/docs.css">
+</head>
+<body>
+
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <div class="container">
+      <a href="/" aria-label="Ashlr AO Home"><img src="/public/logo.svg" alt="Ashlr AO" class="nav-logo"></a>
+      <div class="nav-links">
+        <a href="/#features">Features</a>
+        <a href="/docs/" class="active">Docs</a>
+        <a href="/blog/">Blog</a>
+        <a href="/pricing">Pricing</a>
+        <a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <div class="nav-right">
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <a href="/docs/getting-started" class="btn btn-primary">Get Started</a>
+        <button class="nav-mobile-toggle" aria-label="Toggle menu" aria-expanded="false"><span></span></button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <div class="docs-nav-group">
+        <h4>Getting Started</h4>
+        <a href="/docs/">Overview</a>
+        <a href="/docs/getting-started">Installation &amp; Setup</a>
+      </div>
+      <div class="docs-nav-group">
+        <h4>Configuration</h4>
+        <a href="/docs/configuration">Config Reference</a>
+        <a href="/docs/deployment">Deployment</a>
+      </div>
+      <div class="docs-nav-group">
+        <h4>Reference</h4>
+        <a href="/docs/api-reference">API Reference</a>
+        <a href="/docs/desktop-app" class="active">Desktop App</a>
+      </div>
+    </aside>
+
+    <main class="docs-content">
+      <h1>Desktop App</h1>
+      <p class="docs-subtitle">Native macOS application built with Tauri v2 for a first-class desktop experience.</p>
+
+      <h2>Overview</h2>
+      <p>The Ashlr AO desktop app wraps the web dashboard in a native macOS window with additional platform integrations. It uses <a href="https://v2.tauri.app" target="_blank" rel="noopener">Tauri v2</a> for a lightweight, secure native shell.</p>
+
+      <table>
+        <thead><tr><th>Spec</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>App size</td><td>5.9 MB (.app bundle)</td></tr>
+          <tr><td>DMG size</td><td>3.1 MB</td></tr>
+          <tr><td>Framework</td><td>Tauri v2 (Rust + WebView)</td></tr>
+          <tr><td>macOS requirement</td><td>macOS 11 (Big Sur) or later</td></tr>
+          <tr><td>Architecture</td><td>Universal (Apple Silicon + Intel)</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Download</h2>
+      <p>Download the latest release from GitHub:</p>
+      <p><a href="https://github.com/Ashlar-inc/ashlar-ao/releases" target="_blank" rel="noopener" class="btn btn-primary" style="display: inline-flex;">Download for macOS</a></p>
+      <p>Available formats:</p>
+      <ul>
+        <li><strong>.dmg</strong> &mdash; Drag-and-drop installer (recommended)</li>
+        <li><strong>.app</strong> &mdash; Direct application bundle</li>
+      </ul>
+
+      <div class="callout callout-warning">
+        <p><strong>First launch:</strong> macOS may show a "cannot be opened because the developer cannot be verified" warning. Right-click the app and select "Open" to bypass Gatekeeper, or go to System Settings &gt; Privacy &amp; Security and click "Open Anyway".</p>
+      </div>
+
+      <h2>System Requirements</h2>
+      <ul>
+        <li><strong>macOS 11 (Big Sur)</strong> or later</li>
+        <li><strong>Python 3.11+</strong> installed and available in your PATH</li>
+        <li><strong>tmux</strong> installed (<code>brew install tmux</code>)</li>
+        <li><strong>At least one AI backend</strong> installed (Claude Code, Codex, Aider, or Goose)</li>
+        <li>The <code>ashlr-ao</code> Python package must be installed: <code>pip install ashlr-ao</code></li>
+      </ul>
+
+      <h2>Features</h2>
+
+      <h3>Sidecar Server Management</h3>
+      <p>The desktop app manages the Ashlr AO Python server as a sidecar process:</p>
+      <ul>
+        <li><strong>Auto-start</strong> &mdash; The Python server starts automatically when you open the app</li>
+        <li><strong>Auto-stop</strong> &mdash; The server stops cleanly when you quit the app</li>
+        <li><strong>Health monitoring</strong> &mdash; The app monitors the server process and restarts it if it crashes</li>
+        <li><strong>Port detection</strong> &mdash; The app waits for the server to be ready before loading the dashboard</li>
+      </ul>
+      <p>You do not need to run <code>ashlr</code> manually when using the desktop app. The app handles the full lifecycle.</p>
+
+      <h3>System Tray</h3>
+      <p>Ashlr AO lives in your macOS menu bar with a system tray icon. The tray menu provides:</p>
+      <ul>
+        <li><strong>Show/Hide Window</strong> &mdash; Toggle the main dashboard window</li>
+        <li><strong>Server Status</strong> &mdash; Indicator showing whether the Python server is running</li>
+        <li><strong>Active Agents</strong> &mdash; Quick count of currently running agents</li>
+        <li><strong>Open Dashboard</strong> &mdash; Open the dashboard in the native window</li>
+        <li><strong>Open in Browser</strong> &mdash; Open the dashboard in your default web browser</li>
+        <li><strong>Quit</strong> &mdash; Stop the server and exit the app</li>
+      </ul>
+
+      <h3>Native Window</h3>
+      <p>The dashboard runs in a native macOS WebView with full access to:</p>
+      <ul>
+        <li>All keyboard shortcuts (Cmd+K, Cmd+N, Cmd+Shift+A, etc.)</li>
+        <li>Push-to-talk voice input via the Web Speech API</li>
+        <li>WebSocket real-time updates</li>
+        <li>File browser, git integration, and terminal views</li>
+        <li>Theme switching (dark/light)</li>
+      </ul>
+
+      <h3>IDE Features</h3>
+      <p>The desktop app includes the full IDE feature set available in the web dashboard:</p>
+      <ul>
+        <li><strong>PTY Terminals</strong> &mdash; Interactive terminal sessions with full ANSI color support</li>
+        <li><strong>File Browser</strong> &mdash; Navigate project files, create, rename, and delete files</li>
+        <li><strong>Git Integration</strong> &mdash; View status, diff, log, branches. Stage, unstage, commit, and discard changes</li>
+      </ul>
+
+      <h2>Configuration</h2>
+      <p>The desktop app uses the same <code>~/.ashlr/ashlr.yaml</code> configuration file as the CLI. Any changes you make in the dashboard settings are persisted to this file and take effect immediately.</p>
+      <p>The desktop app adds no additional configuration beyond what the standard Ashlr AO server supports. See the <a href="/docs/configuration">Configuration Reference</a> for all available options.</p>
+
+      <h2>Desktop App vs. Web Dashboard</h2>
+      <table>
+        <thead><tr><th>Feature</th><th>Desktop App</th><th>Web Dashboard</th></tr></thead>
+        <tbody>
+          <tr><td>Server management</td><td>Automatic (sidecar)</td><td>Manual (<code>ashlr</code> CLI)</td></tr>
+          <tr><td>System tray</td><td>Yes</td><td>No</td></tr>
+          <tr><td>Runs without browser</td><td>Yes</td><td>No</td></tr>
+          <tr><td>All dashboard features</td><td>Yes</td><td>Yes</td></tr>
+          <tr><td>Keyboard shortcuts</td><td>Full support</td><td>Full support</td></tr>
+          <tr><td>Multi-user auth</td><td>Local only</td><td>Local or remote</td></tr>
+          <tr><td>Remote access</td><td>No</td><td>Yes (with deployment)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout callout-info">
+        <p><strong>Note:</strong> The desktop app is designed for local, single-user use. For team deployments with remote access, use the <a href="/docs/deployment">Docker + Caddy deployment</a> and access the dashboard via a web browser.</p>
+      </div>
+
+      <h2>Building from Source</h2>
+      <p>To build the desktop app yourself, you need <a href="https://www.rust-lang.org/tools/install" target="_blank" rel="noopener">Rust</a> and the Tauri CLI:</p>
+      <pre><code># Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install Tauri CLI
+cargo install tauri-cli
+
+# Clone the repo and build
+git clone https://github.com/Ashlar-inc/ashlar-ao.git
+cd ashlar-ao/desktop
+cargo tauri build</code></pre>
+      <p>The built app will be at <code>desktop/target/release/bundle/macos/Ashlr AO.app</code> and the DMG at <code>desktop/target/release/bundle/dmg/Ashlr AO.dmg</code>.</p>
+
+      <h2>Troubleshooting</h2>
+
+      <h3>Server fails to start</h3>
+      <p>If the app opens but shows a loading screen indefinitely:</p>
+      <ol>
+        <li>Verify Python 3.11+ is installed: <code>python3 --version</code></li>
+        <li>Verify ashlr-ao is installed: <code>pip show ashlr-ao</code></li>
+        <li>Verify tmux is installed: <code>which tmux</code></li>
+        <li>Check if port 5111 is already in use: <code>lsof -i :5111</code></li>
+        <li>Try running <code>ashlr</code> manually in a terminal to see error output</li>
+      </ol>
+
+      <h3>Keyboard shortcuts not working</h3>
+      <p>Some macOS keyboard shortcuts may conflict with system shortcuts. If <kbd>Cmd+K</kbd> or other shortcuts do not work, check System Settings &gt; Keyboard &gt; Keyboard Shortcuts for conflicts.</p>
+
+      <h3>Gatekeeper blocking the app</h3>
+      <p>If macOS prevents the app from opening:</p>
+      <pre><code># Remove the quarantine attribute
+xattr -d com.apple.quarantine "/Applications/Ashlr AO.app"</code></pre>
+
+      <a href="https://github.com/Ashlar-inc/ashlar-ao/edit/main/docs/desktop-app.md" target="_blank" rel="noopener" class="docs-edit-link">Edit this page on GitHub</a>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <img src="/public/logo.svg" alt="Ashlr AO" width="100" height="32">
+          <p>Local-first agent orchestration platform for AI coding agents.</p>
+        </div>
+        <div class="footer-col"><h4>Product</h4><a href="/#features">Features</a><a href="/pricing">Pricing</a><a href="https://github.com/Ashlar-inc/ashlar-ao/releases" target="_blank" rel="noopener">Downloads</a></div>
+        <div class="footer-col"><h4>Resources</h4><a href="/docs/">Documentation</a><a href="/docs/getting-started">Getting Started</a><a href="/docs/api-reference">API Reference</a><a href="/blog/">Blog</a></div>
+        <div class="footer-col"><h4>Community</h4><a href="https://github.com/Ashlar-inc/ashlar-ao" target="_blank" rel="noopener">GitHub</a><a href="https://pypi.org/project/ashlr-ao/" target="_blank" rel="noopener">PyPI</a><a href="https://github.com/Ashlar-inc/ashlar-ao/issues" target="_blank" rel="noopener">Issues</a></div>
+      </div>
+      <div class="footer-bottom">
+        <span>A product by <a href="https://ashlr.ai">ashlr.ai</a></span>
+        <span>&copy; 2026 Ashlr. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+  <script src="/js/main.js"></script>
+</body>
+</html>
