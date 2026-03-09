@@ -40,7 +40,7 @@
   animation-delay: -15s;
 }
 
-[data-theme="light"] .ambient-orb { opacity: 0.15; }
+
 
 @keyframes orbFloat {
   0%, 100% { transform: translate(0, 0) scale(1); }
@@ -137,27 +137,12 @@
   50% { opacity: 1; transform: scale(1.08); }
 }
 
-.ao-letter {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 4rem;
-  letter-spacing: -0.08em;
-  line-height: 1;
+.hero-ao-logo {
+  width: 120px;
+  height: auto;
   position: relative;
   z-index: 2;
-}
-
-.ao-a {
-  color: var(--text-primary);
-  text-shadow: 0 0 40px rgba(255, 255, 255, 0.15);
-}
-
-.ao-o {
-  background: linear-gradient(135deg, #a5a1ff, #8B87F5, #706CF0, #5854c7);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 0 25px rgba(112, 108, 240, 0.6)) drop-shadow(0 0 50px rgba(112, 108, 240, 0.3));
+  filter: drop-shadow(0 0 25px rgba(112, 108, 240, 0.4));
 }
 
 .ao-ring {
@@ -203,12 +188,7 @@
   to { transform: rotate(360deg); }
 }
 
-[data-theme="light"] .ao-a { text-shadow: none; }
-[data-theme="light"] .ao-ring { border-color: rgba(112, 108, 240, 0.25); }
-[data-theme="light"] .ao-ring-2 { border-color: rgba(112, 108, 240, 0.12); }
-[data-theme="light"] .hero-ao-mark::before { opacity: 0.4; }
-[data-theme="light"] .feature-card:hover { box-shadow: 0 0 30px rgba(112, 108, 240, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08); }
-[data-theme="light"] .demo-frame::after { background: none; }
+
 
 .hero-badge {
   display: inline-flex;
@@ -556,24 +536,6 @@
   to { width: var(--w, 50%); }
 }
 
-/* Light theme dashboard demo */
-[data-theme="light"] .demo-frame {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: rgba(0, 0, 0, 0.08);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 0 100px rgba(112, 108, 240, 0.05);
-}
-
-[data-theme="light"] .demo-titlebar {
-  background: rgba(238, 238, 242, 0.95);
-  border-bottom-color: rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="light"] .demo-card {
-  background: rgba(238, 238, 242, 0.6);
-  border-color: rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="light"] .demo-glow { opacity: 0.3; }
 
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(24px); }
@@ -1098,7 +1060,7 @@
   .hero h1 { font-size: 2.25rem; }
   .hero::after { display: none; }
   .hero-ao-mark { width: 100px; height: 100px; }
-  .ao-letter { font-size: 3rem; }
+  .hero-ao-logo { width: 80px; }
   .features-grid,
   .steps,
   .shortcuts-showcase { grid-template-columns: 1fr; }

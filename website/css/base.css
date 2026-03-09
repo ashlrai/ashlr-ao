@@ -80,27 +80,6 @@ input, textarea, select { font: inherit; }
   --grid-size: 60px;
 }
 
-/* ===== Light Theme ===== */
-[data-theme="light"] {
-  --bg-primary: #f7f7f9;
-  --bg-secondary: #eeeef2;
-  --bg-tertiary: #e2e2ea;
-  --bg-card: rgba(255, 255, 255, 0.8);
-  --bg-card-hover: rgba(255, 255, 255, 0.95);
-  --bg-glass: rgba(247, 247, 249, 0.85);
-  --border: rgba(0, 0, 0, 0.06);
-  --border-hover: rgba(0, 0, 0, 0.12);
-  --border-accent: rgba(112, 108, 240, 0.2);
-  --text-primary: #0f0f14;
-  --text-secondary: #555566;
-  --text-tertiary: #999aaa;
-  --accent-glow: rgba(112, 108, 240, 0.15);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.07);
-  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1);
-  --grid-color: rgba(0, 0, 0, 0.02);
-}
-
 /* ===== Base Typography ===== */
 body {
   font-family: var(--font-body);

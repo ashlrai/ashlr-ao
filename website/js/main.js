@@ -1,22 +1,5 @@
 /* Ashlr AO — Main JS: Mission Control */
 
-// Theme toggle
-function initTheme() {
-  const saved = localStorage.getItem('ashlr-theme');
-  if (saved) {
-    document.documentElement.setAttribute('data-theme', saved);
-  } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-    document.documentElement.setAttribute('data-theme', 'light');
-  }
-}
-
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'light' ? 'dark' : 'light';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('ashlr-theme', next);
-}
-
 // Mobile nav
 function initMobileNav() {
   const toggle = document.querySelector('.nav-mobile-toggle');
@@ -234,8 +217,7 @@ function initHeroCanvas() {
     time += 16;
     ctx.clearRect(0, 0, w, h);
 
-    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    const globalDim = isLight ? 0.4 : 1;
+    const globalDim = 1;
 
     // Update positions
     for (const p of particles) {
@@ -338,6 +320,3 @@ document.addEventListener('DOMContentLoaded', () => {
   initHeroCanvas();
   initActiveNav();
 });
-
-// Apply theme before paint
-initTheme();
