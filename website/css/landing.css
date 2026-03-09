@@ -249,54 +249,62 @@
 .hero-downloads {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 12px;
   justify-content: center;
-  margin-top: var(--space-lg);
+  margin-top: 20px;
   animation: fadeInUp 0.8s ease-out 0.6s both;
-}
-
-.hero-downloads-label {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-tertiary);
-  margin-right: var(--space-xs);
 }
 
 .download-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 0.85rem;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 0.875rem;
   font-weight: 500;
   text-decoration: none;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(8px);
   color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-.download-btn:hover {
-  background: rgba(255,255,255,0.08);
-  border-color: rgba(255,255,255,0.2);
-  transform: translateY(-1px);
+.download-btn img {
+  flex-shrink: 0;
+}
+
+.download-btn span {
+  line-height: 1;
+}
+
+.download-meta {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  padding-left: 8px;
+  border-left: 1px solid rgba(255,255,255,0.1);
+  font-weight: 400;
+}
+
+.download-mac {
+  border-color: rgba(112,108,240,0.25);
+  background: rgba(112,108,240,0.08);
 }
 
 .download-mac:hover {
-  border-color: rgba(112,108,240,0.4);
-  box-shadow: 0 4px 16px rgba(112,108,240,0.15);
+  background: rgba(112,108,240,0.15);
+  border-color: rgba(112,108,240,0.45);
+  box-shadow: 0 4px 20px rgba(112,108,240,0.2);
+  transform: translateY(-2px);
 }
 
-.download-btn.disabled {
-  opacity: 0.4;
+.download-windows {
+  opacity: 0.45;
   cursor: default;
   pointer-events: none;
-}
-
-.download-btn svg {
-  opacity: 0.8;
 }
 
 @keyframes terminalFadeIn {
@@ -1129,8 +1137,7 @@
   .backends-grid { grid-template-columns: repeat(2, 1fr); }
   .pricing-grid { grid-template-columns: 1fr; max-width: 400px; }
   .hero-actions { flex-direction: column; }
-  .hero-downloads { flex-direction: column; gap: var(--space-xs); }
-  .hero-downloads-label { margin-right: 0; }
+  .hero-downloads { flex-wrap: wrap; }
   .demo-grid { grid-template-columns: 1fr; }
   .demo-titlebar-right { display: none; }
   .oss-cta { flex-direction: column; align-items: center; }
