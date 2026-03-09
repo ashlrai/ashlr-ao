@@ -12,6 +12,7 @@ serves the web dashboard, and provides REST + WebSocket APIs.
 
 import argparse
 import asyncio
+import ipaddress as _ipaddress
 import json
 import logging
 import logging.handlers
@@ -1914,8 +1915,6 @@ async def delete_preset(request: web.Request) -> web.Response:
 # ── Webhook endpoints ──
 
 # SSRF protection: block private/reserved IP ranges
-import ipaddress as _ipaddress
-
 _BLOCKED_NETS = [
     _ipaddress.ip_network("127.0.0.0/8"),
     _ipaddress.ip_network("10.0.0.0/8"),

@@ -3325,6 +3325,10 @@ class TestTuiReadyTimeout:
         config.demo_mode = False  # Non-demo mode to exercise TUI path
         manager = AgentManager(config)
 
+        # Mark claude-code backend as available so spawn doesn't fail on resolution
+        bc = manager.backend_configs["claude-code"]
+        bc.available = True
+
         success_result = MagicMock()
         success_result.returncode = 0
         success_result.stdout = ""
@@ -3333,6 +3337,7 @@ class TestTuiReadyTimeout:
         manager._tmux_send_keys = AsyncMock(return_value=True)
         manager._tmux_send_raw = AsyncMock(return_value=True)
         manager._wait_for_tui_ready = AsyncMock(return_value=False)  # Timeout!
+        manager._tmux_get_pane_pid = AsyncMock(return_value=12345)
 
         agent = await manager.spawn(
             role="backend", name="tui-test",

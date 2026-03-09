@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 64" fill="none">
   <defs>
     <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#8B87F5"/>
       <stop offset="100%" stop-color="#706CF0"/>
     </linearGradient>
   </defs>
-  <!-- A letterform -->
-  <path d="M12 64L36 16h8l24 48h-10l-5.5-11H27.5L22 64H12zm19-20h18L40 24.5 31 44z" fill="#F0F0F2"/>
-  <!-- O letterform with accent fill -->
-  <circle cx="108" cy="40" r="26" fill="url(#accent)"/>
-  <circle cx="108" cy="40" r="17" fill="#08090E"/>
+  <!-- A letterform — moved right so it touches O -->
+  <path d="M10 54L30 10h6l20 44h-8l-4.5-10H22.5L18 54H10zm15.5-17h15L33 19.5 25.5 37z" fill="#F0F0F2"/>
+  <!-- O letterform — positioned to touch/overlap A -->
+  <circle cx="72" cy="32" r="22" fill="url(#accent)"/>
+  <circle cx="72" cy="32" r="14" fill="#08090E"/>
 </svg>

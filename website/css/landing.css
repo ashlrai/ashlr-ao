@@ -62,17 +62,38 @@
   overflow: hidden;
 }
 
-/* Hero radial spotlight */
+#heroCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Hero radial spotlight — intensified */
 .hero::before {
   content: '';
   position: absolute;
-  top: 0;
+  top: -10%;
   left: 50%;
   transform: translateX(-50%);
-  width: 120%;
-  height: 600px;
-  background: radial-gradient(ellipse at 50% 0%, rgba(112, 108, 240, 0.08) 0%, transparent 60%);
+  width: 140%;
+  height: 700px;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(112, 108, 240, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse at 30% 20%, rgba(139, 135, 245, 0.06) 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 20%, rgba(88, 84, 199, 0.06) 0%, transparent 40%);
   pointer-events: none;
+  z-index: 1;
 }
 
 /* Beam line */
@@ -82,10 +103,91 @@
   top: 0;
   left: 50%;
   width: 1px;
-  height: 120px;
-  background: linear-gradient(to bottom, var(--accent), transparent);
-  opacity: 0.4;
+  height: 160px;
+  background: linear-gradient(to bottom, var(--accent), rgba(112, 108, 240, 0.1), transparent);
+  opacity: 0.5;
+  z-index: 1;
 }
+
+/* ===== AO Hero Mark ===== */
+.hero-ao-mark {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin-bottom: var(--space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: aoFadeIn 1.2s ease-out 0.1s both;
+}
+
+.ao-letter {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 3.5rem;
+  letter-spacing: -0.08em;
+  line-height: 1;
+  position: relative;
+  z-index: 2;
+}
+
+.ao-a {
+  color: var(--text-primary);
+  text-shadow: 0 0 40px rgba(255, 255, 255, 0.1);
+}
+
+.ao-o {
+  background: linear-gradient(135deg, #8B87F5, #706CF0, #5854c7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 20px rgba(112, 108, 240, 0.5));
+}
+
+.ao-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid rgba(112, 108, 240, 0.15);
+  animation: aoRingSpin 20s linear infinite;
+}
+
+.ao-ring::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent), 0 0 30px var(--accent-glow);
+}
+
+.ao-ring-2 {
+  inset: -20px;
+  border-color: rgba(112, 108, 240, 0.07);
+  animation-duration: 30s;
+  animation-direction: reverse;
+}
+
+.ao-ring-2::before {
+  background: rgba(112, 108, 240, 0.4);
+  box-shadow: 0 0 8px rgba(112, 108, 240, 0.3);
+}
+
+@keyframes aoFadeIn {
+  from { opacity: 0; transform: scale(0.8); filter: blur(10px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+@keyframes aoRingSpin {
+  to { transform: rotate(360deg); }
+}
+
+[data-theme="light"] .ao-a { text-shadow: none; }
+[data-theme="light"] .ao-ring { border-color: rgba(112, 108, 240, 0.2); }
+[data-theme="light"] .ao-ring-2 { border-color: rgba(112, 108, 240, 0.1); }
 
 .hero-badge {
   display: inline-flex;
@@ -154,6 +256,7 @@
   max-width: 880px;
   width: 100%;
   position: relative;
+  z-index: 2;
   animation: fadeInUp 1s ease-out 0.7s both;
 }
 
@@ -938,6 +1041,8 @@
   .hero { min-height: auto; padding-top: calc(var(--nav-height) + var(--space-2xl)); }
   .hero h1 { font-size: 2.25rem; }
   .hero::after { display: none; }
+  .hero-ao-mark { width: 80px; height: 80px; }
+  .ao-letter { font-size: 2.5rem; }
   .features-grid,
   .steps,
   .shortcuts-showcase { grid-template-columns: 1fr; }

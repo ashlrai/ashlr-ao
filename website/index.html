@@ -148,12 +148,19 @@
   <main>
     <!-- Hero -->
     <section class="hero">
-      <div class="hero-badge">
-        <span class="pulse-dot"></span>
-        Open Source · v1.6.1
-      </div>
-      <h1>Your AI agents,<br><span class="text-gradient">one command center</span></h1>
-      <p class="hero-sub">Orchestrate Claude Code, Codex, Aider, and Goose from a single glassmorphic dashboard. Local-first. Zero config. Keyboard-driven.</p>
+      <canvas id="heroCanvas" aria-hidden="true"></canvas>
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="pulse-dot"></span>
+          Open Source · v1.6.1
+        </div>
+        <div class="hero-ao-mark" aria-hidden="true">
+          <span class="ao-letter ao-a">A</span><span class="ao-letter ao-o">O</span>
+          <div class="ao-ring"></div>
+          <div class="ao-ring ao-ring-2"></div>
+        </div>
+        <h1>Your AI agents,<br><span class="text-gradient">one command center</span></h1>
+        <p class="hero-sub">Orchestrate Claude Code, Codex, Aider, and Goose from a single glassmorphic dashboard. Local-first. Zero config. Keyboard-driven.</p>
       <div class="hero-actions">
         <button class="install-cmd" aria-label="Copy install command">
           <span class="cmd-text">pip install ashlr-ao</span>
@@ -165,6 +172,7 @@
         </a>
         <a href="/docs/getting-started" class="btn btn-ghost">Read the Docs &rarr;</a>
       </div>
+      </div><!-- end hero-content -->
 
       <!-- Live Dashboard Demo -->
       <div class="dashboard-demo" aria-hidden="true">

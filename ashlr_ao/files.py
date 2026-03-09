@@ -400,8 +400,7 @@ async def file_create(request: web.Request) -> web.Response:
 
 
 def _touch_file(path: str) -> None:
-    with open(path, "w") as f:
-        pass
+    Path(path).touch()
 
 
 async def file_delete(request: web.Request) -> web.Response:

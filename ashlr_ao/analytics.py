@@ -319,7 +319,7 @@ async def bulk_agent_action(request: web.Request) -> web.Response:
             continue
 
         # Ownership check — non-admin users can only act on their own agents
-        if err := _check_agent_ownership(request, agent):
+        if _check_agent_ownership(request, agent):
             failed_items.append({"id": aid, "error": "Permission denied"})
             continue
 
