@@ -1,6 +1,6 @@
 # Ashlr AO
 
-[![CI](https://github.com/ashlrai/ashlar-ao/actions/workflows/ci.yml/badge.svg)](https://github.com/ashlrai/ashlar-ao/actions/workflows/ci.yml)
+[![CI](https://github.com/ashlrai/ashlr-ao/actions/workflows/ci.yml/badge.svg)](https://github.com/ashlrai/ashlr-ao/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/ashlr-ao)](https://pypi.org/project/ashlr-ao/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -268,8 +268,8 @@ Full WebSocket protocol at `/ws` for real-time updates.
 ## Development
 
 ```bash
-git clone https://github.com/ashlrai/ashlar-ao.git
-cd ashlar-ao
+git clone https://github.com/ashlrai/ashlr-ao.git
+cd ashlr-ao
 pip install -e ".[dev]"
 pytest                    # 1911 tests across 31 files
 ```

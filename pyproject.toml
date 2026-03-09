@@ -41,9 +41,9 @@ ashlr = "ashlr_ao.server:main"
 [project.urls]
 Homepage = "https://ashlrao.com"
 Documentation = "https://ashlrao.com/docs"
-Repository = "https://github.com/ashlrai/ashlar-ao"
-Issues = "https://github.com/ashlrai/ashlar-ao/issues"
-Changelog = "https://github.com/ashlrai/ashlar-ao/blob/main/CHANGELOG.md"
+Repository = "https://github.com/ashlrai/ashlr-ao"
+Issues = "https://github.com/ashlrai/ashlr-ao/issues"
+Changelog = "https://github.com/ashlrai/ashlr-ao/blob/main/CHANGELOG.md"
 
 [tool.setuptools.dynamic]
 version = { attr = "ashlr_ao.__version__" }
