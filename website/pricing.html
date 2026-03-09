@@ -177,7 +177,7 @@
     <!-- Pricing Cards -->
     <section class="section" style="padding-top: 0;">
       <div class="container">
-        <div class="pricing-grid three-col">
+        <div class="pricing-grid">
           <div class="pricing-card glass">
             <div class="pricing-tier">Community</div>
             <div class="pricing-price">$0 <span>/forever</span></div>
@@ -249,66 +249,70 @@
               <th>Feature</th>
               <th>Community</th>
               <th>Pro</th>
+              <th>Enterprise</th>
             </tr>
           </thead>
           <tbody>
-            <tr class="category-row"><td colspan="3">Orchestration</td></tr>
-            <tr><td>Concurrent agents</td><td>5</td><td>Up to 100</td></tr>
-            <tr><td>Agent backends</td><td>All 4</td><td>All 4</td></tr>
-            <tr><td>Built-in roles</td><td>9</td><td>9</td></tr>
-            <tr><td>Spawn / kill / pause / resume</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Bulk operations</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Agent restart</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Stream-json output mode</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr class="category-row"><td colspan="4">Orchestration</td></tr>
+            <tr><td>Concurrent agents</td><td>5</td><td>Up to 100</td><td>Unlimited</td></tr>
+            <tr><td>Agent backends</td><td>All 4</td><td>All 4</td><td>All 4</td></tr>
+            <tr><td>Built-in roles</td><td>9</td><td>9</td><td>9 + custom</td></tr>
+            <tr><td>Spawn / kill / pause / resume</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Bulk operations</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Agent restart</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Stream-json output mode</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
 
-            <tr class="category-row"><td colspan="3">Dashboard</td></tr>
-            <tr><td>Real-time WebSocket updates</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Glassmorphic agent cards</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Deep view with ANSI terminal</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Activity feed</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Keyboard shortcuts</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Command palette</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Dark &amp; light themes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr class="category-row"><td colspan="4">Dashboard</td></tr>
+            <tr><td>Real-time WebSocket updates</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Glassmorphic agent cards</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Deep view with ANSI terminal</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Activity feed</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Keyboard shortcuts</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Command palette</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Dark &amp; light themes</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
 
-            <tr class="category-row"><td colspan="3">Projects &amp; IDE</td></tr>
-            <tr><td>Unlimited projects</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>File browser</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Git integration (status, diff, log, commit)</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>PTY terminal</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Project scratchpad</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Focus mode</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr class="category-row"><td colspan="4">Projects &amp; IDE</td></tr>
+            <tr><td>Unlimited projects</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>File browser</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Git integration (status, diff, log, commit)</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>PTY terminal</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Project scratchpad</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Focus mode</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
 
-            <tr class="category-row"><td colspan="3">Auto-Pilot</td></tr>
-            <tr><td>Auto-restart on stall</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Auto-approve safe patterns</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Health-based auto-pause</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Browser notifications</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr class="category-row"><td colspan="4">Auto-Pilot</td></tr>
+            <tr><td>Auto-restart on stall</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Auto-approve safe patterns</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Health-based auto-pause</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Browser notifications</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
 
-            <tr class="category-row"><td colspan="3">Intelligence (requires XAI_API_KEY)</td></tr>
-            <tr><td>LLM agent summaries</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
-            <tr><td>Natural language commands (NLU)</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
-            <tr><td>Fleet analysis (every 30s)</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
-            <tr><td>Cross-agent handoff</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr class="category-row"><td colspan="4">Intelligence (requires XAI_API_KEY)</td></tr>
+            <tr><td>LLM agent summaries</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Natural language commands (NLU)</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Fleet analysis (every 30s)</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Cross-agent handoff</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
 
-            <tr class="category-row"><td colspan="3">Workflows &amp; Templates</td></tr>
-            <tr><td>Workflow DAG execution</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
-            <tr><td>Fleet templates</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
-            <tr><td>Fleet presets (batch spawn)</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr class="category-row"><td colspan="4">Workflows &amp; Templates</td></tr>
+            <tr><td>Workflow DAG execution</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Fleet templates</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Fleet presets (batch spawn)</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
 
-            <tr class="category-row"><td colspan="3">Team &amp; Security</td></tr>
-            <tr><td>User seats</td><td>1</td><td>Up to 50</td></tr>
-            <tr><td>Multi-user auth</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
-            <tr><td>Role-based access (admin/member)</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
-            <tr><td>Agent ownership enforcement</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
-            <tr><td>Rate limiting &amp; CSP headers</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr class="category-row"><td colspan="4">Team &amp; Security</td></tr>
+            <tr><td>User seats</td><td>1</td><td>Up to 50</td><td>Unlimited</td></tr>
+            <tr><td>Multi-user auth</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Role-based access (admin/member)</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Agent ownership enforcement</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>SSO &amp; SAML</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Rate limiting &amp; CSP headers</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
 
-            <tr class="category-row"><td colspan="3">Platform</td></tr>
-            <tr><td>macOS desktop app (Tauri v2)</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Docker deployment</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>pip install</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>REST API</td><td class="check">Yes</td><td class="check">Yes</td></tr>
-            <tr><td>Offline license (no phone-home)</td><td>N/A</td><td class="check">Yes</td></tr>
-            <tr><td>Priority support</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr class="category-row"><td colspan="4">Platform</td></tr>
+            <tr><td>macOS desktop app (Tauri v2)</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Docker deployment</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>pip install</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>REST API</td><td class="check">Yes</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>Offline license (no phone-home)</td><td>N/A</td><td class="check">Yes</td><td class="check">Yes</td></tr>
+            <tr><td>SLA guarantee</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Dedicated support</td><td class="dash">&mdash;</td><td class="dash">&mdash;</td><td class="check">Yes</td></tr>
+            <tr><td>Priority support</td><td class="dash">&mdash;</td><td class="check">Yes</td><td class="check">Yes</td></tr>
           </tbody>
         </table>
       </div>

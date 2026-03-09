@@ -31,6 +31,20 @@ function initMobileNav() {
   links.querySelectorAll('a').forEach(a => {
     a.addEventListener('click', () => links.classList.remove('open'));
   });
+
+  document.addEventListener('click', (e) => {
+    if (!toggle.contains(e.target) && !links.contains(e.target)) {
+      links.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      links.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
 }
 
 // Smooth scroll for anchor links
@@ -57,22 +71,7 @@ function initCopyButtons() {
           icon.textContent = 'Copied!';
           setTimeout(() => { icon.textContent = 'Copy'; }, 2000);
         }
-      });
-    });
-  });
-}
-
-// Code block copy buttons
-function initCodeCopy() {
-  document.querySelectorAll('.code-block').forEach(block => {
-    const btn = block.querySelector('.copy-btn');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-      const code = block.querySelector('code')?.textContent || '';
-      navigator.clipboard.writeText(code).then(() => {
-        btn.textContent = 'Copied!';
-        setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
-      });
+      }).catch(() => {});
     });
   });
 }
@@ -170,11 +169,9 @@ function initActiveNav() {
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
-  initTheme();
   initMobileNav();
   initSmoothScroll();
   initCopyButtons();
-  initCodeCopy();
   initScrollAnimations();
   initCountUp();
   initDashboardDemo();
