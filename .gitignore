@@ -16,3 +16,6 @@ keys/
 node_modules/
 src-tauri/target/
 src-tauri/gen/
+website/.vercel/
+video/out/
+video/node_modules/
