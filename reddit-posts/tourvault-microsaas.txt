@@ -1,0 +1,20 @@
+TITLE: Selling TourVault — AI-powered golf SaaS with voice-first round logging ($12K)
+
+---
+
+Built TourVault as a solo project — it's a golf performance SaaS where you log rounds using your voice instead of tapping through forms on the course. You talk through your round and AI structures it into stats, trends, and insights.
+
+The idea was that nobody wants to fiddle with an app mid-round. You just talk after your round and it handles the rest.
+
+**What's included:**
+
+- Full codebase — Next.js 16 / Prisma / Postgres
+- Domain: tourvault.ai
+- Voice-first round logging with AI processing
+- Player dashboard with stats and trends
+
+**Financials:** $92/mo burn (hosting + services). Pre-revenue.
+
+**Asking $12,000.** Listed on Flippa here: https://flippa.com/12290570
+
+DM me or email mason@ashlar.pro

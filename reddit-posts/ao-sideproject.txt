@@ -1,0 +1,27 @@
+TITLE: I built a mission control for AI coding agents — 143K lines later, I'm selling it ($9,500)
+
+---
+
+This started as a "what if I could see all my Claude Code and Codex sessions in one place" idea and turned into a few months of intense building. Ashlar AO is a local-first agent orchestration platform — you spawn AI coding agents, watch them work in real-time, manage inputs when they need help, and coordinate multi-agent workflows from a single dashboard.
+
+It supports Claude Code, Codex, Aider, and Goose out of the box. Each agent runs in an isolated tmux session, and the dashboard gives you live terminal output, status detection, file conflict warnings, and a bunch of fleet management tools.
+
+**Some stats from the build:**
+
+- 143K lines of code across 22 Python modules + dashboard
+- 2,700+ tests across 31 test files
+- Desktop app via Tauri v2 (macOS .dmg)
+- 10-page marketing site live at ashlrao.com
+- Published on PyPI (pip install ashlr-ao)
+- 3 CI/CD workflows on GitHub Actions
+- Open-core licensing system with Ed25519 JWT — Community and Pro tiers baked in
+
+The dashboard is vanilla JS with zero dependencies and no build step. Backend is Python/aiohttp/SQLite. I wanted it to feel snappy and stay simple to hack on.
+
+I had a blast building this but I'm moving on to new things. Rather than abandon it, I'd love someone to take it over who's excited about the AI tooling space.
+
+**Asking $9,500.** Includes the codebase, both domains (ashlrao.com + ashlr.ai), the Vercel deployment, and the PyPI package. Pre-revenue, $0 burn.
+
+Check it out: ashlrao.com
+
+DM me or reach out at mason@ashlar.pro

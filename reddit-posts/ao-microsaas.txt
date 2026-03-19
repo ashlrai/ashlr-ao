@@ -1,0 +1,29 @@
+TITLE: Selling my AI agent orchestration platform — 143K lines, desktop app, open-core licensing built in ($9,500)
+
+---
+
+I built Ashlar AO over the past few months as a solo dev. It's a local-first platform for managing multiple AI coding agents (Claude Code, Codex, Aider, Goose) from a single dashboard. Think mission control for your AI dev workflow.
+
+I'm moving on to other projects and want to find it a good home rather than let it sit.
+
+**What you'd be getting:**
+
+- 143K lines of production code, 2,700+ tests across 31 test files
+- Desktop app built with Tauri v2 (macOS .dmg, ~6MB)
+- Marketing website — 10 pages, live at ashlrao.com (deployed on Vercel)
+- PyPI package (pip install ashlr-ao) with CLI entry point
+- GitHub repo with 3 CI/CD workflows (tests, PyPI publish, Vercel deploy)
+- Two domains: ashlrao.com + ashlr.ai
+- Open-core monetization already wired up — Community (free, 5 agents) and Pro tiers with Ed25519 JWT licensing. No phone-home, fully offline. You just need to start selling keys.
+
+**Tech stack:** Python 3.11+ / aiohttp / SQLite / Vanilla JS (zero frontend deps) / Tauri v2
+
+**Business angle:** The AI coding agent space is blowing up right now. Claude Code, Codex, Aider — devs are spinning up multiple agents daily and there's no good way to manage them together. This is the management layer. The monetization is already built, you'd just need to flip the switch on distribution.
+
+**Financials:** Pre-revenue, $0 monthly burn. Domains are paid through next year.
+
+**Asking $9,500.** Open to reasonable offers.
+
+If you want to see the product: ashlrao.com
+
+DM me or email mason@ashlar.pro

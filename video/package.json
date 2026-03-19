@@ -5,7 +5,8 @@
   "scripts": {
     "preview": "remotion preview src/index.ts",
     "render": "remotion render src/index.ts AshlrDemo out/demo.mp4",
-    "build": "remotion render src/index.ts AshlrDemo out/demo.mp4 --codec h264 --crf 18"
+    "build": "remotion render src/index.ts AshlrDemo out/demo.mp4 --codec h264 --crf 18",
+    "render:sale": "remotion render src/index.ts SalePitch out/sale-pitch.mp4 --codec h264 --crf 18"
   },
   "dependencies": {
     "@remotion/cli": "4.0.265",

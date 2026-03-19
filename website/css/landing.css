@@ -435,6 +435,19 @@
   padding: 16px;
 }
 
+/* Video demo */
+.demo-video-body {
+  position: relative;
+  line-height: 0;
+}
+
+.demo-video {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 0 0 calc(var(--radius-xl) - 1px) calc(var(--radius-xl) - 1px);
+}
+
 .demo-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
