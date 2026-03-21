@@ -468,3 +468,24 @@ Files: `Dockerfile`, `docker-compose.yml`, `Caddyfile`
 1. **File conflict detection only** — warns when two agents edit the same file, but doesn't prevent it. Watch the activity feed.
 2. **Cost tracking is estimated** — heuristic based on character count, not real API metering.
 3. **Working dir restricted to ~/\* and /tmp** — security measure. Use symlinks if repos are elsewhere.
+
+---
+
+## Central Documentation Vault
+
+Ashlr AI maintains a central documentation vault at `~/Desktop/documentation project/`.
+
+- **This product's vault path**: `01-products/ashlr-ao/`
+- **Agent briefing**: `~/Desktop/documentation project/01-products/ashlr-ao/agent-briefing.md`
+- **Sales context**: `~/Desktop/documentation project/01-products/ashlr-ao/sales-context.md`
+- **Full vault navigation**: `~/Desktop/documentation project/CLAUDE.md`
+
+### Update Triggers
+
+When working in this repo, update the vault when:
+- **Feature shipped** → update `changelog.md` + `agent-briefing.md` (Current Priorities, Current State)
+- **Architecture change** → update `architecture.md` + `agent-briefing.md` (Architecture section)
+- **Pricing change** → update `sales-context.md` + `agent-briefing.md` (Business Context)
+- **Priority shift** → update `roadmap.md` + `agent-briefing.md` (Current Priorities)
+
+Commit convention: `vault: update ashlr-ao/{file} — {reason}`

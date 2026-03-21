@@ -1,0 +1,42 @@
+INDIEHACKERS POST — paste this on indiehackers.com
+
+Title: Selling my AI agent orchestration platform — $9,500 (fully built, just needs Stripe)
+
+---
+
+Hey IH!
+
+I built an AI agent orchestration platform over 30+ dev sessions and I'm selling the whole thing. Here's the deal:
+
+**What it does:** One dashboard to manage multiple AI coding agents (Claude Code, Codex, Aider, Goose) across repos simultaneously. Think mission control for your AI dev team.
+
+**Why it's not vaporware:**
+- 143K lines of code across Python, JS, CSS, Rust
+- 2,700+ passing tests (31 test files)
+- Desktop app (Tauri v2, macOS .dmg)
+- Marketing website (10 pages, deployed on Vercel)
+- PyPI package — `pip install ashlr-ao`
+- CI/CD (GitHub Actions for tests, deploy, publish)
+- MIT licensed — relicense however you want
+
+**The monetization angle:** Open-core is fully built — Community tier (free, 5 agents) and Pro tier (paid, up to 100 agents, 50 users). Ed25519 JWT licensing, feature gating, upgrade prompts in the dashboard. Just needs Stripe + go-to-market.
+
+**What you get for $9,500:**
+- Full source code + git history (30+ sessions)
+- Desktop app (.dmg)
+- Marketing website on Vercel
+- PyPI package
+- GitHub repo with 3 CI/CD workflows
+- 2 domains (ashlrao.com + ashlr.ai)
+- All brand assets (logo, OG images, screenshots)
+- 1-2 onboarding calls + 30 days support
+
+**Why selling:** Consolidating focus on other products. This is fully functional — it just needs someone with the time and interest to take it to market.
+
+**The market opportunity:** AI agent orchestration is one of the fastest-growing dev tool categories. Claude Squad has 5.8K GitHub stars. The wshobson/agents repo has 31.6K stars. Developers want this.
+
+Try it: `pip install ashlr-ao && ashlr`
+Website: ashlrao.com
+Flippa: flippa.com/12635290
+
+DM me or email mason@ashlr.ai

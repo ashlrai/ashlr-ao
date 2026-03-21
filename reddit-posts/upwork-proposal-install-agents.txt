@@ -1,0 +1,38 @@
+UPWORK PROPOSAL: "Install AI agents on my computer" ($300 job)
+URL: Search "Install ai agents on my computer" on Upwork, posted ~Mar 18
+
+---
+
+Hi — I read your post and I think I can save you a LOT of time and money.
+
+I'm not just offering to install Claude Code on your Mac — I built a complete agent orchestration platform called Ashlr AO that does exactly what you need and way more.
+
+Here's what it does:
+- Manages multiple AI coding agents (Claude Code, Codex, Aider, Goose) from a single real-time web dashboard
+- Spawn agents, assign them tasks, monitor their output live, approve/reject their suggestions
+- Works with tmux under the hood — each agent runs in its own isolated session
+- Built-in project management, workflow engine, file conflict detection
+- Desktop app (Tauri v2), PyPI package (pip install ashlr-ao)
+- 2,700+ passing tests, production-hardened across 30+ dev sessions
+
+For your construction SaaS project, you could spin up multiple Claude Code agents working on different parts of your codebase simultaneously — one on the React frontend, one on the Flutter app, one on the Anthropic backend — all managed from one dashboard.
+
+Here's my proposal: Instead of paying $300 for a basic dev environment setup, I'll sell you the entire Ashlr AO platform for $9,500. That includes:
+- Full source code (24 Python modules, dashboard, desktop app)
+- 2 domains (ashlrao.com + ashlr.ai)
+- Marketing website, PyPI package, CI/CD
+- 1-2 onboarding calls to get you set up
+- 30 days of support
+
+You'd be spending $15K-30K+ hiring someone to build this from scratch. I'm offering the finished product for under $10K.
+
+Want to see a demo? pip install ashlr-ao && ashlr — it takes 30 seconds.
+
+Website: ashlrao.com
+Flippa listing: flippa.com/12635290
+
+Happy to jump on a call to walk you through it.
+
+Best,
+Mason Wyatt
+mason@ashlr.ai

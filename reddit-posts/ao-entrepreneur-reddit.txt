@@ -1,0 +1,52 @@
+TITLE: Built a dev tool as a solo founder, 143K lines later I'm selling it for $9,500 — here's what I learned
+
+---
+
+I want to share the journey of building Ashlar AO and why I'm now selling it rather than continuing to grow it.
+
+**The idea:**
+
+A few months ago I noticed that developers (myself included) were juggling multiple AI coding agents — Claude Code in one terminal, Codex in another, maybe Aider on a third task. There was no way to see them all at once, coordinate their work, or catch when two agents were editing the same file. I decided to build the management layer.
+
+**What I built:**
+
+Ashlar AO is an agent orchestration platform. One dashboard, multiple AI coding agents, real-time monitoring, workflow automation. You spawn agents, watch them work with live terminal output, respond when they need input, and manage the whole fleet. It supports Claude Code, Codex, Aider, and Goose out of the box.
+
+I went deep on this. Some stats:
+
+- 143K lines of code across 22 Python modules + a vanilla JS dashboard
+- 2,700+ tests across 31 test files
+- Desktop app built with Tauri v2
+- Published as a pip package (pip install ashlr-ao)
+- 10-page marketing website at ashlrao.com
+- Open-core business model fully implemented — free Community tier and paid Pro tier with cryptographic license key enforcement
+
+**What went right:**
+
+- The product works well. I use it daily and the feedback from early users has been positive.
+- Building the monetization into the product from the start was the right call. The licensing system is done — Ed25519 signed JWTs, offline verification, tier enforcement on every feature gate. Someone buying this just needs to add Stripe.
+- Going zero-dependency on the frontend (vanilla JS, no React, no build step) kept iteration speed high and the bundle tiny.
+
+**Why I'm selling:**
+
+Honestly, I'm better at building than marketing. I built something I'm proud of, but growing it into a business requires a different skill set and focus than what I want to spend my time on right now. I have other projects pulling me forward.
+
+Rather than let it collect dust on GitHub, I'd rather hand it to someone who's excited about the AI developer tools space and has the distribution chops to get it in front of people.
+
+**What a buyer gets:**
+
+- Complete codebase + GitHub repo with 3 CI/CD workflows
+- Two domains: ashlrao.com + ashlr.ai
+- PyPI package ownership
+- Vercel deployment
+- Desktop app build pipeline
+- Pre-built monetization (just add payment processing)
+- $0 monthly burn, pre-revenue
+
+**Asking $9,500.** Open to reasonable offers.
+
+The AI coding agent space is growing fast. Every time Anthropic, OpenAI, or anyone else ships a new coding agent, the market for this product gets bigger. The hard part — building 143K lines of tested, production-quality code with monetization baked in — is done.
+
+Check it out: ashlrao.com
+
+DM me or email mason@ashlar.pro

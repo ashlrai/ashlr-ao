@@ -1,0 +1,34 @@
+UPWORK PROPOSAL: "Senior Full Stack Developer for AI Agents & SaaS Automation Platform"
+URL: Search on Upwork, posted ~Feb 17
+
+---
+
+Hi — before you hire a developer to build this from scratch, I want to show you something.
+
+I already built a production-ready AI agent SaaS platform called Ashlr AO. It does most of what you're describing:
+
+- AI agents that execute multi-step tasks autonomously
+- Real-time dashboard with live terminal output
+- 40+ REST API endpoints + WebSocket protocol
+- Multi-user auth with admin/member roles
+- Workflow engine (DAG-based orchestration with depends_on)
+- Open-core monetization fully built (Community/Pro tiers)
+- Ed25519 JWT licensing — offline-first, no phone-home
+- Cost tracking and budget alerts
+
+Tech stack: Python 3.11+ / aiohttp / SQLite / Vanilla JS / Tauri v2 desktop app
+
+The numbers: 24 Python modules, 17K JS dashboard, 2,700+ passing tests, 30+ dev sessions, battle-tested.
+
+I'm selling the entire platform for $9,500. Source code, domains (ashlrao.com + ashlr.ai), marketing website, PyPI package, CI/CD, all brand assets. MIT licensed so you can relicense however you want.
+
+You could use this as the foundation for your SaaS automation platform and customize from there — saving months of development and tens of thousands in engineering costs.
+
+Try it yourself: pip install ashlr-ao && ashlr
+Website: ashlrao.com
+
+Happy to do a demo call this week.
+
+Best,
+Mason Wyatt
+mason@ashlr.ai

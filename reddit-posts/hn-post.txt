@@ -1,0 +1,28 @@
+TITLE: Show HN: Ashlr AO – Agent orchestration platform for Claude Code, Codex, Aider (selling for $9.5K)
+
+URL: https://ashlrao.com
+
+---
+
+FIRST COMMENT:
+
+Hey HN, I built this over the past few months as a solo project. Ashlr AO is a local-first agent orchestration platform — a single dashboard for spawning, monitoring, and coordinating multiple AI coding agents (Claude Code, Codex, Aider, Goose).
+
+The core idea: AI coding agents are becoming a daily tool for a lot of developers, but managing several of them at once is painful. You end up with a dozen terminal tabs, no visibility into what each agent is doing, and no way to coordinate work across them. This is the management layer for that.
+
+Each agent runs in an isolated tmux session. The dashboard gives you live terminal output with ANSI rendering, automatic status detection (working/waiting/error), file conflict warnings when two agents touch the same file, workflow DAGs with dependency chains, and fleet-wide operations. There's also an optional intelligence layer via xAI Grok for natural language commands and fleet analysis.
+
+Some numbers from the build:
+
+- 22 Python modules, ~15.5K lines server-side
+- Vanilla JS dashboard, zero frontend dependencies, no build step
+- 2,700+ tests across 31 test files
+- Desktop app via Tauri v2 (~6MB .dmg)
+- Published on PyPI: pip install ashlr-ao
+- Open-core licensing with Ed25519 JWT (Community free tier, Pro paid tier) — monetization is wired up, just needs Stripe
+
+Tech choices: Python 3.11+ / aiohttp / async SQLite / vanilla JS (ES2022+) / Tauri v2 for desktop. I wanted zero mandatory external dependencies on the frontend and minimal config on the backend. The whole thing runs from a single `ashlr` command.
+
+I'm selling because I'm moving on to other projects. Pre-revenue, $0 monthly burn. Asking $9,500 for the codebase, two domains (ashlrao.com + ashlr.ai), PyPI package, Vercel deployment, and GitHub repo with CI/CD.
+
+Happy to answer technical questions. Email: mason@ashlar.pro

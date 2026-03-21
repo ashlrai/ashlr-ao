@@ -1,0 +1,36 @@
+UPWORK PROPOSAL: "AI Dashboard MVP Discovery and Requirements Audit" ($400 job)
+URL: Search on Upwork, posted ~Mar 10
+
+---
+
+Hi — I see you're scoping out an AI dashboard MVP with plans to productize it as SaaS.
+
+Before you spend months building from scratch, take a look at what I've already built: Ashlr AO is a production-ready AI agent orchestration dashboard with everything you'd want in a SaaS MVP and more.
+
+What's already built:
+- Real-time web dashboard with glassmorphism UI (dark + light themes)
+- 40+ REST API endpoints + WebSocket protocol for live updates
+- Multi-user auth (session-based, bcrypt, admin/member roles)
+- SQLite persistence (zero-config, agents, projects, workflows)
+- Background task supervision (6 monitored loops)
+- Rate limiting, CORS, security headers, CSP
+- Desktop app (Tauri v2, macOS .dmg)
+- PyPI package (pip install ashlr-ao)
+- Marketing website (10 pages on Vercel)
+- CI/CD (GitHub Actions for tests + deploy)
+- Open-core licensing (Community/Pro tiers with JWT)
+
+2,700+ passing tests. 24 Python modules. Production-hardened.
+
+I'm selling the entire codebase + domains + website + brand for $9,500. You could adapt this as the foundation for your internal dashboard and skip straight to customization instead of starting from zero.
+
+Even if the exact use case is different, the architecture (async Python server, real-time dashboard, auth, API, WebSocket, SQLite) is exactly what you'd need for any SaaS dashboard product.
+
+Demo: pip install ashlr-ao && ashlr
+Website: ashlrao.com
+
+Want to chat?
+
+Best,
+Mason Wyatt
+mason@ashlr.ai

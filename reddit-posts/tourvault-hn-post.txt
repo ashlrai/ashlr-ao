@@ -1,0 +1,21 @@
+TITLE: Show HN: TourVault – Voice-first golf analytics SaaS (for sale, $12K)
+
+URL: https://tourvault.ai
+
+---
+
+FIRST COMMENT:
+
+Hey HN, I built TourVault as a solo project. It's a golf performance SaaS where you log rounds using your voice instead of tapping through forms on the course.
+
+The problem: nobody wants to fiddle with an app mid-round. Traditional golf apps require you to enter data hole-by-hole while you're trying to play. TourVault lets you just talk after your round — the AI processes your voice into structured stats, trends, and insights.
+
+Tech stack: Next.js 16 / Prisma / Postgres / AI voice processing.
+
+I'm selling because I'm consolidating focus on other products. The golf tech market is growing (400M+ golfers worldwide, most underserved by technology), and voice-first UX is becoming the default for mobile-first experiences.
+
+Asking $12,000 for the full codebase, domain (tourvault.ai), and all assets. Currently $92/mo burn (hosting + services), pre-revenue.
+
+Flippa listing with more details: flippa.com/12290570
+
+Email: mason@ashlr.ai

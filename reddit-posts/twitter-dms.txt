@@ -1,0 +1,77 @@
+TWITTER DM TEMPLATES — Copy and paste these
+
+=== DM to @moofeez (Mufeez Amjad, Claude Squad maintainer) ===
+
+Hey Mufeez — big fan of Claude Squad. I built something complementary called Ashlr AO — a full web dashboard + desktop app for managing multiple AI coding agents. Think Claude Squad but with a real-time web UI, multi-user auth, workflow engine, fleet templates, and auto-pilot.
+
+24 Python modules, 2,700+ tests, Tauri desktop app, PyPI package, marketing website, 2 domains. Production-ready.
+
+I'm selling it for $9,500 — moving to other projects. If you're interested in acquiring the codebase to extend Claude Squad's capabilities (or know someone who'd want it), I'd love to chat.
+
+Demo: pip install ashlr-ao && ashlr
+Website: ashlrao.com
+Flippa: flippa.com/12635290
+
+
+=== DM to @ruv (Reuven Cohen, Ruflo creator) ===
+
+Hey Reuven — I see you built Ruflo for Claude agent orchestration. I built Ashlr AO which is very similar but more complete — web dashboard, desktop app, multi-user auth, workflow engine, 2,700+ tests, PyPI package, marketing website.
+
+I'm selling the entire package for $9,500 (source code, domains, website, brand). Could be a good acquisition if you want to leapfrog Ruflo's feature set.
+
+Demo: pip install ashlr-ao && ashlr
+Website: ashlrao.com
+
+
+=== DM to @TraderAegis (Seth Hobson, 31.6K star agents repo) ===
+
+Hey Seth — love your Claude Code plugins repo (31K stars!). I built a full agent orchestration platform called Ashlr AO — web dashboard, desktop app, multi-user auth, workflow engine, 40+ REST endpoints, 2,700+ tests.
+
+I'm selling it for $9,500. Would you be interested, or would you mind sharing with your audience? There are a lot of people in your community who'd find this useful.
+
+Website: ashlrao.com
+PyPI: pip install ashlr-ao
+
+
+=== DM to @CasJam (Brian Casel — HIGHEST PRIORITY, building "Agent OS") ===
+
+Hey Brian — I see you're building Agent OS for AI-powered development. I built something complementary called Ashlr AO — a production-ready agent orchestration platform that manages multiple Claude Code, Codex, Aider, and Goose agents from a single dashboard.
+
+22 Python modules, 2,700+ tests, Tauri desktop app, PyPI package, marketing website, 2 domains. Open-core licensing fully built.
+
+I'm selling the whole thing for $9,500 — moving to other projects. Could be a great acquisition to extend Agent OS's capabilities or use as a standalone product. Happy to do a demo call.
+
+Website: ashlrao.com
+Demo: pip install ashlr-ao && ashlr
+
+
+=== DM to @2pasc (Pascal Levy-Garboua, Noosa Labs — micro-SaaS acquirer) ===
+
+Hey Pascal — I have a production-ready AI agent orchestration platform for sale at $9,500. It manages multiple Claude Code, Codex, Aider agents from one dashboard.
+
+22 modules, 2,700+ tests, desktop app, PyPI package, website, 2 domains, open-core licensing built in (Community/Pro tiers). MIT licensed.
+
+AI dev tools are the fastest growing category right now. Happy to walk you through it.
+
+Website: ashlrao.com
+Flippa: flippa.com/12635290
+
+
+=== DM to @kieranklaassen (Kieran Klaassen, Claude Code swarm pioneer) ===
+
+Hey Kieran — you documented the definitive guide to Claude Code's swarm system. I built the production dashboard for managing those swarms — Ashlr AO.
+
+Real-time web UI, multi-user auth, fleet analytics, auto-pilot, workflow engine, 2,700+ tests, desktop app. Selling for $9,500.
+
+Interested? Or know someone who'd want it?
+
+Website: ashlrao.com
+
+
+=== DM to anyone interested in AI dev tools ===
+
+Hey — I built a production-ready AI agent orchestration platform and I'm selling it for $9,500.
+
+It manages multiple Claude Code, Codex, Aider, and Goose agents from a single dashboard. 2,700+ tests, desktop app, marketing website, PyPI package, 2 domains, open-core licensing built in.
+
+Interested? ashlrao.com | mason@ashlr.ai

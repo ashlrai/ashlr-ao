@@ -1,0 +1,31 @@
+TITLE: Selling a fully built AI agent orchestration SaaS — open-core model, 143K lines, ready for monetization ($9,500)
+
+---
+
+I spent the last few months building Ashlar AO as a solo dev and I'm putting it up for sale. It's a local-first platform that lets developers manage multiple AI coding agents (Claude Code, Codex, Aider, Goose) from a single dashboard. Think of it as the command center layer that sits on top of the individual AI tools.
+
+**Why this is a SaaS opportunity:**
+
+The AI coding agent market is exploding. Developers are running 3-5 agents simultaneously and there's no unified management layer. Every major AI lab is shipping coding agents right now, which means the addressable market grows every time a new tool launches. This platform is backend-agnostic — it already supports 4 agents and adding new ones is a config change.
+
+**What's already built:**
+
+- Full product: 143K lines of production code, 2,700+ tests
+- Open-core monetization: Community tier (free, 5 agents) and Pro tier with Ed25519 JWT licensing. Offline-first, no license server needed. The upgrade path is built into the dashboard — you just need to wire up Stripe and start selling keys.
+- Desktop app: Tauri v2, macOS .dmg (~6MB)
+- Marketing website: 10 pages live at ashlrao.com, deployed on Vercel
+- Distribution: Published on PyPI (pip install ashlr-ao), CLI entry point
+- CI/CD: 3 GitHub Actions workflows (tests, PyPI publish, Vercel deploy)
+- Two domains included: ashlrao.com + ashlr.ai
+
+**The gap you'd fill:**
+
+The product is feature-complete and production-quality. What it doesn't have yet is distribution and payment processing. Someone with an audience in the dev tools space or experience with developer marketing could take this from zero to revenue quickly. The licensing system enforces tier limits already — Pro unlocks higher agent caps, workflows, fleet templates, multi-user auth, and AI-powered fleet analysis.
+
+**Financials:** Pre-revenue, $0 monthly burn. Vercel free tier for the website, no infrastructure costs until you scale.
+
+**Asking $9,500.** Includes everything — codebase, domains, deployments, PyPI package, GitHub repo.
+
+Check it out: ashlrao.com
+
+DM me or email mason@ashlar.pro

@@ -1,0 +1,58 @@
+TOURVAULT UPWORK PROPOSALS
+===========================
+Search Upwork for these job types and paste the relevant proposal.
+TourVault is a voice-first golf analytics SaaS — Next.js 16 / Prisma / Postgres.
+
+================================================================
+TARGET: Anyone building a golf app, sports tracking app, or fitness analytics
+Search terms: "golf app", "sports tracking", "fitness analytics SaaS", "athlete performance"
+================================================================
+
+Hi — before you hire a developer to build a sports analytics app from scratch, check this out.
+
+I built TourVault — a production-ready golf performance SaaS with voice-first round logging. You talk through your round instead of tapping forms, and AI structures everything into stats, trends, and insights.
+
+Tech stack: Next.js 16 / Prisma / Postgres / AI voice processing
+
+I'm selling the entire product for $12,000 — codebase, domain (tourvault.ai), all assets. A golf/sports analytics app would cost $50K-$150K to build from scratch.
+
+Even if your app isn't golf-specific, the core architecture (voice-first data capture → AI processing → analytics dashboard) is reusable for any sport.
+
+Website: tourvault.ai
+Flippa listing: flippa.com/12290570
+
+================================================================
+TARGET: Anyone building a voice AI app or voice-first SaaS
+Search terms: "voice AI app", "speech to text SaaS", "voice interface", "conversational AI"
+================================================================
+
+Hi — I built a voice-first SaaS called TourVault that handles the exact problem you're solving: capturing structured data through natural speech instead of forms.
+
+Users talk through their golf round and AI processes the voice input into structured stats, trends, and insights — no tapping, no forms, just talk.
+
+The voice → AI → structured data → analytics dashboard pipeline is already built and working. Even if your use case isn't golf, the architecture is reusable.
+
+I'm selling it for $12,000 — full codebase (Next.js 16 / Prisma / Postgres), domain (tourvault.ai), all assets.
+
+That's a fraction of what voice AI SaaS development costs ($50K-$200K+).
+
+Website: tourvault.ai
+Flippa: flippa.com/12290570
+
+================================================================
+TARGET: Anyone building an AI-powered mobile/web app with dashboards
+Search terms: "AI dashboard", "AI SaaS MVP", "analytics platform build"
+================================================================
+
+Hi — I have a production-ready AI SaaS that might save you months of development.
+
+TourVault is a voice-first analytics platform built with Next.js 16 / Prisma / Postgres. It features:
+- Voice-first data capture (talk instead of filling forms)
+- AI processing pipeline (speech → structured data)
+- Player dashboard with stats, trends, and insights
+- Full auth, database, and deployment setup
+
+I'm selling it for $12,000 — codebase, domain (tourvault.ai), hosting setup. The AI + analytics + dashboard architecture is reusable for any vertical.
+
+Website: tourvault.ai
+Flippa: flippa.com/12290570
