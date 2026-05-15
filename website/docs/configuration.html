@@ -108,7 +108,7 @@ agents:
 llm:
   enabled: false                        # Enable intelligence layer
   provider: "xai"                       # LLM provider
-  model: "grok-4-1-fast-reasoning"      # Model name
+  model: "grok-4.3"      # Model name
   api_key_env: "XAI_API_KEY"            # Env var holding the API key
   base_url: "https://api.x.ai/v1"      # API base URL
   summary_interval_sec: 10.0            # Agent summary generation interval
@@ -209,7 +209,7 @@ display:
         <tbody>
           <tr><td><code>llm.enabled</code></td><td>boolean</td><td><code>false</code></td><td>Enable the intelligence layer. Requires <code>XAI_API_KEY</code> environment variable.</td></tr>
           <tr><td><code>llm.provider</code></td><td>string</td><td><code>"xai"</code></td><td>LLM provider identifier.</td></tr>
-          <tr><td><code>llm.model</code></td><td>string</td><td><code>"grok-4-1-fast-reasoning"</code></td><td>Model name for the LLM API.</td></tr>
+          <tr><td><code>llm.model</code></td><td>string</td><td><code>"grok-4.3"</code></td><td>Model name for the LLM API.</td></tr>
           <tr><td><code>llm.api_key_env</code></td><td>string</td><td><code>"XAI_API_KEY"</code></td><td>Name of the environment variable containing the API key.</td></tr>
           <tr><td><code>llm.base_url</code></td><td>string</td><td><code>"https://api.x.ai/v1"</code></td><td>Base URL for the OpenAI-compatible API endpoint.</td></tr>
           <tr><td><code>llm.summary_interval_sec</code></td><td>float</td><td><code>10.0</code></td><td>How often (in seconds) to generate LLM summaries for active agents.</td></tr>

@@ -28,7 +28,7 @@ def _make_intel_config(enabled=True, api_key="test-key"):
     cfg = ashlr_server.Config()
     cfg.llm_enabled = enabled
     cfg.llm_api_key = api_key
-    cfg.llm_model = "grok-4-1-fast-reasoning"
+    cfg.llm_model = "grok-4.3"
     cfg.llm_base_url = "https://api.x.ai/v1"
     cfg.llm_max_output_lines = 30
     return cfg

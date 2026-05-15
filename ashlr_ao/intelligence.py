@@ -304,7 +304,7 @@ _alert_throttle: dict[str, float] = {}
 
 class IntelligenceClient:
     """Unified LLM client for summaries, command parsing, and fleet analysis.
-    Uses xAI's OpenAI-compatible API (grok-4-1-fast-reasoning).
+    Uses xAI's OpenAI-compatible API (grok-4.3).
     Replaces both LLMSummarizer and AnthropicIntelligenceClient.
     """
 

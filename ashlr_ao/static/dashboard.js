@@ -9482,7 +9482,7 @@ function openSettings() {
     document.getElementById('setDefaultDir').value = cfg.default_working_dir || '~/Projects';
     document.getElementById('setOutputInterval').value = cfg.output_capture_interval || 1.0;
     document.getElementById('setMemoryLimit').value = cfg.memory_limit_mb || 2048;
-    document.getElementById('setLlmModel').value = cfg.llm_model || 'grok-4-1-fast-reasoning';
+    document.getElementById('setLlmModel').value = cfg.llm_model || 'grok-4.3';
     document.getElementById('setLlmInterval').value = cfg.llm_summary_interval || 10;
     document.getElementById('setIdleTtl').value = cfg.idle_agent_ttl || 3600;
 
@@ -9600,7 +9600,7 @@ async function resetSettings() {
     document.getElementById('setMemoryLimit').value = 2048;
     // AI Summaries
     document.getElementById('setLlmEnabled').classList.remove('active');
-    document.getElementById('setLlmModel').value = 'grok-4-1-fast-reasoning';
+    document.getElementById('setLlmModel').value = 'grok-4.3';
     document.getElementById('setLlmInterval').value = 10;
     document.getElementById('setIdleTtl').value = 3600;
     // Alert Thresholds

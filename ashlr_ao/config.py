@@ -35,7 +35,7 @@ DEFAULT_CONFIG = {
     "llm": {
         "enabled": False,
         "provider": "xai",
-        "model": "grok-4-1-fast-reasoning",
+        "model": "grok-4.3",
         "api_key_env": "XAI_API_KEY",
         "base_url": "https://api.x.ai/v1",
         "summary_interval_sec": 10.0,
@@ -84,7 +84,7 @@ class Config:
     # LLM summary config
     llm_enabled: bool = False
     llm_provider: str = "xai"
-    llm_model: str = "grok-4-1-fast-reasoning"
+    llm_model: str = "grok-4.3"
     llm_api_key: str = ""
     llm_base_url: str = "https://api.x.ai/v1"
     llm_summary_interval: float = 10.0
@@ -345,7 +345,7 @@ def load_config(has_claude: bool = True) -> Config:
         default_backend=agents.get("default_backend", "claude-code"),
         llm_enabled=llm.get("enabled", False) and bool(llm_api_key),
         llm_provider=llm.get("provider", "xai"),
-        llm_model=llm.get("model", "grok-4-1-fast-reasoning"),
+        llm_model=llm.get("model", "grok-4.3"),
         llm_api_key=llm_api_key,
         llm_base_url=llm.get("base_url", "https://api.x.ai/v1"),
         llm_summary_interval=llm_interval_val,

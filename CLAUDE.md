@@ -322,7 +322,7 @@ agents:
 llm:
   enabled: false
   provider: "xai"
-  model: "grok-4-1-fast-reasoning"
+  model: "grok-4.3"
   api_key_env: "XAI_API_KEY"
   base_url: "https://api.x.ai/v1"
   summary_interval_sec: 10.0
